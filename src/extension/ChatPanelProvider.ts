@@ -12,8 +12,8 @@ interface StoredSession {
 const SESSION_STORAGE_KEY = 'claude-unbound.sessions';
 const MAX_STORED_SESSIONS = 10;
 
-export class ChatPanelProvider implements vscode.WebviewViewProvider {
-  private webviewView: vscode.WebviewView | undefined;
+export class ChatPanelProvider {
+  private panel: vscode.WebviewPanel | undefined;
   private session: ClaudeSession | undefined;
   private permissionHandler: PermissionHandler;
   private disposables: vscode.Disposable[] = [];
@@ -45,43 +45,51 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
       });
     }
 
-    // Keep only the most recent sessions
     const trimmedSessions = sessions.slice(0, MAX_STORED_SESSIONS);
     this.context.globalState.update(SESSION_STORAGE_KEY, trimmedSessions);
   }
 
-  resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    _context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
-  ): void {
-    this.webviewView = webviewView;
+  show(): void {
+    if (this.panel) {
+      this.panel.reveal();
+      return;
+    }
 
-    webviewView.webview.options = {
-      enableScripts: true,
-      localResourceRoots: [
-        vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview'),
-      ],
-    };
+    this.panel = vscode.window.createWebviewPanel(
+      'claude-unbound.chat',
+      'Claude Unbound',
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview'),
+        ],
+      }
+    );
 
-    webviewView.webview.html = this.getHtmlContent(webviewView.webview);
+    this.panel.webview.html = this.getHtmlContent(this.panel.webview);
 
-    // Handle messages from webview
     this.disposables.push(
-      webviewView.webview.onDidReceiveMessage((message: WebviewToExtensionMessage) => {
+      this.panel.webview.onDidReceiveMessage((message: WebviewToExtensionMessage) => {
         this.handleWebviewMessage(message);
       })
     );
 
-    // Initialize session
+    this.panel.onDidDispose(() => {
+      this.panel = undefined;
+    }, null, this.disposables);
+
     this.initSession();
   }
 
   private initSession(): void {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const homeDir = process.env.HOME || process.env.USERPROFILE;
+    const cwd = workspaceFolder || homeDir || '';
 
     this.session = new ClaudeSession({
-      cwd: workspaceFolder,
+      cwd,
       permissionHandler: this.permissionHandler,
       onMessage: (message) => this.postMessage(message),
       onSessionIdChange: (sessionId) => {
@@ -137,7 +145,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
   }
 
   private postMessage(message: ExtensionToWebviewMessage): void {
-    this.webviewView?.webview.postMessage(message);
+    this.panel?.webview.postMessage(message);
   }
 
   private getHtmlContent(webview: vscode.Webview): string {

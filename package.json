@@ -30,29 +30,15 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "claude-unbound",
-          "title": "Claude Unbound",
-          "icon": "$(hubot)"
-        }
-      ]
-    },
-    "views": {
-      "claude-unbound": [
-        {
-          "type": "webview",
-          "id": "claude-unbound.chatPanel",
-          "name": "Chat"
-        }
-      ]
-    },
     "commands": [
       {
-        "command": "claude-unbound.focusChat",
-        "title": "Focus Chat Panel",
-        "category": "Claude Unbound"
+        "command": "claude-unbound.openChat",
+        "title": "Open Chat",
+        "category": "Claude Unbound",
+        "icon": {
+          "light": "resources/icon.png",
+          "dark": "resources/icon.png"
+        }
       },
       {
         "command": "claude-unbound.newSession",
@@ -65,9 +51,17 @@
         "category": "Claude Unbound"
       }
     ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "claude-unbound.openChat",
+          "group": "navigation"
+        }
+      ]
+    },
     "keybindings": [
       {
-        "command": "claude-unbound.focusChat",
+        "command": "claude-unbound.openChat",
         "key": "ctrl+shift+u",
         "mac": "cmd+shift+u"
       }

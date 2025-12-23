@@ -86,7 +86,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'processing'; isProcessing: boolean }
   | { type: 'storedSessions'; sessions: StoredSession[] }
   | { type: 'sessionCleared' }
-  | { type: 'notification'; message: string; notificationType: string };
+  | { type: 'notification'; message: string; notificationType: string }
+  | { type: 'accountInfo'; data: AccountInfo };
 
 // Chat message for UI rendering
 export interface ChatMessage {
@@ -123,6 +124,14 @@ export interface StoredSession {
   id: string;
   timestamp: number;
   preview: string;
+}
+
+export interface AccountInfo {
+  email?: string;
+  organization?: string;
+  subscriptionType?: string;
+  apiKeySource?: string;
+  model?: string;
 }
 
 export interface AgentConfig {

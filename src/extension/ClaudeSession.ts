@@ -5,6 +5,7 @@ import type {
   ContentBlock,
   TextBlock,
   ToolUseBlock,
+  AccountInfo,
 } from '../shared/types';
 
 // Dynamic import for the SDK (ESM module)
@@ -156,6 +157,21 @@ export class ClaudeSession {
         options: queryOptions,
       });
 
+      // Fetch account info (includes subscription type)
+      try {
+        const account = await result.accountInfo();
+        this.options.onMessage({
+          type: 'accountInfo',
+          data: {
+            email: account.email,
+            subscriptionType: account.subscriptionType,
+            apiKeySource: account.apiKeySource,
+          } as AccountInfo,
+        });
+      } catch {
+        // Account info not available
+      }
+
       for await (const message of result) {
         if (this.abortController?.signal.aborted) {
           break;
@@ -210,6 +226,7 @@ export class ClaudeSession {
               },
             });
             break;
+
         }
       }
     } catch (error) {

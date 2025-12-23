@@ -6,12 +6,13 @@ import SessionStats from './components/SessionStats.vue';
 import FileTree from './components/FileTree.vue';
 import ToastNotification from './components/ToastNotification.vue';
 import { useVSCode } from './composables/useVSCode';
-import type { ChatMessage, ToolCall, ContentBlock, SessionStats as SessionStatsType, FileEntry, StoredSession } from '@shared/types';
+import type { ChatMessage, ToolCall, ContentBlock, SessionStats as SessionStatsType, FileEntry, StoredSession, AccountInfo } from '@shared/types';
 
 const { postMessage, onMessage } = useVSCode();
 
 const messages = ref<ChatMessage[]>([]);
 const isProcessing = ref(false);
+const accountInfo = ref<AccountInfo | null>(null);
 const currentSessionId = ref<string | null>(null);
 const sessionStats = ref<SessionStatsType>({
   totalCostUsd: 0,
@@ -212,6 +213,10 @@ onMounted(() => {
           type: message.notificationType,
         };
         break;
+
+      case 'accountInfo':
+        accountInfo.value = message.data;
+        break;
     }
 
     // Scroll to bottom on new messages
@@ -230,6 +235,14 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-col h-full">
+    <!-- Account info header -->
+    <div v-if="accountInfo" class="px-3 py-1.5 text-xs border-b border-vscode-border flex items-center gap-2 opacity-70">
+      <span v-if="accountInfo.email">{{ accountInfo.email }}</span>
+      <span v-if="accountInfo.subscriptionType" class="px-1.5 py-0.5 rounded bg-vscode-button-bg text-vscode-button-fg">
+        {{ accountInfo.subscriptionType }}
+      </span>
+    </div>
+
     <!-- Session picker dropdown -->
     <div v-if="storedSessions.length > 0 && messages.length === 0" class="px-3 py-2 border-b border-vscode-border">
       <button
