@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-
-interface FileEntry {
-  path: string;
-  operation: 'read' | 'edit' | 'write' | 'create';
-}
+import type { FileEntry } from '@shared/types';
 
 const props = defineProps<{
   files: FileEntry[];

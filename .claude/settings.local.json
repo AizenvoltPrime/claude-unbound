@@ -132,7 +132,9 @@
       "WebFetch(domain:code.visualstudio.com)",
       "Bash(npm install)",
       "Bash(npm run build:*)",
-      "Bash(npm run typecheck:*)"
+      "Bash(npm run typecheck:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

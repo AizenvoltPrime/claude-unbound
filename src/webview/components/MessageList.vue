@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { marked } from 'marked';
+import hljs from 'highlight.js';
+import DOMPurify from 'dompurify';
 import type { ChatMessage } from '@shared/types';
 import ToolCallCard from './ToolCallCard.vue';
 
@@ -7,23 +9,43 @@ const props = defineProps<{
   messages: ChatMessage[];
 }>();
 
-function formatMarkdown(text: string): string {
-  // Basic markdown parsing - could be enhanced with marked library
-  let html = text
-    // Code blocks
-    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
-    // Inline code
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // Bold
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    // Italic
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    // Links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-    // Line breaks
-    .replace(/\n/g, '<br>');
+// Configure marked with highlight.js
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
 
-  return html;
+// Custom renderer for code blocks with syntax highlighting
+const renderer = new marked.Renderer();
+renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
+  const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
+  const highlighted = hljs.highlight(text, { language }).value;
+  return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+};
+
+renderer.codespan = ({ text }: { text: string }) => {
+  return `<code class="inline-code">${text}</code>`;
+};
+
+// Open links in new tab
+renderer.link = ({ href, title, text }: { href: string; title?: string | null; text: string }) => {
+  const titleAttr = title ? ` title="${title}"` : '';
+  return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
+};
+
+marked.use({ renderer });
+
+function formatMarkdown(text: string): string {
+  try {
+    const html = marked.parse(text) as string;
+    // Sanitize HTML to prevent XSS attacks
+    return DOMPurify.sanitize(html, {
+      ADD_ATTR: ['target', 'rel'], // Allow target="_blank" on links
+    });
+  } catch {
+    // Fallback to escaped text if parsing fails
+    return text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+  }
 }
 </script>
 
@@ -70,13 +92,137 @@ function formatMarkdown(text: string): string {
 <style scoped>
 .prose :deep(pre) {
   margin: 8px 0;
+  padding: 12px;
+  border-radius: 6px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.1));
+  overflow-x: auto;
 }
 
 .prose :deep(code) {
-  font-size: 0.9em;
+  font-size: 0.85em;
+  font-family: var(--vscode-editor-font-family, 'Consolas', 'Monaco', monospace);
+}
+
+.prose :deep(.inline-code) {
+  background-color: var(--vscode-textCodeBlock-background, rgba(255, 255, 255, 0.1));
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .prose :deep(a) {
   color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+}
+
+.prose :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.prose :deep(p) {
+  margin: 8px 0;
+}
+
+.prose :deep(ul), .prose :deep(ol) {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.prose :deep(li) {
+  margin: 4px 0;
+}
+
+.prose :deep(blockquote) {
+  border-left: 3px solid var(--vscode-textBlockQuote-border, #666);
+  margin: 8px 0;
+  padding-left: 12px;
+  color: var(--vscode-textBlockQuote-foreground, #999);
+}
+
+.prose :deep(h1), .prose :deep(h2), .prose :deep(h3), .prose :deep(h4) {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.prose :deep(table) {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+}
+
+.prose :deep(th), .prose :deep(td) {
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.2));
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.prose :deep(th) {
+  background-color: var(--vscode-editor-background);
+}
+
+/* Highlight.js theme matching VS Code dark theme */
+.prose :deep(.hljs) {
+  color: var(--vscode-editor-foreground, #d4d4d4);
+}
+
+.prose :deep(.hljs-keyword),
+.prose :deep(.hljs-selector-tag),
+.prose :deep(.hljs-built_in),
+.prose :deep(.hljs-name),
+.prose :deep(.hljs-tag) {
+  color: #569cd6;
+}
+
+.prose :deep(.hljs-string),
+.prose :deep(.hljs-title),
+.prose :deep(.hljs-section),
+.prose :deep(.hljs-attribute),
+.prose :deep(.hljs-literal),
+.prose :deep(.hljs-template-tag),
+.prose :deep(.hljs-template-variable),
+.prose :deep(.hljs-type),
+.prose :deep(.hljs-addition) {
+  color: #ce9178;
+}
+
+.prose :deep(.hljs-comment),
+.prose :deep(.hljs-quote),
+.prose :deep(.hljs-deletion),
+.prose :deep(.hljs-meta) {
+  color: #6a9955;
+}
+
+.prose :deep(.hljs-number),
+.prose :deep(.hljs-regexp),
+.prose :deep(.hljs-selector-id),
+.prose :deep(.hljs-selector-class) {
+  color: #b5cea8;
+}
+
+.prose :deep(.hljs-attr),
+.prose :deep(.hljs-variable),
+.prose :deep(.hljs-template-variable),
+.prose :deep(.hljs-link),
+.prose :deep(.hljs-selector-attr),
+.prose :deep(.hljs-selector-pseudo) {
+  color: #9cdcfe;
+}
+
+.prose :deep(.hljs-function) {
+  color: #dcdcaa;
+}
+
+.prose :deep(.hljs-symbol),
+.prose :deep(.hljs-bullet) {
+  color: #4fc1ff;
+}
+
+.prose :deep(.hljs-emphasis) {
+  font-style: italic;
+}
+
+.prose :deep(.hljs-strong) {
+  font-weight: bold;
 }
 </style>

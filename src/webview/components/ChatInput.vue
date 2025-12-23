@@ -1,23 +1,26 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { AVAILABLE_AGENTS, type AgentConfig } from '@shared/types';
 
 const props = defineProps<{
   isProcessing: boolean;
 }>();
 
 const emit = defineEmits<{
-  send: [content: string];
+  send: [content: string, agentId: string];
   cancel: [];
 }>();
 
 const inputText = ref('');
+const selectedAgent = ref<AgentConfig>(AVAILABLE_AGENTS[0]);
+const showAgentPicker = ref(false);
 
 const canSend = computed(() => inputText.value.trim().length > 0 && !props.isProcessing);
 
 function handleSend() {
   if (!canSend.value) return;
 
-  emit('send', inputText.value.trim());
+  emit('send', inputText.value.trim(), selectedAgent.value.id);
   inputText.value = '';
 }
 
@@ -30,6 +33,15 @@ function handleKeydown(event: KeyboardEvent) {
 
 function handleCancel() {
   emit('cancel');
+}
+
+function selectAgent(agent: AgentConfig) {
+  selectedAgent.value = agent;
+  showAgentPicker.value = false;
+}
+
+function toggleAgentPicker() {
+  showAgentPicker.value = !showAgentPicker.value;
 }
 </script>
 
@@ -49,9 +61,49 @@ function handleCancel() {
     </div>
 
     <div class="flex justify-between items-center mt-2">
-      <span class="text-xs text-gray-500">
-        Press Enter to send, Shift+Enter for new line
-      </span>
+      <div class="flex items-center gap-2">
+        <!-- Agent picker -->
+        <div class="relative">
+          <button
+            class="flex items-center gap-1 px-2 py-1 text-xs rounded
+                   bg-vscode-input-bg border border-vscode-input-border
+                   hover:border-vscode-button-bg transition-colors"
+            :disabled="isProcessing"
+            @click="toggleAgentPicker"
+          >
+            <span>{{ selectedAgent.icon }}</span>
+            <span>{{ selectedAgent.name }}</span>
+            <span class="opacity-50">▼</span>
+          </button>
+
+          <!-- Dropdown -->
+          <div
+            v-if="showAgentPicker"
+            class="absolute bottom-full left-0 mb-1 w-56 rounded border
+                   bg-vscode-dropdown-bg border-vscode-border shadow-lg z-10"
+          >
+            <button
+              v-for="agent in AVAILABLE_AGENTS"
+              :key="agent.id"
+              class="w-full text-left px-3 py-2 text-xs hover:bg-vscode-list-hoverBackground transition-colors"
+              :class="{ 'bg-vscode-list-activeSelectionBackground': agent.id === selectedAgent.id }"
+              @click="selectAgent(agent)"
+            >
+              <div class="flex items-center gap-2">
+                <span>{{ agent.icon }}</span>
+                <div>
+                  <div class="font-medium">{{ agent.name }}</div>
+                  <div class="opacity-60">{{ agent.description }}</div>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <span class="text-xs text-gray-500">
+          Enter to send
+        </span>
+      </div>
 
       <div class="flex gap-2">
         <button

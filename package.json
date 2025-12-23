@@ -5,7 +5,6 @@
   "version": "0.1.0",
   "publisher": "AizenvoltPrime",
   "license": "MIT",
-  "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/AizenvoltPrime/claude-unbound.git"
@@ -79,7 +78,10 @@
         "claude-unbound.permissionMode": {
           "type": "string",
           "default": "ask",
-          "enum": ["ask", "auto"],
+          "enum": [
+            "ask",
+            "auto"
+          ],
           "enumDescriptions": [
             "Ask for approval before file modifications",
             "Automatically approve all operations"
@@ -109,9 +111,11 @@
     "lint": "eslint src --ext .ts,.vue"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "latest"
+    "@anthropic-ai/claude-agent-sdk": "latest",
+    "dompurify": "^3.3.1"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^22.10.0",
     "@types/vscode": "^1.95.0",
     "@vitejs/plugin-vue": "^5.2.0",

@@ -3,17 +3,51 @@ import { ClaudeSession } from './ClaudeSession';
 import { PermissionHandler } from './PermissionHandler';
 import type { WebviewToExtensionMessage, ExtensionToWebviewMessage } from '../shared/types';
 
+interface StoredSession {
+  id: string;
+  timestamp: number;
+  preview: string;
+}
+
+const SESSION_STORAGE_KEY = 'claude-unbound.sessions';
+const MAX_STORED_SESSIONS = 10;
+
 export class ChatPanelProvider implements vscode.WebviewViewProvider {
   private webviewView: vscode.WebviewView | undefined;
   private session: ClaudeSession | undefined;
   private permissionHandler: PermissionHandler;
   private disposables: vscode.Disposable[] = [];
+  private currentSessionPreview: string = '';
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly context: vscode.ExtensionContext
   ) {
     this.permissionHandler = new PermissionHandler(extensionUri);
+  }
+
+  private getStoredSessions(): StoredSession[] {
+    return this.context.globalState.get<StoredSession[]>(SESSION_STORAGE_KEY, []);
+  }
+
+  private storeSession(sessionId: string, preview: string): void {
+    const sessions = this.getStoredSessions();
+    const existingIndex = sessions.findIndex(s => s.id === sessionId);
+
+    if (existingIndex >= 0) {
+      sessions[existingIndex].timestamp = Date.now();
+      sessions[existingIndex].preview = preview;
+    } else {
+      sessions.unshift({
+        id: sessionId,
+        timestamp: Date.now(),
+        preview: preview.slice(0, 100),
+      });
+    }
+
+    // Keep only the most recent sessions
+    const trimmedSessions = sessions.slice(0, MAX_STORED_SESSIONS);
+    this.context.globalState.update(SESSION_STORAGE_KEY, trimmedSessions);
   }
 
   resolveWebviewView(
@@ -50,6 +84,12 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
       cwd: workspaceFolder,
       permissionHandler: this.permissionHandler,
       onMessage: (message) => this.postMessage(message),
+      onSessionIdChange: (sessionId) => {
+        if (sessionId && this.currentSessionPreview) {
+          this.storeSession(sessionId, this.currentSessionPreview);
+        }
+        this.postMessage({ type: 'sessionStarted', sessionId: sessionId || '' });
+      },
     });
   }
 
@@ -57,13 +97,17 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
     switch (message.type) {
       case 'sendMessage':
         if (message.content.trim()) {
+          // Track first message as session preview
+          if (!this.currentSessionPreview) {
+            this.currentSessionPreview = message.content.trim();
+          }
           // Echo user message back to webview
           this.postMessage({
             type: 'userMessage',
             content: message.content,
           });
-          // Send to Claude
-          this.session?.sendMessage(message.content);
+          // Send to Claude with optional agent
+          this.session?.sendMessage(message.content, message.agentId);
         }
         break;
 
@@ -72,7 +116,10 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
         break;
 
       case 'resumeSession':
-        // TODO: Implement session resume
+        if (message.sessionId) {
+          this.session?.setResumeSession(message.sessionId);
+          this.postMessage({ type: 'sessionStarted', sessionId: message.sessionId });
+        }
         break;
 
       case 'approveEdit':
@@ -80,7 +127,11 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
         break;
 
       case 'ready':
-        // Webview is ready, send initial state if needed
+        // Webview is ready, send stored sessions list if any
+        const sessions = this.getStoredSessions();
+        if (sessions.length > 0) {
+          this.postMessage({ type: 'storedSessions', sessions });
+        }
         break;
     }
   }
@@ -126,7 +177,9 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
 
   newSession(): void {
     this.session?.reset();
+    this.currentSessionPreview = '';
     this.postMessage({ type: 'processing', isProcessing: false });
+    this.postMessage({ type: 'sessionCleared' });
   }
 
   cancelSession(): void {

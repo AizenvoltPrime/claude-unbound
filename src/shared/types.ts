@@ -68,7 +68,7 @@ export interface ResultMessage {
 
 // Messages from Webview → Extension
 export type WebviewToExtensionMessage =
-  | { type: 'sendMessage'; content: string }
+  | { type: 'sendMessage'; content: string; agentId?: string }
   | { type: 'cancelSession' }
   | { type: 'resumeSession'; sessionId: string }
   | { type: 'approveEdit'; approved: boolean }
@@ -83,7 +83,10 @@ export type ExtensionToWebviewMessage =
   | { type: 'toolPending'; toolName: string; input: unknown }
   | { type: 'error'; message: string }
   | { type: 'sessionStarted'; sessionId: string }
-  | { type: 'processing'; isProcessing: boolean };
+  | { type: 'processing'; isProcessing: boolean }
+  | { type: 'storedSessions'; sessions: StoredSession[] }
+  | { type: 'sessionCleared' }
+  | { type: 'notification'; message: string; notificationType: string };
 
 // Chat message for UI rendering
 export interface ChatMessage {
@@ -103,3 +106,35 @@ export interface ToolCall {
   result?: string;
   isError?: boolean;
 }
+
+export interface SessionStats {
+  totalCostUsd: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  numTurns: number;
+}
+
+export interface FileEntry {
+  path: string;
+  operation: 'read' | 'edit' | 'write' | 'create';
+}
+
+export interface StoredSession {
+  id: string;
+  timestamp: number;
+  preview: string;
+}
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+}
+
+export const AVAILABLE_AGENTS: AgentConfig[] = [
+  { id: 'default', name: 'Default', description: 'General-purpose coding assistant', icon: '🤖' },
+  { id: 'code-reviewer', name: 'Code Reviewer', description: 'Expert code review and analysis', icon: '🔍' },
+  { id: 'explorer', name: 'Explorer', description: 'Fast codebase exploration', icon: '🗺️' },
+  { id: 'planner', name: 'Planner', description: 'Software architecture planning', icon: '📋' },
+];

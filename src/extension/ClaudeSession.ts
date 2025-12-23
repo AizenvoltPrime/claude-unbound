@@ -22,12 +22,14 @@ export interface SessionOptions {
   cwd: string;
   permissionHandler: PermissionHandler;
   onMessage: (message: ExtensionToWebviewMessage) => void;
+  onSessionIdChange?: (sessionId: string | null) => void;
 }
 
 export class ClaudeSession {
   private abortController: AbortController | null = null;
   private sessionId: string | null = null;
   private isProcessing = false;
+  private resumeSessionId: string | null = null;
 
   constructor(private options: SessionOptions) {}
 
@@ -39,7 +41,12 @@ export class ClaudeSession {
     return this.isProcessing;
   }
 
-  async sendMessage(prompt: string): Promise<void> {
+  setResumeSession(sessionId: string | null): void {
+    this.resumeSessionId = sessionId;
+    this.sessionId = sessionId;
+  }
+
+  async sendMessage(prompt: string, agentId?: string): Promise<void> {
     if (this.isProcessing) {
       this.options.onMessage({
         type: 'error',
@@ -65,30 +72,88 @@ export class ClaudeSession {
       const config = vscode.workspace.getConfiguration('claude-unbound');
       const maxTurns = config.get<number>('maxTurns', 50);
 
+      // Build query options
+      const queryOptions: Parameters<typeof query>[0]['options'] = {
+        cwd: this.options.cwd,
+        abortController: this.abortController,
+        includePartialMessages: true,
+        maxTurns,
+        canUseTool: async (toolName, input, context) => {
+          const result = await this.options.permissionHandler.canUseTool(toolName, input, context);
+          if (result.behavior === 'allow') {
+            return {
+              behavior: 'allow' as const,
+              updatedInput: (result.updatedInput ?? input) as Record<string, unknown>,
+            };
+          }
+          return {
+            behavior: 'deny' as const,
+            message: result.message ?? 'Permission denied',
+          };
+        },
+        settingSources: ['project'],
+        systemPrompt: { type: 'preset', preset: 'claude_code' },
+        tools: { type: 'preset', preset: 'claude_code' },
+        hooks: {
+          PreToolUse: [{
+            hooks: [
+              async (params: unknown): Promise<Record<string, unknown>> => {
+                // Notify webview that a tool is about to be used
+                const p = params as { tool_name?: string; tool_input?: unknown };
+                if (p.tool_name) {
+                  this.options.onMessage({
+                    type: 'toolPending',
+                    toolName: p.tool_name,
+                    input: p.tool_input,
+                  });
+                }
+                return {}; // Continue with tool execution
+              },
+            ],
+          }],
+          Notification: [{
+            hooks: [
+              async (params: unknown): Promise<Record<string, unknown>> => {
+                // Forward notifications to webview
+                const p = params as { message?: string; type?: string };
+                if (p.message) {
+                  this.options.onMessage({
+                    type: 'notification',
+                    message: p.message,
+                    notificationType: p.type || 'info',
+                  } as ExtensionToWebviewMessage);
+                }
+                return {};
+              },
+            ],
+          }],
+        },
+      };
+
+      // Add resume option if we have a session to resume
+      if (this.resumeSessionId) {
+        (queryOptions as Record<string, unknown>).resume = this.resumeSessionId;
+        this.resumeSessionId = null; // Clear after use
+      }
+
+      // Configure agent-specific system prompt suffix (appends to preset, doesn't replace)
+      if (agentId && agentId !== 'default') {
+        const agentSuffixes: Record<string, string> = {
+          'code-reviewer': '\n\nYou are acting as an expert code reviewer. Focus on code quality, potential bugs, security issues, and best practices. Provide constructive feedback with specific suggestions.',
+          'explorer': '\n\nYou are a fast codebase explorer. Focus on quickly finding files, understanding project structure, and answering questions about how code is organized. Prefer using Glob and Grep tools for efficiency.',
+          'planner': '\n\nYou are a software architect. Focus on designing implementation plans, identifying critical files, considering architectural trade-offs, and breaking down tasks into clear steps.',
+        };
+
+        const suffix = agentSuffixes[agentId];
+        if (suffix) {
+          // Use systemPromptSuffix to append to the preset instead of replacing it
+          (queryOptions as Record<string, unknown>).systemPromptSuffix = suffix;
+        }
+      }
+
       const result = query({
         prompt,
-        options: {
-          cwd: this.options.cwd,
-          abortController: this.abortController,
-          includePartialMessages: true,
-          maxTurns,
-          canUseTool: async (toolName, input, context) => {
-            const result = await this.options.permissionHandler.canUseTool(toolName, input, context);
-            if (result.behavior === 'allow') {
-              return {
-                behavior: 'allow' as const,
-                updatedInput: (result.updatedInput ?? input) as Record<string, unknown>,
-              };
-            }
-            return {
-              behavior: 'deny' as const,
-              message: result.message ?? 'Permission denied',
-            };
-          },
-          settingSources: ['project'],
-          systemPrompt: { type: 'preset', preset: 'claude_code' },
-          tools: { type: 'preset', preset: 'claude_code' },
-        },
+        options: queryOptions,
       });
 
       for await (const message of result) {
@@ -98,7 +163,10 @@ export class ClaudeSession {
 
         switch (message.type) {
           case 'assistant':
-            this.sessionId = message.session_id;
+            if (this.sessionId !== message.session_id) {
+              this.sessionId = message.session_id;
+              this.options.onSessionIdChange?.(this.sessionId);
+            }
             this.options.onMessage({
               type: 'assistant',
               data: {
