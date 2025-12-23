@@ -3,6 +3,146 @@
  * These mirror SDK types but are serializable for postMessage.
  */
 
+// ============================================================================
+// SDK-Related Types
+// ============================================================================
+
+// Model information from SDK supportedModels()
+export interface ModelInfo {
+  value: string;
+  displayName: string;
+  description: string;
+}
+
+// Slash command info from SDK supportedCommands()
+export interface SlashCommandInfo {
+  name: string;
+  description: string;
+  argumentHint: string;
+}
+
+// System initialization data from SDK 'system' message (subtype: 'init')
+export interface SystemInitData {
+  model: string;
+  tools: string[];
+  mcpServers: { name: string; status: string }[];
+  permissionMode: string;
+  slashCommands: string[];
+  apiKeySource: string;
+  cwd: string;
+  outputStyle?: string;
+}
+
+// MCP Server configuration types (matching SDK)
+export interface McpStdioServerConfig {
+  type?: 'stdio';
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+
+export interface McpSseServerConfig {
+  type: 'sse';
+  url: string;
+  headers?: Record<string, string>;
+}
+
+export interface McpHttpServerConfig {
+  type: 'http';
+  url: string;
+  headers?: Record<string, string>;
+}
+
+export type McpServerConfig = McpStdioServerConfig | McpSseServerConfig | McpHttpServerConfig;
+
+// MCP Server status for UI display
+export interface McpServerStatusInfo {
+  name: string;
+  status: 'connected' | 'failed' | 'needs-auth' | 'pending';
+  serverInfo?: {
+    name: string;
+    version: string;
+  };
+}
+
+// Sandbox configuration (simplified for VS Code settings)
+export interface SandboxConfig {
+  enabled: boolean;
+  autoAllowBashIfSandboxed?: boolean;
+  allowUnsandboxedCommands?: boolean;
+  networkAllowedDomains?: string[];
+  networkAllowLocalBinding?: boolean;
+}
+
+// Permission modes from SDK
+export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
+
+// Agent definition matching SDK's AgentDefinition type
+export interface AgentDefinition {
+  description: string;
+  prompt: string;
+  tools?: string[];
+  disallowedTools?: string[];
+  model?: 'sonnet' | 'opus' | 'haiku' | 'inherit';
+}
+
+// ============================================================================
+// Session & Settings Types
+// ============================================================================
+
+// Settings that can be changed mid-session via Query methods
+export interface SessionSettings {
+  model?: string;
+  permissionMode: PermissionMode;
+  maxThinkingTokens?: number | null;
+}
+
+// All extension settings (for settings panel)
+export interface ExtensionSettings {
+  model: string;
+  maxTurns: number;
+  maxBudgetUsd: number | null;
+  maxThinkingTokens: number | null;
+  betasEnabled: string[];
+  permissionMode: PermissionMode;
+  enableFileCheckpointing: boolean;
+  sandbox: SandboxConfig;
+}
+
+// Checkpoint info for file rewind functionality
+export interface MessageCheckpoint {
+  messageId: string;
+  userMessageId: string;
+  timestamp: number;
+  canRewind: boolean;
+}
+
+// Active subagent tracking
+export interface ActiveSubagent {
+  id: string;
+  type: string;
+  startTime: number;
+}
+
+// Compaction marker for UI
+export interface CompactMarker {
+  id: string;
+  timestamp: number;
+  trigger: 'manual' | 'auto';
+  preTokens: number;
+}
+
+// Budget warning info
+export interface BudgetWarningInfo {
+  currentSpend: number;
+  limit: number;
+  percentUsed: number;
+}
+
+// ============================================================================
+// Tool Input Types
+// ============================================================================
+
 // Tool input types for Edit/Write operations
 export interface FileEditInput {
   file_path: string;
@@ -35,7 +175,12 @@ export interface ToolResultBlock {
   is_error?: boolean;
 }
 
-export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
+export interface ThinkingBlock {
+  type: 'thinking';
+  thinking: string;
+}
+
+export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | ThinkingBlock;
 
 // Serializable message types (subset of SDK types)
 export interface AssistantMessage {
@@ -54,6 +199,10 @@ export interface PartialMessage {
   type: 'partial';
   content: ContentBlock[];
   session_id: string;
+  messageId: string | null;  // SDK message ID for proper association
+  streamingThinking?: string;
+  streamingText?: string;
+  isThinking?: boolean;
 }
 
 export interface ResultMessage {
@@ -68,11 +217,31 @@ export interface ResultMessage {
 
 // Messages from Webview → Extension
 export type WebviewToExtensionMessage =
+  | { type: 'log'; message: string }
   | { type: 'sendMessage'; content: string; agentId?: string }
   | { type: 'cancelSession' }
   | { type: 'resumeSession'; sessionId: string }
-  | { type: 'approveEdit'; approved: boolean }
-  | { type: 'ready' };
+  | {
+      type: 'approveEdit';
+      approved: boolean;
+      neverAskAgain?: boolean;
+      customMessage?: string;
+    }
+  | { type: 'ready' }
+  // New: Model and settings control
+  | { type: 'requestModels' }
+  | { type: 'setModel'; model: string }
+  | { type: 'setMaxThinkingTokens'; tokens: number | null }
+  | { type: 'setBudgetLimit'; budgetUsd: number | null }
+  | { type: 'toggleBeta'; beta: string; enabled: boolean }
+  | { type: 'setPermissionMode'; mode: PermissionMode }
+  // New: File rewind
+  | { type: 'rewindToMessage'; userMessageId: string }
+  // New: Session control
+  | { type: 'interrupt' }
+  | { type: 'requestMcpStatus' }
+  | { type: 'requestSupportedCommands' }
+  | { type: 'openSettings' };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
@@ -87,25 +256,71 @@ export type ExtensionToWebviewMessage =
   | { type: 'storedSessions'; sessions: StoredSession[] }
   | { type: 'sessionCleared' }
   | { type: 'notification'; message: string; notificationType: string }
-  | { type: 'accountInfo'; data: AccountInfo };
+  | { type: 'accountInfo'; data: AccountInfo }
+  // New: Model and settings
+  | { type: 'availableModels'; models: ModelInfo[] }
+  | { type: 'systemInit'; data: SystemInitData }
+  | { type: 'settingsUpdate'; settings: ExtensionSettings }
+  | { type: 'supportedCommands'; commands: SlashCommandInfo[] }
+  // New: Budget tracking
+  | { type: 'budgetWarning'; currentSpend: number; limit: number; percentUsed: number }
+  | { type: 'budgetExceeded'; finalSpend: number; limit: number }
+  // New: MCP server status
+  | { type: 'mcpServerStatus'; servers: McpServerStatusInfo[] }
+  // New: File checkpointing
+  | { type: 'checkpointInfo'; checkpoints: MessageCheckpoint[] }
+  | { type: 'rewindComplete'; rewindToMessageId: string }
+  | { type: 'rewindError'; message: string }
+  // New: Tool lifecycle
+  | { type: 'toolStreaming'; messageId: string; tool: { id: string; name: string; input: Record<string, unknown> } }
+  | { type: 'toolCompleted'; toolUseId: string; toolName: string; result: string }
+  | { type: 'toolFailed'; toolUseId: string; toolName: string; error: string; isInterrupt?: boolean }
+  | { type: 'toolAbandoned'; toolUseId: string; toolName: string }  // Tool was streamed but never executed
+  // New: Subagent lifecycle
+  | { type: 'subagentStart'; agentId: string; agentType: string }
+  | { type: 'subagentStop'; agentId: string }
+  // New: Session lifecycle
+  | { type: 'sessionStart'; source: 'startup' | 'resume' | 'clear' | 'compact' }
+  | { type: 'sessionEnd'; reason: string }
+  // New: Compaction
+  | { type: 'preCompact'; trigger: 'manual' | 'auto' }
+  | { type: 'compactBoundary'; preTokens: number; trigger: 'manual' | 'auto' }
+  // New: User message replay (for resumed sessions)
+  | { type: 'userReplay'; content: string; isSynthetic?: boolean }
+  // New: Permission request for file operations
+  | {
+      type: 'requestPermission';
+      toolUseId: string;
+      toolName: 'Write' | 'Edit';
+      toolInput: Record<string, unknown>;
+      filePath: string;
+      originalContent: string;
+      proposedContent: string;
+    };
 
 // Chat message for UI rendering
 export interface ChatMessage {
-  id: string;
+  id: string;  // Unique ID for Vue rendering (stable for message lifetime)
+  sdkMessageId?: string;  // SDK message ID for identity matching (null until known)
   role: 'user' | 'assistant';
   content: string;
   toolCalls?: ToolCall[];
   timestamp: number;
   isPartial?: boolean;
+  isThinkingPhase?: boolean; // True during thinking streaming phase (for animation)
+  isReplay?: boolean;
+  checkpointId?: string;
+  thinking?: string;
 }
 
 export interface ToolCall {
   id: string;
   name: string;
   input: Record<string, unknown>;
-  status: 'pending' | 'approved' | 'denied' | 'completed';
+  status: 'pending' | 'running' | 'awaiting_approval' | 'approved' | 'denied' | 'completed' | 'failed' | 'abandoned';
   result?: string;
   isError?: boolean;
+  errorMessage?: string;
 }
 
 export interface SessionStats {
@@ -124,6 +339,8 @@ export interface StoredSession {
   id: string;
   timestamp: number;
   preview: string;
+  slug?: string;
+  messageCount?: number;
 }
 
 export interface AccountInfo {

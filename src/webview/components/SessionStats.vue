@@ -30,21 +30,21 @@ function formatNumber(num: number): string {
 <template>
   <div
     v-if="hasStats"
-    class="flex items-center justify-between px-3 py-1.5 text-xs border-t border-vscode-border bg-vscode-sideBar-background"
+    class="flex items-center justify-between px-3 py-1.5 text-xs border-t border-unbound-cyan-900/30 bg-unbound-bg-light"
   >
     <div class="flex items-center gap-4">
       <span class="flex items-center gap-1" title="Total tokens used">
-        <span class="opacity-60">Tokens:</span>
-        <span class="font-medium">{{ formatNumber(totalTokens) }}</span>
-        <span class="opacity-40">({{ formatNumber(stats.totalInputTokens) }} in / {{ formatNumber(stats.totalOutputTokens) }} out)</span>
+        <span class="text-unbound-muted">Tokens:</span>
+        <span class="font-medium text-unbound-text">{{ formatNumber(totalTokens) }}</span>
+        <span class="text-unbound-muted">({{ formatNumber(stats.totalInputTokens) }} in / {{ formatNumber(stats.totalOutputTokens) }} out)</span>
       </span>
     </div>
 
     <div class="flex items-center gap-4">
-      <span v-if="stats.numTurns > 0" class="opacity-60" title="Conversation turns">
+      <span v-if="stats.numTurns > 0" class="text-unbound-muted" title="Conversation turns">
         {{ stats.numTurns }} turn{{ stats.numTurns !== 1 ? 's' : '' }}
       </span>
-      <span class="font-medium text-vscode-button-bg" title="Session cost">
+      <span class="font-medium text-unbound-cyan-400" title="Session cost">
         {{ formatCost(stats.totalCostUsd) }}
       </span>
     </div>

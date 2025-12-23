@@ -1,0 +1,71 @@
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
+
+const props = defineProps<{
+  thinking?: string;
+  isStreaming?: boolean;
+}>();
+
+const isExpanded = ref(false);
+
+const hasContent = computed(() => Boolean(props.thinking?.trim()));
+
+// Auto-expand while streaming, allow toggle after
+watch(() => props.isStreaming, (streaming) => {
+  if (streaming && hasContent.value) {
+    isExpanded.value = true;
+  }
+}, { immediate: true });
+
+watch(() => props.thinking, () => {
+  if (props.isStreaming && props.thinking) {
+    isExpanded.value = true;
+  }
+});
+
+function toggleExpand() {
+  if (hasContent.value) {
+    isExpanded.value = !isExpanded.value;
+  }
+}
+</script>
+
+<template>
+  <div v-if="isStreaming || hasContent" class="text-sm">
+    <button
+      type="button"
+      class="flex items-center gap-2 text-unbound-cyan-300 hover:text-unbound-cyan-200 transition-colors cursor-pointer"
+      @click="toggleExpand"
+    >
+      <span class="text-unbound-cyan-400">•</span>
+      <span class="italic">
+        <span v-if="isStreaming" class="thinking-dots">Thinking</span>
+        <span v-else>Thinking</span>
+      </span>
+      <span v-if="hasContent" class="text-xs transition-transform duration-200" :class="{ 'rotate-90': isExpanded }">
+        ▶
+      </span>
+    </button>
+
+    <div
+      v-if="isExpanded && hasContent"
+      class="mt-2 ml-4 p-3 rounded-lg bg-unbound-bg-card border border-unbound-cyan-900/30 overflow-hidden max-h-64 overflow-y-auto"
+    >
+      <pre class="text-xs text-unbound-muted whitespace-pre-wrap font-mono leading-relaxed">{{ thinking }}</pre>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.thinking-dots::after {
+  content: '';
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: ''; }
+  40% { content: '.'; }
+  60% { content: '..'; }
+  80%, 100% { content: '...'; }
+}
+</style>

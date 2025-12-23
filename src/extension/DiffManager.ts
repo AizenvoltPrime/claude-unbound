@@ -3,16 +3,18 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+export interface DiffInfo {
+  originalContent: string;
+  proposedContent: string;
+}
+
 export class DiffManager {
   private tempDir: string;
-  private pendingDiffs: Map<
-    string,
-    {
-      resolve: (approved: boolean) => void;
-      originalUri: vscode.Uri;
-      proposedUri: vscode.Uri;
-    }
-  > = new Map();
+  private activeDiff: {
+    id: string;
+    originalUri: vscode.Uri;
+    proposedUri: vscode.Uri;
+  } | null = null;
 
   constructor() {
     this.tempDir = path.join(os.tmpdir(), 'claude-unbound-diffs');
@@ -21,68 +23,43 @@ export class DiffManager {
     }
   }
 
-  async showWriteDiff(
+  async prepareDiff(
+    toolName: string,
     filePath: string,
-    newContent: string,
-    signal: AbortSignal
-  ): Promise<boolean> {
+    input: { content?: string; old_string?: string; new_string?: string }
+  ): Promise<DiffInfo | null> {
     const fileUri = vscode.Uri.file(filePath);
-    const fileName = path.basename(filePath);
 
-    // Get original content (empty if file doesn't exist)
     let originalContent = '';
     try {
       const document = await vscode.workspace.openTextDocument(fileUri);
       originalContent = document.getText();
     } catch {
-      // File doesn't exist, that's fine
+      // File doesn't exist
     }
 
-    return this.showDiff(fileName, originalContent, newContent, filePath, signal);
+    let proposedContent: string;
+    if (toolName === 'Write') {
+      proposedContent = input.content || '';
+    } else {
+      if (!originalContent) {
+        return null;
+      }
+      proposedContent = originalContent.replace(input.old_string || '', input.new_string || '');
+      if (proposedContent === originalContent) {
+        return null;
+      }
+    }
+
+    return { originalContent, proposedContent };
   }
 
-  async showEditDiff(
-    filePath: string,
-    oldString: string,
-    newString: string,
-    signal: AbortSignal
-  ): Promise<boolean> {
-    const fileUri = vscode.Uri.file(filePath);
+  async showDiffView(filePath: string, originalContent: string, proposedContent: string): Promise<void> {
+    this.cleanupActiveDiff();
+
     const fileName = path.basename(filePath);
-
-    // Read current file content
-    let currentContent = '';
-    try {
-      const document = await vscode.workspace.openTextDocument(fileUri);
-      currentContent = document.getText();
-    } catch {
-      return false; // Can't edit a file that doesn't exist
-    }
-
-    // Apply the edit to show proposed content
-    const proposedContent = currentContent.replace(oldString, newString);
-
-    if (proposedContent === currentContent) {
-      // oldString not found in file
-      vscode.window.showWarningMessage(
-        `Could not find the text to replace in ${fileName}`
-      );
-      return false;
-    }
-
-    return this.showDiff(fileName, currentContent, proposedContent, filePath, signal);
-  }
-
-  private async showDiff(
-    fileName: string,
-    originalContent: string,
-    proposedContent: string,
-    originalPath: string,
-    signal: AbortSignal
-  ): Promise<boolean> {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-    // Create temp files
     const originalTempPath = path.join(this.tempDir, `${id}-original-${fileName}`);
     const proposedTempPath = path.join(this.tempDir, `${id}-proposed-${fileName}`);
 
@@ -92,70 +69,58 @@ export class DiffManager {
     const originalUri = vscode.Uri.file(originalTempPath);
     const proposedUri = vscode.Uri.file(proposedTempPath);
 
-    return new Promise<boolean>((resolve) => {
-      // Store the pending diff
-      this.pendingDiffs.set(id, { resolve, originalUri, proposedUri });
+    this.activeDiff = { id, originalUri, proposedUri };
 
-      // Handle abort
-      const abortHandler = () => {
-        this.cleanupDiff(id);
-        resolve(false);
-      };
-      signal.addEventListener('abort', abortHandler, { once: true });
-
-      // Open diff view
-      vscode.commands.executeCommand(
-        'vscode.diff',
-        originalUri,
-        proposedUri,
-        `${fileName} (Current ↔ Proposed)`
-      );
-
-      // Show approval buttons
-      this.showApprovalButtons(id, fileName, originalPath).then((approved) => {
-        signal.removeEventListener('abort', abortHandler);
-        this.cleanupDiff(id);
-        resolve(approved);
-      });
-    });
-  }
-
-  private async showApprovalButtons(
-    id: string,
-    fileName: string,
-    originalPath: string
-  ): Promise<boolean> {
-    const result = await vscode.window.showInformationMessage(
-      `Apply changes to ${fileName}?`,
-      { modal: false },
-      'Apply',
-      'Reject'
+    await vscode.commands.executeCommand(
+      'vscode.diff',
+      originalUri,
+      proposedUri,
+      `${fileName} (Current ↔ Proposed)`,
+      { viewColumn: vscode.ViewColumn.One, preserveFocus: false }
     );
-
-    return result === 'Apply';
   }
 
-  private cleanupDiff(id: string): void {
-    const pending = this.pendingDiffs.get(id);
-    if (pending) {
+  async closeDiffView(): Promise<void> {
+    await this.cleanupActiveDiff();
+  }
+
+  private async cleanupActiveDiff(): Promise<void> {
+    if (this.activeDiff) {
+      const proposedUri = this.activeDiff.proposedUri;
+
+      // Close the diff editor tab by finding and closing tabs with our temp file
+      for (const tabGroup of vscode.window.tabGroups.all) {
+        for (const tab of tabGroup.tabs) {
+          if (tab.input instanceof vscode.TabInputTextDiff) {
+            const diffInput = tab.input as vscode.TabInputTextDiff;
+            if (diffInput.modified.fsPath === proposedUri.fsPath) {
+              await vscode.window.tabGroups.close(tab);
+              break;
+            }
+          }
+        }
+      }
+
       // Clean up temp files
       try {
-        fs.unlinkSync(pending.originalUri.fsPath);
-        fs.unlinkSync(pending.proposedUri.fsPath);
+        fs.unlinkSync(this.activeDiff.originalUri.fsPath);
+        fs.unlinkSync(this.activeDiff.proposedUri.fsPath);
       } catch {
         // Ignore cleanup errors
       }
-      this.pendingDiffs.delete(id);
+      this.activeDiff = null;
     }
   }
 
-  dispose(): void {
-    // Clean up all pending diffs
-    for (const [id] of this.pendingDiffs) {
-      this.cleanupDiff(id);
-    }
+  /**
+   * Disposes resources. Returns a promise that resolves when cleanup is complete.
+   * The caller should await this if they need to ensure cleanup is done.
+   */
+  async dispose(): Promise<void> {
+    // First clean up any active diff (closes tabs, deletes temp files)
+    await this.cleanupActiveDiff();
 
-    // Try to remove temp directory
+    // Then try to remove the temp directory
     try {
       fs.rmdirSync(this.tempDir);
     } catch {

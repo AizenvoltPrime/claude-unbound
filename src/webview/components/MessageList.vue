@@ -2,12 +2,36 @@
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import DOMPurify from 'dompurify';
-import type { ChatMessage } from '@shared/types';
+import type { ChatMessage, CompactMarker as CompactMarkerType } from '@shared/types';
 import ToolCallCard from './ToolCallCard.vue';
+import CompactMarker from './CompactMarker.vue';
+import ThinkingIndicator from './ThinkingIndicator.vue';
 
 const props = defineProps<{
   messages: ChatMessage[];
+  compactMarkers?: CompactMarkerType[];
+  checkpointMessages?: Set<string>; // Message IDs that have file checkpoints
 }>();
+
+const emit = defineEmits<{
+  (e: 'rewind', messageId: string): void;
+  (e: 'interrupt', toolId: string): void;
+}>();
+
+// Find compact markers that should appear before a message
+function getMarkersBeforeMessage(messageTimestamp: number, messageIndex: number): CompactMarkerType[] {
+  if (!props.compactMarkers) return [];
+
+  const prevTimestamp = messageIndex > 0 ? props.messages[messageIndex - 1].timestamp : 0;
+
+  return props.compactMarkers.filter(
+    marker => marker.timestamp > prevTimestamp && marker.timestamp <= messageTimestamp
+  );
+}
+
+function canRewindTo(message: ChatMessage): boolean {
+  return message.role === 'user' && (props.checkpointMessages?.has(message.id) ?? false);
+}
 
 // Configure marked with highlight.js
 marked.setOptions({
@@ -50,179 +74,234 @@ function formatMarkdown(text: string): string {
 </script>
 
 <template>
-  <div class="p-4 space-y-4">
-    <div v-if="messages.length === 0" class="text-center text-gray-500 py-8">
-      <p class="text-lg mb-2">⚡ Welcome to Claude Unbound</p>
-      <p class="text-sm">Unleash the full power of Claude AI. Ask anything about your code or let me help you build something new.</p>
+  <div class="p-4 space-y-4 bg-unbound-bg" :class="messages.length === 0 ? 'flex flex-col justify-center items-center' : ''">
+    <!-- Welcome message -->
+    <div v-if="messages.length === 0" class="text-center">
+      <div class="mb-4 text-5xl">⚡</div>
+      <p class="text-xl mb-2 text-unbound-glow font-medium">Welcome to Claude Unbound</p>
+      <p class="text-sm text-unbound-muted">Unleash the full power of Claude AI. Ask anything about your code or let me help you build something new.</p>
     </div>
 
-    <div
-      v-for="message in messages"
-      :key="message.id"
-      :class="[
-        'rounded-lg p-3',
-        message.role === 'user'
-          ? 'bg-vscode-button-bg text-vscode-button-fg ml-8'
-          : 'bg-vscode-input-bg mr-8',
-      ]"
-    >
-      <div class="flex items-start gap-2">
-        <span class="text-sm font-medium opacity-70">
-          {{ message.role === 'user' ? 'You' : 'Claude' }}
-        </span>
-        <span v-if="message.isPartial" class="text-xs opacity-50">typing...</span>
-      </div>
-
-      <div
-        class="mt-1 prose prose-sm max-w-none"
-        v-html="formatMarkdown(message.content)"
+    <template v-for="(message, index) in messages" :key="message.id">
+      <!-- Compact markers before this message -->
+      <CompactMarker
+        v-for="marker in getMarkersBeforeMessage(message.timestamp, index)"
+        :key="marker.id"
+        :marker="marker"
       />
 
-      <div v-if="message.toolCalls?.length" class="mt-3 space-y-2">
-        <ToolCallCard
-          v-for="tool in message.toolCalls"
-          :key="tool.id"
-          :tool-call="tool"
-        />
+      <!-- User message -->
+      <div
+        v-if="message.role === 'user'"
+        class="group relative"
+      >
+        <!-- Rewind button -->
+        <button
+          v-if="canRewindTo(message)"
+          class="absolute -left-6 top-2 opacity-0 group-hover:opacity-100 transition-opacity text-base text-unbound-cyan-400 hover:text-unbound-glow"
+          title="Undo file changes after this point"
+          @click="emit('rewind', message.id)"
+        >
+          ⏪
+        </button>
+
+        <div
+          class="rounded-lg px-4 py-3 border-l-2 border-unbound-cyan-500 bg-unbound-bg-card"
+          :class="message.isReplay && 'opacity-60 border-dashed'"
+        >
+          <span v-if="message.isReplay" class="text-xs text-unbound-muted px-1.5 py-0.5 rounded bg-unbound-cyan-900/30 mb-2 inline-block">
+            replayed
+          </span>
+          <div class="text-unbound-text" v-html="formatMarkdown(message.content)" />
+        </div>
       </div>
-    </div>
+
+      <!-- Assistant message -->
+      <div
+        v-else
+        class="group relative space-y-3"
+      >
+        <ThinkingIndicator
+          v-if="message.thinking || message.isPartial"
+          :thinking="message.thinking"
+          :is-streaming="message.isThinkingPhase"
+        />
+
+        <div
+          class="prose prose-sm max-w-none prose-unbound pl-4"
+          :class="message.isPartial && 'opacity-80'"
+          v-html="formatMarkdown(message.content)"
+        />
+
+        <!-- Tool calls -->
+        <div v-if="message.toolCalls?.length" class="pl-4 space-y-2">
+          <ToolCallCard
+            v-for="tool in message.toolCalls"
+            :key="tool.id"
+            :tool-call="tool"
+            @interrupt="emit('interrupt', $event)"
+          />
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.prose :deep(pre) {
+/* Prose styles with cyan/blue theme */
+.prose-unbound {
+  color: #e0f7fa;
+}
+
+.prose-unbound :deep(pre) {
   margin: 8px 0;
   padding: 12px;
   border-radius: 6px;
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.1));
+  background-color: #0a1929;
+  border: 1px solid rgba(79, 195, 247, 0.2);
   overflow-x: auto;
 }
 
-.prose :deep(code) {
+.prose-unbound :deep(code) {
   font-size: 0.85em;
   font-family: var(--vscode-editor-font-family, 'Consolas', 'Monaco', monospace);
 }
 
-.prose :deep(.inline-code) {
-  background-color: var(--vscode-textCodeBlock-background, rgba(255, 255, 255, 0.1));
+.prose-unbound :deep(.inline-code) {
+  background-color: rgba(79, 195, 247, 0.15);
+  color: #4fc3f7;
   padding: 2px 6px;
   border-radius: 4px;
 }
 
-.prose :deep(a) {
-  color: var(--vscode-textLink-foreground);
+.prose-unbound :deep(a) {
+  color: #4fc3f7;
   text-decoration: none;
 }
 
-.prose :deep(a:hover) {
+.prose-unbound :deep(a:hover) {
   text-decoration: underline;
+  color: #81d4fa;
 }
 
-.prose :deep(p) {
+.prose-unbound :deep(p) {
   margin: 8px 0;
 }
 
-.prose :deep(ul), .prose :deep(ol) {
+.prose-unbound :deep(ul), .prose-unbound :deep(ol) {
   margin: 8px 0;
   padding-left: 20px;
 }
 
-.prose :deep(li) {
+.prose-unbound :deep(li) {
   margin: 4px 0;
 }
 
-.prose :deep(blockquote) {
-  border-left: 3px solid var(--vscode-textBlockQuote-border, #666);
+.prose-unbound :deep(blockquote) {
+  border-left: 3px solid #00bcd4;
   margin: 8px 0;
   padding-left: 12px;
-  color: var(--vscode-textBlockQuote-foreground, #999);
+  color: #81d4fa;
+  background: rgba(0, 188, 212, 0.1);
+  padding: 8px 12px;
+  border-radius: 0 4px 4px 0;
 }
 
-.prose :deep(h1), .prose :deep(h2), .prose :deep(h3), .prose :deep(h4) {
+.prose-unbound :deep(h1), .prose-unbound :deep(h2), .prose-unbound :deep(h3), .prose-unbound :deep(h4) {
   margin-top: 16px;
   margin-bottom: 8px;
   font-weight: 600;
+  color: #4fc3f7;
 }
 
-.prose :deep(table) {
+.prose-unbound :deep(table) {
   border-collapse: collapse;
   margin: 8px 0;
   width: 100%;
 }
 
-.prose :deep(th), .prose :deep(td) {
-  border: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.2));
+.prose-unbound :deep(th), .prose-unbound :deep(td) {
+  border: 1px solid rgba(79, 195, 247, 0.3);
   padding: 6px 12px;
   text-align: left;
 }
 
-.prose :deep(th) {
-  background-color: var(--vscode-editor-background);
+.prose-unbound :deep(th) {
+  background-color: rgba(0, 188, 212, 0.15);
+  color: #4fc3f7;
 }
 
-/* Highlight.js theme matching VS Code dark theme */
-.prose :deep(.hljs) {
-  color: var(--vscode-editor-foreground, #d4d4d4);
+.prose-unbound :deep(strong) {
+  color: #81d4fa;
+  font-weight: 600;
 }
 
-.prose :deep(.hljs-keyword),
-.prose :deep(.hljs-selector-tag),
-.prose :deep(.hljs-built_in),
-.prose :deep(.hljs-name),
-.prose :deep(.hljs-tag) {
-  color: #569cd6;
+.prose-unbound :deep(em) {
+  color: #b2ebf2;
 }
 
-.prose :deep(.hljs-string),
-.prose :deep(.hljs-title),
-.prose :deep(.hljs-section),
-.prose :deep(.hljs-attribute),
-.prose :deep(.hljs-literal),
-.prose :deep(.hljs-template-tag),
-.prose :deep(.hljs-template-variable),
-.prose :deep(.hljs-type),
-.prose :deep(.hljs-addition) {
-  color: #ce9178;
+/* Highlight.js theme - cyan/blue variant */
+.prose-unbound :deep(.hljs) {
+  color: #e0f7fa;
 }
 
-.prose :deep(.hljs-comment),
-.prose :deep(.hljs-quote),
-.prose :deep(.hljs-deletion),
-.prose :deep(.hljs-meta) {
-  color: #6a9955;
+.prose-unbound :deep(.hljs-keyword),
+.prose-unbound :deep(.hljs-selector-tag),
+.prose-unbound :deep(.hljs-built_in),
+.prose-unbound :deep(.hljs-name),
+.prose-unbound :deep(.hljs-tag) {
+  color: #4fc3f7;
 }
 
-.prose :deep(.hljs-number),
-.prose :deep(.hljs-regexp),
-.prose :deep(.hljs-selector-id),
-.prose :deep(.hljs-selector-class) {
-  color: #b5cea8;
+.prose-unbound :deep(.hljs-string),
+.prose-unbound :deep(.hljs-title),
+.prose-unbound :deep(.hljs-section),
+.prose-unbound :deep(.hljs-attribute),
+.prose-unbound :deep(.hljs-literal),
+.prose-unbound :deep(.hljs-template-tag),
+.prose-unbound :deep(.hljs-template-variable),
+.prose-unbound :deep(.hljs-type),
+.prose-unbound :deep(.hljs-addition) {
+  color: #80deea;
 }
 
-.prose :deep(.hljs-attr),
-.prose :deep(.hljs-variable),
-.prose :deep(.hljs-template-variable),
-.prose :deep(.hljs-link),
-.prose :deep(.hljs-selector-attr),
-.prose :deep(.hljs-selector-pseudo) {
-  color: #9cdcfe;
+.prose-unbound :deep(.hljs-comment),
+.prose-unbound :deep(.hljs-quote),
+.prose-unbound :deep(.hljs-deletion),
+.prose-unbound :deep(.hljs-meta) {
+  color: #546e7a;
 }
 
-.prose :deep(.hljs-function) {
-  color: #dcdcaa;
+.prose-unbound :deep(.hljs-number),
+.prose-unbound :deep(.hljs-regexp),
+.prose-unbound :deep(.hljs-selector-id),
+.prose-unbound :deep(.hljs-selector-class) {
+  color: #b2ebf2;
 }
 
-.prose :deep(.hljs-symbol),
-.prose :deep(.hljs-bullet) {
-  color: #4fc1ff;
+.prose-unbound :deep(.hljs-attr),
+.prose-unbound :deep(.hljs-variable),
+.prose-unbound :deep(.hljs-template-variable),
+.prose-unbound :deep(.hljs-link),
+.prose-unbound :deep(.hljs-selector-attr),
+.prose-unbound :deep(.hljs-selector-pseudo) {
+  color: #81d4fa;
 }
 
-.prose :deep(.hljs-emphasis) {
+.prose-unbound :deep(.hljs-function) {
+  color: #26c6da;
+}
+
+.prose-unbound :deep(.hljs-symbol),
+.prose-unbound :deep(.hljs-bullet) {
+  color: #00bcd4;
+}
+
+.prose-unbound :deep(.hljs-emphasis) {
   font-style: italic;
 }
 
-.prose :deep(.hljs-strong) {
+.prose-unbound :deep(.hljs-strong) {
   font-weight: bold;
 }
 </style>

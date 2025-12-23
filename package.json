@@ -71,14 +71,18 @@
       "properties": {
         "claude-unbound.permissionMode": {
           "type": "string",
-          "default": "ask",
+          "default": "default",
           "enum": [
-            "ask",
-            "auto"
+            "default",
+            "acceptEdits",
+            "bypassPermissions",
+            "plan"
           ],
           "enumDescriptions": [
-            "Ask for approval before file modifications",
-            "Automatically approve all operations"
+            "Standard behavior - prompts for dangerous operations",
+            "Auto-accept file edit operations",
+            "Bypass all permission checks (use with caution)",
+            "Planning mode - read-only, no execution"
           ],
           "description": "How to handle tool permissions"
         },
@@ -88,6 +92,83 @@
           "minimum": 1,
           "maximum": 200,
           "description": "Maximum conversation turns per session"
+        },
+        "claude-unbound.model": {
+          "type": "string",
+          "default": "",
+          "description": "Claude model to use (empty for default). Examples: claude-sonnet-4-5-20250929, claude-opus-4-20250514"
+        },
+        "claude-unbound.maxBudgetUsd": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "description": "Maximum budget in USD per session (null for unlimited)"
+        },
+        "claude-unbound.maxThinkingTokens": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 1000,
+          "maximum": 100000,
+          "description": "Maximum tokens for extended thinking/reasoning (null for default)"
+        },
+        "claude-unbound.betasEnabled": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "context-1m-2025-08-07"
+            ]
+          },
+          "default": [],
+          "description": "Enabled beta features (e.g., 1M context window for Sonnet 4/4.5)"
+        },
+        "claude-unbound.enableFileCheckpointing": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable file checkpointing for undo/rewind functionality"
+        },
+        "claude-unbound.sandbox": {
+          "type": "object",
+          "default": {
+            "enabled": false
+          },
+          "description": "Sandbox settings for command execution isolation",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable sandbox mode for Bash commands"
+            },
+            "autoAllowBashIfSandboxed": {
+              "type": "boolean",
+              "default": true,
+              "description": "Auto-allow Bash commands when sandboxed"
+            },
+            "allowUnsandboxedCommands": {
+              "type": "boolean",
+              "default": false,
+              "description": "Allow commands that cannot be sandboxed"
+            },
+            "networkAllowedDomains": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [],
+              "description": "Allowed network domains in sandbox"
+            },
+            "networkAllowLocalBinding": {
+              "type": "boolean",
+              "default": false,
+              "description": "Allow binding to local ports in sandbox"
+            }
+          }
         }
       }
     }

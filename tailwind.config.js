@@ -18,6 +18,29 @@ export default {
         'vscode-dropdown-bg': 'var(--vscode-dropdown-background)',
         'vscode-list-hoverBackground': 'var(--vscode-list-hoverBackground)',
         'vscode-list-activeSelectionBackground': 'var(--vscode-list-activeSelectionBackground)',
+
+        // Claude Unbound custom cyan/blue theme (matching logo)
+        'unbound': {
+          'bg': '#0a1929',           // Deep navy background
+          'bg-light': '#0d2233',     // Slightly lighter navy
+          'bg-card': '#112338',      // Card/panel background
+          'cyan': {
+            50: '#e0f7fa',
+            100: '#b2ebf2',
+            200: '#80deea',
+            300: '#4dd0e1',
+            400: '#26c6da',
+            500: '#00bcd4',          // Primary cyan
+            600: '#00acc1',
+            700: '#0097a7',
+            800: '#00838f',
+            900: '#006064',
+          },
+          'glow': '#4fc3f7',         // Glow/highlight cyan
+          'accent': '#81d4fa',       // Light blue accent
+          'text': '#e0f7fa',         // Light cyan text
+          'muted': '#546e7a',        // Muted text
+        },
       },
     },
   },

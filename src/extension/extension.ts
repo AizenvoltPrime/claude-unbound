@@ -1,10 +1,14 @@
 import * as vscode from 'vscode';
 import { ChatPanelProvider } from './ChatPanelProvider';
+import { initLogger, log, showLog } from './logger';
 
 let chatPanelProvider: ChatPanelProvider | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('Claude Unbound extension activating...');
+  const outputChannel = initLogger();
+  context.subscriptions.push(outputChannel);
+  log('Claude Unbound extension activating...');
+  showLog();
 
   chatPanelProvider = new ChatPanelProvider(context.extensionUri, context);
 
@@ -26,10 +30,10 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  console.log('Claude Unbound extension activated');
+  log('Claude Unbound extension activated');
 }
 
 export function deactivate() {
   chatPanelProvider?.dispose();
-  console.log('Claude Unbound extension deactivated');
+  log('Claude Unbound extension deactivated');
 }
