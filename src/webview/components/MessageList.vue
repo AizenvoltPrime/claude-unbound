@@ -107,11 +107,7 @@ function formatMarkdown(text: string): string {
 
         <div
           class="rounded-lg px-4 py-3 border-l-2 border-unbound-cyan-500 bg-unbound-bg-card"
-          :class="message.isReplay && 'opacity-60 border-dashed'"
         >
-          <span v-if="message.isReplay" class="text-xs text-unbound-muted px-1.5 py-0.5 rounded bg-unbound-cyan-900/30 mb-2 inline-block">
-            replayed
-          </span>
           <div class="text-unbound-text" v-html="formatMarkdown(message.content)" />
         </div>
       </div>

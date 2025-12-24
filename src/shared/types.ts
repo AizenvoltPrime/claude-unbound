@@ -241,7 +241,13 @@ export type WebviewToExtensionMessage =
   | { type: 'interrupt' }
   | { type: 'requestMcpStatus' }
   | { type: 'requestSupportedCommands' }
-  | { type: 'openSettings' };
+  | { type: 'openSettings' }
+  // Session management
+  | { type: 'renameSession'; sessionId: string; newName: string }
+  // History pagination
+  | { type: 'requestMoreHistory'; sessionId: string; offset: number }
+  // Session list pagination
+  | { type: 'requestMoreSessions'; offset: number };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
@@ -253,8 +259,9 @@ export type ExtensionToWebviewMessage =
   | { type: 'error'; message: string }
   | { type: 'sessionStarted'; sessionId: string }
   | { type: 'processing'; isProcessing: boolean }
-  | { type: 'storedSessions'; sessions: StoredSession[] }
+  | { type: 'storedSessions'; sessions: StoredSession[]; hasMore?: boolean; nextOffset?: number; isFirstPage?: boolean }
   | { type: 'sessionCleared' }
+  | { type: 'sessionRenamed'; sessionId: string; newName: string }
   | { type: 'notification'; message: string; notificationType: string }
   | { type: 'accountInfo'; data: AccountInfo }
   // New: Model and settings
@@ -287,6 +294,10 @@ export type ExtensionToWebviewMessage =
   | { type: 'compactBoundary'; preTokens: number; trigger: 'manual' | 'auto' }
   // New: User message replay (for resumed sessions)
   | { type: 'userReplay'; content: string; isSynthetic?: boolean }
+  // New: Assistant message replay (for resumed sessions)
+  | { type: 'assistantReplay'; content: string; thinking?: string }
+  // History pagination
+  | { type: 'historyChunk'; messages: Array<{ type: 'user' | 'assistant'; content: string; thinking?: string }>; hasMore: boolean; nextOffset: number }
   // New: Permission request for file operations
   | {
       type: 'requestPermission';
@@ -340,6 +351,7 @@ export interface StoredSession {
   timestamp: number;
   preview: string;
   slug?: string;
+  customTitle?: string;  // User-set name via /rename
   messageCount?: number;
 }
 

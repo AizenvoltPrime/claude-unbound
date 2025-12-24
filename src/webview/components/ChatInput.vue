@@ -15,6 +15,14 @@ const emit = defineEmits<{
 }>();
 
 const inputText = ref('');
+const textareaRef = ref<HTMLTextAreaElement | null>(null);
+
+// Expose focus method for parent components
+function focus() {
+  textareaRef.value?.focus();
+}
+
+defineExpose({ focus });
 
 const canSend = computed(() => inputText.value.trim().length > 0 && !props.isProcessing);
 
@@ -67,10 +75,11 @@ const displayFile = computed(() => {
     <div class="p-3">
       <div class="bg-unbound-bg-card rounded-lg border border-unbound-cyan-800/50 overflow-hidden">
         <textarea
+          ref="textareaRef"
           v-model="inputText"
           :disabled="isProcessing"
           placeholder="ctrl+esc to focus or unfocus Claude"
-          rows="2"
+          rows="1"
           class="w-full p-3 bg-transparent text-unbound-text resize-none
                  focus:outline-none placeholder:text-unbound-muted
                  disabled:opacity-50"

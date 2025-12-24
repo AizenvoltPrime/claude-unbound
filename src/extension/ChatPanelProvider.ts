@@ -1,325 +1,427 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
-import { ClaudeSession } from './ClaudeSession';
-import { PermissionHandler } from './PermissionHandler';
+import * as vscode from "vscode";
+import * as path from "path";
+import * as fs from "fs";
+import { ClaudeSession } from "./ClaudeSession";
+import { PermissionHandler } from "./PermissionHandler";
+import { log } from "./logger";
 import {
   listSessions,
   getSessionDir,
   ensureSessionDir,
+  readSessionEntries,
+  readSessionEntriesPaginated,
+  renameSession,
   type StoredSession,
-} from './SessionStorage';
-import type {
-  WebviewToExtensionMessage,
-  ExtensionToWebviewMessage,
-  McpServerConfig,
-  ExtensionSettings,
-  PermissionMode,
-} from '../shared/types';
+} from "./SessionStorage";
+import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, McpServerConfig, ExtensionSettings, PermissionMode } from "../shared/types";
 
-const MAX_STORED_SESSIONS = 20;
+const SESSIONS_PAGE_SIZE = 20;
+const HISTORY_PAGE_SIZE = 30;
+
+interface PanelInstance {
+  panel: vscode.WebviewPanel;
+  session: ClaudeSession;
+  permissionHandler: PermissionHandler;
+  disposables: vscode.Disposable[];
+}
 
 export class ChatPanelProvider {
-  private panel: vscode.WebviewPanel | undefined;
-  private session: ClaudeSession | undefined;
-  private permissionHandler: PermissionHandler;
-  private disposables: vscode.Disposable[] = [];
+  private panels: Map<string, PanelInstance> = new Map();
+  private panelCounter: number = 0;
   private mcpServers: Record<string, McpServerConfig> = {};
-  private workspacePath: string = '';
-  private panelViewColumn: vscode.ViewColumn | undefined;
+  private workspacePath: string = "";
+  private allSessionsCache: StoredSession[] | null = null;
+  private mcpConfigLoaded: boolean = false;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly context: vscode.ExtensionContext
   ) {
-    this.permissionHandler = new PermissionHandler(extensionUri);
-    // Set workspace path
-    const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+    const homeDir = process.env.HOME || process.env.USERPROFILE || "";
     this.workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || homeDir;
-    // Load MCP servers from .mcp.json
-    this.loadMcpConfig();
+    // Pre-load MCP config but don't block constructor
+    this.loadMcpConfig().catch((err) => {
+      log("[ChatPanelProvider] Error pre-loading MCP config:", err);
+    });
   }
 
   private async loadMcpConfig(): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       this.mcpServers = {};
+      this.mcpConfigLoaded = true;
       return;
     }
 
-    const mcpConfigPath = path.join(workspaceFolder.uri.fsPath, '.mcp.json');
+    const mcpConfigPath = path.join(workspaceFolder.uri.fsPath, ".mcp.json");
     try {
-      const content = await fs.promises.readFile(mcpConfigPath, 'utf-8');
+      const content = await fs.promises.readFile(mcpConfigPath, "utf-8");
       const config = JSON.parse(content);
-      // Support both { mcpServers: {...} } and direct {...} format
       this.mcpServers = config.mcpServers || config;
     } catch {
-      // No .mcp.json found or invalid format
       this.mcpServers = {};
     }
+    this.mcpConfigLoaded = true;
   }
 
-  private async getStoredSessions(): Promise<StoredSession[]> {
-    // Read sessions from Claude Code CLI directory
-    const sessions = await listSessions(this.workspacePath);
-    return sessions.slice(0, MAX_STORED_SESSIONS);
-  }
+  private async getStoredSessions(
+    offset: number = 0,
+    limit: number = SESSIONS_PAGE_SIZE
+  ): Promise<{ sessions: StoredSession[]; hasMore: boolean; nextOffset: number }> {
+    log("[ChatPanelProvider] getStoredSessions called, workspacePath:", this.workspacePath, "offset:", offset);
 
-  show(): void {
-    if (this.panel) {
-      this.panel.reveal(undefined, true);
-      return;
+    if (!this.allSessionsCache) {
+      this.allSessionsCache = await listSessions(this.workspacePath);
+      log("[ChatPanelProvider] Got", this.allSessionsCache.length, "sessions from listSessions");
     }
 
-    // Store current active editor to restore focus later
-    const activeEditor = vscode.window.activeTextEditor;
+    const total = this.allSessionsCache.length;
+    const sessions = this.allSessionsCache.slice(offset, offset + limit);
+    const hasMore = offset + limit < total;
+    const nextOffset = offset + sessions.length;
 
-    this.panel = vscode.window.createWebviewPanel(
-      'claude-unbound.chat',
-      'Claude Unbound',
-      { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+    log("[ChatPanelProvider] Returning", sessions.length, "sessions, hasMore:", hasMore);
+    return { sessions, hasMore, nextOffset };
+  }
+
+  private invalidateSessionsCache(): void {
+    this.allSessionsCache = null;
+  }
+
+  private findExistingPanelColumn(): vscode.ViewColumn | undefined {
+    for (const group of vscode.window.tabGroups.all) {
+      if (group.tabs.length === 0) continue;
+      const allClaudePanels = group.tabs.every((tab) => {
+        if (tab.input instanceof vscode.TabInputWebview) {
+          return tab.input.viewType.includes("claude-unbound.chat");
+        }
+        return false;
+      });
+      if (allClaudePanels && group.viewColumn) {
+        return group.viewColumn;
+      }
+    }
+    return undefined;
+  }
+
+  private findUnusedColumn(): vscode.ViewColumn {
+    const usedColumns = new Set<vscode.ViewColumn>();
+    vscode.window.tabGroups.all.forEach((group) => {
+      if (group.viewColumn !== undefined) {
+        usedColumns.add(group.viewColumn);
+      }
+    });
+
+    for (let col = vscode.ViewColumn.One; col <= vscode.ViewColumn.Nine; col++) {
+      if (!usedColumns.has(col)) {
+        return col;
+      }
+    }
+    return vscode.ViewColumn.Beside;
+  }
+
+  async show(): Promise<void> {
+    let targetColumn: vscode.ViewColumn;
+    let startedInNewColumn = false;
+
+    const existingColumn = this.findExistingPanelColumn();
+    if (existingColumn) {
+      targetColumn = existingColumn;
+    } else {
+      targetColumn = this.findUnusedColumn();
+      startedInNewColumn = true;
+    }
+
+    const panelId = `panel-${++this.panelCounter}`;
+
+    const panel = vscode.window.createWebviewPanel(
+      "claude-unbound.chat",
+      "Claude Unbound",
+      { viewColumn: targetColumn, preserveFocus: false },
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview'),
-        ],
+        localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist", "webview")],
       }
     );
 
-    this.panel.webview.html = this.getHtmlContent(this.panel.webview);
+    panel.webview.html = this.getHtmlContent(panel.webview);
+    panel.iconPath = vscode.Uri.joinPath(this.extensionUri, "resources", "icon.png");
 
-    // Wire up permission handler to send messages to webview
-    this.permissionHandler.setPostMessage((msg) => this.postMessage(msg));
+    // Lock the editor group if we started in a new column - this prevents files from opening here!
+    if (startedInNewColumn) {
+      await vscode.commands.executeCommand("workbench.action.lockEditorGroup");
+    }
 
-    // Track the panel's view column
-    this.panelViewColumn = this.panel.viewColumn;
+    const panelDisposables: vscode.Disposable[] = [];
 
-    // Update tracked column when panel moves
-    this.panel.onDidChangeViewState((e) => {
-      this.panelViewColumn = e.webviewPanel.viewColumn;
-    }, null, this.disposables);
+    // Create a dedicated PermissionHandler for this panel
+    // This ensures permission dialogs route to the correct panel's webview
+    const permissionHandler = new PermissionHandler(this.extensionUri);
+    permissionHandler.setPostMessage((msg) => this.postMessageToPanel(panel, msg));
 
-    // Intercept file opens: if a file opens in the same group as our panel, move it to group 1
-    this.disposables.push(
-      vscode.window.onDidChangeActiveTextEditor(async (editor) => {
-        if (!editor || !this.panel || !this.panelViewColumn) return;
+    const session = await this.createSessionForPanel(panel, permissionHandler);
 
-        // If the editor opened in the same column as our panel, move it to column 1
-        if (editor.viewColumn === this.panelViewColumn && this.panelViewColumn !== vscode.ViewColumn.One) {
-          await vscode.window.showTextDocument(editor.document, vscode.ViewColumn.One, false);
+    this.panels.set(panelId, { panel, session, permissionHandler, disposables: panelDisposables });
+
+    panelDisposables.push(
+      panel.onDidChangeViewState((e) => {
+        if (e.webviewPanel.visible) {
+          this.invalidateSessionsCache();
+          this.getStoredSessions()
+            .then(({ sessions, hasMore, nextOffset }) => {
+              this.postMessageToPanel(panel, { type: "storedSessions", sessions, hasMore, nextOffset, isFirstPage: true });
+            })
+            .catch((err) => {
+              log("[ChatPanelProvider] Error refreshing sessions on visibility change:", err);
+            });
         }
       })
     );
 
-    // Restore focus to the original editor so files open in the correct group
-    if (activeEditor) {
-      vscode.window.showTextDocument(activeEditor.document, activeEditor.viewColumn, false);
-    } else {
-      vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup');
-    }
-
-    this.disposables.push(
-      this.panel.webview.onDidReceiveMessage((message: WebviewToExtensionMessage) => {
-        this.handleWebviewMessage(message);
+    panelDisposables.push(
+      panel.webview.onDidReceiveMessage((message: WebviewToExtensionMessage) => {
+        this.handleWebviewMessage(message, panelId);
       })
     );
 
-    this.panel.onDidDispose(() => {
-      this.panel = undefined;
-      this.panelViewColumn = undefined;
-    }, null, this.disposables);
-
-    this.initSession();
-  }
-
-  private async initSession(): Promise<void> {
-    // Ensure MCP config is loaded
-    await this.loadMcpConfig();
-
-    // Ensure session directory exists for Claude Code compatibility
-    await ensureSessionDir(this.workspacePath);
-
-    this.session = new ClaudeSession({
-      cwd: this.workspacePath,
-      permissionHandler: this.permissionHandler,
-      onMessage: (message) => this.postMessage(message),
-      onSessionIdChange: (sessionId) => {
-        // Sessions are now saved by the SDK to the Claude Code directory
-        // No need to manually store - just notify webview
-        this.postMessage({ type: 'sessionStarted', sessionId: sessionId || '' });
-      },
-      mcpServers: this.mcpServers,
+    panel.onDidDispose(() => {
+      const instance = this.panels.get(panelId);
+      if (instance) {
+        instance.session.cancel();
+        instance.permissionHandler.dispose();
+        instance.disposables.forEach((d) => d.dispose());
+        this.panels.delete(panelId);
+      }
     });
   }
 
-  private async handleWebviewMessage(message: WebviewToExtensionMessage): Promise<void> {
-    // Import log dynamically to avoid circular deps
-    const { log } = await import('./logger');
+  private async createSessionForPanel(
+    panel: vscode.WebviewPanel,
+    permissionHandler: PermissionHandler
+  ): Promise<ClaudeSession> {
+    // Ensure MCP config is loaded before creating session
+    if (!this.mcpConfigLoaded) {
+      await this.loadMcpConfig();
+    }
+
+    // Ensure session directory exists before session can write to it
+    await ensureSessionDir(this.workspacePath);
+
+    const session = new ClaudeSession({
+      cwd: this.workspacePath,
+      permissionHandler: permissionHandler,
+      onMessage: (message) => this.postMessageToPanel(panel, message),
+      onSessionIdChange: (sessionId) => {
+        this.postMessageToPanel(panel, { type: "sessionStarted", sessionId: sessionId || "" });
+      },
+      mcpServers: this.mcpServers,
+    });
+
+    return session;
+  }
+
+  private async handleWebviewMessage(message: WebviewToExtensionMessage, panelId: string): Promise<void> {
+    const instance = this.panels.get(panelId);
+    if (!instance) {
+      log("[ChatPanelProvider] No panel instance found for", panelId);
+      return;
+    }
+
+    const { panel, session } = instance;
 
     switch (message.type) {
-      case 'log':
-        // Forward webview logs to VS Code output channel
-        log('[Webview]', message.message);
+      case "log":
+        log("[Webview]", message.message);
         break;
 
-      case 'sendMessage':
+      case "sendMessage":
         if (message.content.trim()) {
-          // Echo user message back to webview
-          this.postMessage({
-            type: 'userMessage',
+          this.postMessageToPanel(panel, {
+            type: "userMessage",
             content: message.content,
           });
-          // Send to Claude with optional agent
-          this.session?.sendMessage(message.content, message.agentId);
+          session.sendMessage(message.content, message.agentId);
         }
         break;
 
-      case 'cancelSession':
-        this.session?.cancel();
+      case "cancelSession":
+        session.cancel();
         break;
 
-      case 'resumeSession':
+      case "resumeSession":
+        log("[ChatPanelProvider] resumeSession requested:", message.sessionId);
         if (message.sessionId) {
-          this.session?.setResumeSession(message.sessionId);
-          this.postMessage({ type: 'sessionStarted', sessionId: message.sessionId });
+          session.setResumeSession(message.sessionId);
+          log("[ChatPanelProvider] setResumeSession called");
+
+          this.loadSessionHistory(message.sessionId, panel)
+            .then(() => {
+              log("[ChatPanelProvider] Session history loaded, sending sessionStarted");
+              this.postMessageToPanel(panel, { type: "sessionStarted", sessionId: message.sessionId });
+            })
+            .catch((err) => {
+              log("[ChatPanelProvider] Error loading session history:", err);
+              this.postMessageToPanel(panel, { type: "sessionStarted", sessionId: message.sessionId });
+            });
         }
         break;
 
-      case 'approveEdit':
-        this.permissionHandler.resolveApproval(message.approved, {
+      case "approveEdit":
+        instance.permissionHandler.resolveApproval(message.approved, {
           neverAskAgain: message.neverAskAgain,
           customMessage: message.customMessage,
         });
         break;
 
-      case 'ready': {
-        // Webview is ready, send stored sessions list from Claude Code directory
-        this.getStoredSessions().then(sessions => {
-          if (sessions.length > 0) {
-            this.postMessage({ type: 'storedSessions', sessions });
-          }
-        });
-        // Send current settings
-        this.sendCurrentSettings();
-        // Request available models (will be sent when session has a query)
-        this.sendAvailableModels();
+      case "ready": {
+        log("[ChatPanelProvider] Webview ready, fetching stored sessions...");
+        this.getStoredSessions()
+          .then(({ sessions, hasMore, nextOffset }) => {
+            log("[ChatPanelProvider] Ready handler: got", sessions.length, "sessions, hasMore:", hasMore);
+            this.postMessageToPanel(panel, { type: "storedSessions", sessions, hasMore, nextOffset, isFirstPage: true });
+          })
+          .catch((err) => {
+            log("[ChatPanelProvider] Error fetching sessions:", err);
+          });
+        this.sendCurrentSettings(panel);
+        this.sendAvailableModels(session, panel);
         break;
       }
 
-      // === New: Model and settings control ===
-      case 'requestModels':
-        this.sendAvailableModels();
+      case "requestModels":
+        this.sendAvailableModels(session, panel);
         break;
 
-      case 'setModel': {
-        const config = vscode.workspace.getConfiguration('claude-unbound');
-        await config.update('model', message.model, vscode.ConfigurationTarget.Workspace);
-        await this.session?.setModel(message.model);
+      case "setModel": {
+        const config = vscode.workspace.getConfiguration("claude-unbound");
+        await config.update("model", message.model, vscode.ConfigurationTarget.Workspace);
+        await session.setModel(message.model);
         break;
       }
 
-      case 'setMaxThinkingTokens': {
-        const config = vscode.workspace.getConfiguration('claude-unbound');
-        await config.update('maxThinkingTokens', message.tokens, vscode.ConfigurationTarget.Workspace);
-        await this.session?.setMaxThinkingTokens(message.tokens);
+      case "setMaxThinkingTokens": {
+        const config = vscode.workspace.getConfiguration("claude-unbound");
+        await config.update("maxThinkingTokens", message.tokens, vscode.ConfigurationTarget.Workspace);
+        await session.setMaxThinkingTokens(message.tokens);
         break;
       }
 
-      case 'setBudgetLimit': {
-        const config = vscode.workspace.getConfiguration('claude-unbound');
-        await config.update('maxBudgetUsd', message.budgetUsd, vscode.ConfigurationTarget.Workspace);
+      case "setBudgetLimit": {
+        const config = vscode.workspace.getConfiguration("claude-unbound");
+        await config.update("maxBudgetUsd", message.budgetUsd, vscode.ConfigurationTarget.Workspace);
         break;
       }
 
-      case 'toggleBeta': {
-        const config = vscode.workspace.getConfiguration('claude-unbound');
-        const currentBetas = config.get<string[]>('betasEnabled', []);
-        const newBetas = message.enabled
-          ? [...currentBetas, message.beta]
-          : currentBetas.filter(b => b !== message.beta);
-        await config.update('betasEnabled', newBetas, vscode.ConfigurationTarget.Workspace);
+      case "toggleBeta": {
+        const config = vscode.workspace.getConfiguration("claude-unbound");
+        const currentBetas = config.get<string[]>("betasEnabled", []);
+        const newBetas = message.enabled ? [...currentBetas, message.beta] : currentBetas.filter((b) => b !== message.beta);
+        await config.update("betasEnabled", newBetas, vscode.ConfigurationTarget.Workspace);
         break;
       }
 
-      case 'setPermissionMode': {
-        const config = vscode.workspace.getConfiguration('claude-unbound');
-        await config.update('permissionMode', message.mode, vscode.ConfigurationTarget.Workspace);
-        await this.session?.setPermissionMode(message.mode);
+      case "setPermissionMode": {
+        const config = vscode.workspace.getConfiguration("claude-unbound");
+        await config.update("permissionMode", message.mode, vscode.ConfigurationTarget.Workspace);
+        await session.setPermissionMode(message.mode);
         break;
       }
 
-      // === New: File rewind ===
-      case 'rewindToMessage':
-        await this.session?.rewindFiles(message.userMessageId);
+      case "rewindToMessage":
+        await session.rewindFiles(message.userMessageId);
         break;
 
-      // === New: Session control ===
-      case 'interrupt':
-        await this.session?.interrupt();
+      case "interrupt":
+        await session.interrupt();
         break;
 
-      case 'requestMcpStatus':
-        this.sendMcpStatus();
+      case "requestMcpStatus":
+        this.sendMcpStatus(session, panel);
         break;
 
-      case 'requestSupportedCommands':
-        this.sendSupportedCommands();
+      case "requestSupportedCommands":
+        this.sendSupportedCommands(session, panel);
         break;
 
-      case 'openSettings':
-        vscode.commands.executeCommand('workbench.action.openSettings', 'claude-unbound');
+      case "openSettings":
+        vscode.commands.executeCommand("workbench.action.openSettings", "claude-unbound");
         break;
+
+      case "renameSession":
+        try {
+          await renameSession(this.workspacePath, message.sessionId, message.newName);
+          this.postMessageToPanel(panel, { type: "sessionRenamed", sessionId: message.sessionId, newName: message.newName });
+          this.invalidateSessionsCache();
+          const { sessions, hasMore, nextOffset } = await this.getStoredSessions();
+          this.postMessageToPanel(panel, { type: "storedSessions", sessions, hasMore, nextOffset, isFirstPage: true });
+        } catch (err) {
+          log("[ChatPanelProvider] Error renaming session:", err);
+          this.postMessageToPanel(panel, {
+            type: "notification",
+            message: `Failed to rename session: ${err instanceof Error ? err.message : "Unknown error"}`,
+            notificationType: "error",
+          });
+        }
+        break;
+
+      case "requestMoreHistory":
+        log("[ChatPanelProvider] requestMoreHistory:", message.sessionId, "offset:", message.offset);
+        await this.loadMoreHistory(message.sessionId, message.offset, panel);
+        break;
+
+      case "requestMoreSessions": {
+        log("[ChatPanelProvider] requestMoreSessions, offset:", message.offset);
+        const { sessions, hasMore, nextOffset } = await this.getStoredSessions(message.offset);
+        this.postMessageToPanel(panel, { type: "storedSessions", sessions, hasMore, nextOffset, isFirstPage: false });
+        break;
+      }
     }
   }
 
-  private sendCurrentSettings(): void {
-    const config = vscode.workspace.getConfiguration('claude-unbound');
+  private sendCurrentSettings(panel: vscode.WebviewPanel): void {
+    const config = vscode.workspace.getConfiguration("claude-unbound");
     const settings: ExtensionSettings = {
-      model: config.get<string>('model', ''),
-      maxTurns: config.get<number>('maxTurns', 50),
-      maxBudgetUsd: config.get<number | null>('maxBudgetUsd', null),
-      maxThinkingTokens: config.get<number | null>('maxThinkingTokens', null),
-      betasEnabled: config.get<string[]>('betasEnabled', []),
-      permissionMode: config.get<PermissionMode>('permissionMode', 'default'),
-      enableFileCheckpointing: config.get<boolean>('enableFileCheckpointing', true),
-      sandbox: config.get('sandbox', { enabled: false }),
+      model: config.get<string>("model", ""),
+      maxTurns: config.get<number>("maxTurns", 50),
+      maxBudgetUsd: config.get<number | null>("maxBudgetUsd", null),
+      maxThinkingTokens: config.get<number | null>("maxThinkingTokens", null),
+      betasEnabled: config.get<string[]>("betasEnabled", []),
+      permissionMode: config.get<PermissionMode>("permissionMode", "default"),
+      enableFileCheckpointing: config.get<boolean>("enableFileCheckpointing", true),
+      sandbox: config.get("sandbox", { enabled: false }),
     };
-    this.postMessage({ type: 'settingsUpdate', settings });
+    this.postMessageToPanel(panel, { type: "settingsUpdate", settings });
   }
 
-  private async sendAvailableModels(): Promise<void> {
-    const models = await this.session?.getSupportedModels();
+  private async sendAvailableModels(session: ClaudeSession, panel: vscode.WebviewPanel): Promise<void> {
+    const models = await session.getSupportedModels();
     if (models && models.length > 0) {
-      this.postMessage({ type: 'availableModels', models });
+      this.postMessageToPanel(panel, { type: "availableModels", models });
     }
   }
 
-  private async sendMcpStatus(): Promise<void> {
-    const status = await this.session?.getMcpServerStatus();
+  private async sendMcpStatus(session: ClaudeSession, panel: vscode.WebviewPanel): Promise<void> {
+    const status = await session.getMcpServerStatus();
     if (status) {
-      this.postMessage({ type: 'mcpServerStatus', servers: status });
+      this.postMessageToPanel(panel, { type: "mcpServerStatus", servers: status });
     }
   }
 
-  private async sendSupportedCommands(): Promise<void> {
-    const commands = await this.session?.getSupportedCommands();
+  private async sendSupportedCommands(session: ClaudeSession, panel: vscode.WebviewPanel): Promise<void> {
+    const commands = await session.getSupportedCommands();
     if (commands) {
-      this.postMessage({ type: 'supportedCommands', commands });
+      this.postMessageToPanel(panel, { type: "supportedCommands", commands });
     }
   }
 
-  private postMessage(message: ExtensionToWebviewMessage): void {
-    this.panel?.webview.postMessage(message);
+  private postMessageToPanel(panel: vscode.WebviewPanel, message: ExtensionToWebviewMessage): void {
+    panel.webview.postMessage(message);
   }
 
   private getHtmlContent(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'assets', 'index.js')
-    );
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'assets', 'index.css')
-    );
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "assets", "index.js"));
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "assets", "index.css"));
 
     const nonce = this.getNonce();
 
@@ -340,27 +442,145 @@ export class ChatPanelProvider {
   }
 
   private getNonce(): string {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let text = "";
+    const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     for (let i = 0; i < 32; i++) {
       text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
     return text;
   }
 
+  private async loadSessionHistory(sessionId: string, panel: vscode.WebviewPanel): Promise<void> {
+    log("[ChatPanelProvider] loadSessionHistory:", sessionId);
+    const result = await readSessionEntriesPaginated(this.workspacePath, sessionId, 0, HISTORY_PAGE_SIZE);
+    log("[ChatPanelProvider] Loaded", result.entries.length, "of", result.totalCount, "entries");
+
+    const messages = this.convertEntriesToMessages(result.entries);
+
+    for (const msg of messages) {
+      if (msg.type === "user") {
+        this.postMessageToPanel(panel, {
+          type: "userReplay",
+          content: msg.content,
+          isSynthetic: false,
+        });
+      } else {
+        this.postMessageToPanel(panel, {
+          type: "assistantReplay",
+          content: msg.content,
+          thinking: msg.thinking,
+        });
+      }
+    }
+
+    if (result.hasMore) {
+      this.postMessageToPanel(panel, {
+        type: "historyChunk",
+        messages: [],
+        hasMore: result.hasMore,
+        nextOffset: result.nextOffset,
+      });
+    }
+    log("[ChatPanelProvider] Session history replay complete");
+  }
+
+  private async loadMoreHistory(sessionId: string, offset: number, panel: vscode.WebviewPanel): Promise<void> {
+    log("[ChatPanelProvider] loadMoreHistory:", sessionId, "offset:", offset);
+    const result = await readSessionEntriesPaginated(this.workspacePath, sessionId, offset, HISTORY_PAGE_SIZE);
+
+    const messages = this.convertEntriesToMessages(result.entries);
+    log("[ChatPanelProvider] Sending", messages.length, "more messages, hasMore:", result.hasMore);
+
+    this.postMessageToPanel(panel, {
+      type: "historyChunk",
+      messages,
+      hasMore: result.hasMore,
+      nextOffset: result.nextOffset,
+    });
+  }
+
+  private convertEntriesToMessages(
+    entries: ReturnType<typeof readSessionEntries> extends Promise<infer T> ? T : never
+  ): Array<{ type: "user" | "assistant"; content: string; thinking?: string }> {
+    const messages: Array<{ type: "user" | "assistant"; content: string; thinking?: string }> = [];
+
+    for (const entry of entries) {
+      if (entry.type === "user" && entry.message && !entry.isMeta) {
+        const content =
+          typeof entry.message.content === "string"
+            ? entry.message.content
+            : Array.isArray(entry.message.content)
+            ? entry.message.content
+                .filter((b): b is { type: string; text: string } => b.type === "text" && typeof b.text === "string")
+                .map((b) => b.text)
+                .join("")
+            : "";
+
+        if (
+          !content ||
+          content.startsWith("<command-name>") ||
+          content.startsWith("<local-command-") ||
+          content.startsWith("Unknown slash command:") ||
+          content.startsWith("Caveat:")
+        ) {
+          continue;
+        }
+
+        messages.push({ type: "user", content });
+      } else if (entry.type === "assistant" && entry.message) {
+        const msgContent = entry.message.content;
+        let textContent = "";
+        let thinkingContent = "";
+
+        if (typeof msgContent === "string") {
+          textContent = msgContent;
+        } else if (Array.isArray(msgContent)) {
+          textContent = msgContent
+            .filter((b): b is { type: string; text?: string } => b.type === "text" && typeof b.text === "string")
+            .map((b) => b.text || "")
+            .join("");
+          thinkingContent = msgContent
+            .filter((b): b is { type: string; thinking?: string } => b.type === "thinking" && typeof b.thinking === "string")
+            .map((b) => b.thinking || "")
+            .join("\n\n");
+        }
+
+        if ((!textContent && !thinkingContent) || textContent === "No response requested.") {
+          continue;
+        }
+
+        messages.push({
+          type: "assistant",
+          content: textContent,
+          thinking: thinkingContent || undefined,
+        });
+      }
+    }
+
+    return messages;
+  }
+
   newSession(): void {
-    this.session?.reset();
-    this.postMessage({ type: 'processing', isProcessing: false });
-    this.postMessage({ type: 'sessionCleared' });
+    for (const [, instance] of this.panels) {
+      instance.session.reset();
+      this.postMessageToPanel(instance.panel, { type: "processing", isProcessing: false });
+      this.postMessageToPanel(instance.panel, { type: "sessionCleared" });
+    }
   }
 
   cancelSession(): void {
-    this.session?.cancel();
+    for (const [, instance] of this.panels) {
+      instance.session.cancel();
+    }
   }
 
   dispose(): void {
-    this.session?.cancel();
-    this.permissionHandler.dispose();
-    this.disposables.forEach((d) => d.dispose());
+    for (const [, instance] of this.panels) {
+      instance.session.cancel();
+      instance.permissionHandler.dispose();
+      instance.disposables.forEach((d) => d.dispose());
+      instance.panel.dispose();
+    }
+    this.panels.clear();
   }
 }

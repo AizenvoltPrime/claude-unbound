@@ -51,9 +51,25 @@ const sessionStats = ref<SessionStatsType>({
 const accessedFiles = ref<Map<string, FileEntry>>(new Map());
 const storedSessions = ref<StoredSession[]>([]);
 const showSessionPicker = ref(false);
+const selectedSessionId = ref<string | null>(null);  // Currently selected/resumed session
+const renamingSessionId = ref<string | null>(null);
+const renameInputValue = ref('');
+const renameInputRef = ref<HTMLInputElement | null>(null);
+// Session list pagination state
+const sessionPickerRef = ref<HTMLElement | null>(null);
+const hasMoreSessions = ref(false);
+const nextSessionsOffset = ref(0);
+const loadingMoreSessions = ref(false);
+// History pagination state
+const messageContainerRef = ref<HTMLElement | null>(null);
+const hasMoreHistory = ref(false);
+const nextHistoryOffset = ref(0);
+const loadingMoreHistory = ref(false);
+const currentResumedSessionId = ref<string | null>(null);
 const currentNotification = ref<{ id: number; message: string; type: string } | null>(null);
 let notificationId = 0;
 const pendingTool = ref<{ name: string; input: unknown } | null>(null);
+const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
 
 // New state for SDK features
 const availableModels = ref<ModelInfo[]>([]);
@@ -100,6 +116,12 @@ const lastAccessedFile = computed(() => {
   return files[files.length - 1].path;
 });
 
+// Get the selected session object for display
+const selectedSession = computed(() => {
+  if (!selectedSessionId.value) return null;
+  return storedSessions.value.find(s => s.id === selectedSessionId.value) || null;
+});
+
 function trackFileAccess(toolName: string, input: Record<string, unknown>) {
   const filePath = input.file_path as string | undefined;
   if (!filePath) return;
@@ -140,12 +162,110 @@ function handleCancel() {
 }
 
 function handleResumeSession(sessionId: string) {
+  webLog('[App] handleResumeSession clicked:', sessionId);
+
+  // Clear previous session's data before loading new session
+  messages.value = [];
+  accessedFiles.value.clear();
+  toolStatusCache.value.clear();
+  sessionStats.value = { totalCostUsd: 0, totalInputTokens: 0, totalOutputTokens: 0, numTurns: 0 };
+
+  // Reset pagination state for new session
+  currentResumedSessionId.value = sessionId;
+  selectedSessionId.value = sessionId;  // Track selected session for UI
+  hasMoreHistory.value = false;
+  nextHistoryOffset.value = 0;
+  loadingMoreHistory.value = false;
   postMessage({ type: 'resumeSession', sessionId });
-  showSessionPicker.value = false;
+  // Don't close the picker - let user see the selection like a select box
 }
 
 function toggleSessionPicker() {
   showSessionPicker.value = !showSessionPicker.value;
+}
+
+function startRenameSession(sessionId: string, currentName: string) {
+  renamingSessionId.value = sessionId;
+  renameInputValue.value = currentName;
+  // Focus the input after Vue renders the input element
+  nextTick(() => {
+    renameInputRef.value?.focus();
+    renameInputRef.value?.select();
+  });
+}
+
+function cancelRenameSession() {
+  renamingSessionId.value = null;
+  renameInputValue.value = '';
+}
+
+function submitRenameSession() {
+  if (renamingSessionId.value && renameInputValue.value.trim()) {
+    postMessage({
+      type: 'renameSession',
+      sessionId: renamingSessionId.value,
+      newName: renameInputValue.value.trim(),
+    });
+    cancelRenameSession();
+  }
+}
+
+// Load more history when scrolling to top
+function loadMoreHistory() {
+  if (!hasMoreHistory.value || loadingMoreHistory.value || !currentResumedSessionId.value) {
+    return;
+  }
+
+  webLog('[App] Loading more history, offset:', nextHistoryOffset.value);
+  loadingMoreHistory.value = true;
+  postMessage({
+    type: 'requestMoreHistory',
+    sessionId: currentResumedSessionId.value,
+    offset: nextHistoryOffset.value,
+  });
+}
+
+// Handle scroll to detect when user is near the top
+function handleMessageScroll(event: Event) {
+  const container = event.target as HTMLElement;
+  if (!container) return;
+
+  // Load more when scrolled within 100px of the top
+  if (container.scrollTop < 100 && hasMoreHistory.value && !loadingMoreHistory.value) {
+    loadMoreHistory();
+  }
+}
+
+// Load more sessions when scrolling to bottom of session picker
+function loadMoreSessions() {
+  if (!hasMoreSessions.value || loadingMoreSessions.value) {
+    return;
+  }
+
+  webLog('[App] Loading more sessions, offset:', nextSessionsOffset.value);
+  loadingMoreSessions.value = true;
+  postMessage({
+    type: 'requestMoreSessions',
+    offset: nextSessionsOffset.value,
+  });
+}
+
+// Handle scroll in session picker
+function handleSessionPickerScroll(event: Event) {
+  const container = event.target as HTMLElement;
+  if (!container) return;
+
+  // Load more when scrolled within 50px of the bottom
+  const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+  if (scrollBottom < 50 && hasMoreSessions.value && !loadingMoreSessions.value) {
+    loadMoreSessions();
+  }
+}
+
+function getSessionDisplayName(session: StoredSession): string {
+  // Priority: customTitle (user-set name) > preview (first user message)
+  // Note: slug is an internal identifier, not shown to users
+  return session.customTitle || session.preview;
 }
 
 function formatSessionTime(timestamp: number): string {
@@ -305,7 +425,8 @@ function handlePermissionApproval(approved: boolean, options?: { neverAskAgain?:
 }
 
 // Tool interrupt handler
-function handleInterrupt(toolId: string) {
+// Note: toolId is passed from ToolCallCard but current SDK only supports global interrupt
+function handleInterrupt(_toolId: string) {
   postMessage({ type: 'interrupt' });
 }
 
@@ -524,7 +645,17 @@ onMounted(() => {
         break;
 
       case 'storedSessions':
-        storedSessions.value = message.sessions;
+        loadingMoreSessions.value = false;
+        // First page: replace list. Pagination: append to list.
+        // Use explicit isFirstPage flag from server (falls back to checking if we have no sessions)
+        const isFirstPage = message.isFirstPage ?? storedSessions.value.length === 0;
+        if (isFirstPage) {
+          storedSessions.value = message.sessions;
+        } else {
+          storedSessions.value = [...storedSessions.value, ...message.sessions];
+        }
+        hasMoreSessions.value = message.hasMore ?? false;
+        nextSessionsOffset.value = message.nextOffset ?? message.sessions.length;
         break;
 
       case 'sessionCleared':
@@ -533,6 +664,17 @@ onMounted(() => {
         toolStatusCache.value.clear();
         sessionStats.value = { totalCostUsd: 0, totalInputTokens: 0, totalOutputTokens: 0, numTurns: 0 };
         currentSessionId.value = null;
+        selectedSessionId.value = null;  // Clear selection when session is cleared
+        // Reset pagination state
+        currentResumedSessionId.value = null;
+        hasMoreHistory.value = false;
+        nextHistoryOffset.value = 0;
+        loadingMoreHistory.value = false;
+        break;
+
+      case 'sessionRenamed':
+        webLog('[App] Session renamed:', message.sessionId, '->', message.newName);
+        // The storedSessions will be refreshed by the extension after renaming
         break;
 
       case 'toolPending':
@@ -767,6 +909,7 @@ onMounted(() => {
 
       // New: User message replay (for resumed sessions)
       case 'userReplay':
+        webLog('[App] userReplay received:', message.content.slice(0, 50));
         messages.value.push({
           id: generateId(),
           role: 'user',
@@ -775,6 +918,54 @@ onMounted(() => {
           isReplay: true,
         });
         break;
+
+      // New: Assistant message replay (for resumed sessions)
+      case 'assistantReplay':
+        webLog('[App] assistantReplay received:', message.content.slice(0, 50));
+        messages.value.push({
+          id: generateId(),
+          role: 'assistant',
+          content: message.content,
+          thinking: message.thinking,
+          timestamp: Date.now(),
+          isReplay: true,
+        });
+        break;
+
+      // History pagination chunk
+      case 'historyChunk': {
+        webLog('[App] historyChunk received:', message.messages.length, 'messages, hasMore:', message.hasMore);
+        loadingMoreHistory.value = false;
+        hasMoreHistory.value = message.hasMore;
+        nextHistoryOffset.value = message.nextOffset;
+
+        // Prepend older messages to the front of the list
+        if (message.messages.length > 0) {
+          const container = messageContainerRef.value;
+          const previousScrollHeight = container?.scrollHeight || 0;
+
+          const olderMessages: ChatMessage[] = message.messages.map(msg => ({
+            id: generateId(),
+            role: msg.type,
+            content: msg.content,
+            thinking: msg.thinking,
+            timestamp: Date.now(),
+            isReplay: true,
+          }));
+
+          // Prepend to front (older messages come first)
+          messages.value = [...olderMessages, ...messages.value];
+
+          // Maintain scroll position after prepending
+          nextTick(() => {
+            if (container) {
+              const newScrollHeight = container.scrollHeight;
+              container.scrollTop = newScrollHeight - previousScrollHeight;
+            }
+          });
+        }
+        break;
+      }
 
       // New: Session lifecycle
       case 'sessionStart':
@@ -796,7 +987,13 @@ onMounted(() => {
   });
 
   // Notify extension that webview is ready
+  webLog('[App] Sending ready message to extension');
   postMessage({ type: 'ready' });
+
+  // Auto-focus the chat input when panel opens
+  nextTick(() => {
+    chatInputRef.value?.focus();
+  });
 });
 </script>
 
@@ -841,38 +1038,128 @@ onMounted(() => {
     <!-- Active Subagents Indicator -->
     <SubagentIndicator :subagents="activeSubagents" />
 
-    <!-- Session picker dropdown -->
-    <div v-if="storedSessions.length > 0 && messages.length === 0" class="px-3 py-2 border-b border-unbound-cyan-900/30 bg-unbound-bg-light">
+    <!-- Session picker dropdown (select-box style) -->
+    <div v-if="storedSessions.length > 0" class="px-3 py-2 border-b border-unbound-cyan-900/30 bg-unbound-bg-light">
       <button
-        class="text-xs text-unbound-cyan-400 hover:text-unbound-glow flex items-center gap-1"
+        class="w-full text-xs text-unbound-cyan-400 hover:text-unbound-glow flex items-center gap-2 p-2 rounded border border-unbound-cyan-800/50 hover:border-unbound-cyan-600/50 transition-colors bg-unbound-bg"
         @click="toggleSessionPicker"
       >
         <span>📋</span>
-        <span>Resume previous session ({{ storedSessions.length }})</span>
-        <span>{{ showSessionPicker ? '▲' : '▼' }}</span>
+        <span v-if="selectedSession" class="flex-1 text-left truncate text-unbound-text">
+          {{ getSessionDisplayName(selectedSession) }}
+        </span>
+        <span v-else class="flex-1 text-left text-unbound-muted">
+          Select a session ({{ storedSessions.length }})
+        </span>
+        <span class="text-unbound-muted">{{ showSessionPicker ? '▲' : '▼' }}</span>
       </button>
 
-      <div v-if="showSessionPicker" class="mt-2 space-y-1 max-h-40 overflow-y-auto">
-        <button
+      <div
+        v-if="showSessionPicker"
+        ref="sessionPickerRef"
+        class="mt-2 space-y-1 max-h-64 overflow-y-auto border border-unbound-cyan-800/30 rounded bg-unbound-bg"
+        @scroll="handleSessionPickerScroll"
+      >
+        <div
           v-for="session in storedSessions"
           :key="session.id"
-          class="w-full text-left p-2 text-xs rounded hover:bg-unbound-cyan-900/30 transition-colors text-unbound-text"
-          @click="handleResumeSession(session.id)"
+          class="group relative"
         >
-          <div class="font-medium truncate">{{ session.preview }}</div>
-          <div class="text-unbound-muted">{{ formatSessionTime(session.timestamp) }}</div>
-        </button>
+          <!-- Rename input mode -->
+          <div v-if="renamingSessionId === session.id" class="flex items-center gap-2 p-2 rounded bg-unbound-bg-card">
+            <input
+              ref="renameInputRef"
+              v-model="renameInputValue"
+              type="text"
+              class="flex-1 px-2 py-1 text-xs bg-unbound-bg border border-unbound-cyan-700 rounded text-unbound-text focus:outline-none focus:border-unbound-cyan-500"
+              placeholder="Enter new name..."
+              @keyup.enter="submitRenameSession"
+              @keyup.escape="cancelRenameSession"
+            />
+            <button
+              class="px-2 py-1 text-xs bg-unbound-cyan-700 hover:bg-unbound-cyan-600 rounded text-unbound-text"
+              @click="submitRenameSession"
+            >✓</button>
+            <button
+              class="px-2 py-1 text-xs bg-unbound-bg hover:bg-unbound-cyan-900/30 rounded text-unbound-muted"
+              @click="cancelRenameSession"
+            >✗</button>
+          </div>
+          <!-- Normal display mode -->
+          <div v-else class="flex items-center">
+            <button
+              class="flex-1 text-left p-2 text-xs rounded transition-colors text-unbound-text"
+              :class="[
+                selectedSessionId === session.id
+                  ? 'bg-unbound-cyan-900/50 border-l-2 border-unbound-cyan-400'
+                  : 'hover:bg-unbound-cyan-900/30'
+              ]"
+              @click="handleResumeSession(session.id)"
+            >
+              <div class="font-medium truncate flex items-center gap-1">
+                <span v-if="selectedSessionId === session.id" class="text-unbound-cyan-400">✓</span>
+                {{ getSessionDisplayName(session) }}
+              </div>
+              <div class="text-unbound-muted" :class="{ 'ml-4': selectedSessionId === session.id }">
+                {{ formatSessionTime(session.timestamp) }}
+              </div>
+            </button>
+            <button
+              class="p-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity text-unbound-muted hover:text-unbound-cyan-400"
+              title="Rename session"
+              @click.stop="startRenameSession(session.id, getSessionDisplayName(session))"
+            >✏️</button>
+          </div>
+        </div>
+        <!-- Load more indicator -->
+        <div v-if="hasMoreSessions || loadingMoreSessions" class="text-center py-2">
+          <button
+            v-if="!loadingMoreSessions"
+            class="text-xs text-unbound-cyan-400 hover:text-unbound-glow"
+            @click="loadMoreSessions"
+          >
+            ↓ Load more sessions
+          </button>
+          <div v-else class="text-xs text-unbound-muted animate-pulse">
+            Loading...
+          </div>
+        </div>
       </div>
     </div>
 
-    <MessageList
-      :messages="messages"
-      :compact-markers="compactMarkersList"
-      :checkpoint-messages="checkpointMessages"
+    <div
+      ref="messageContainerRef"
       class="flex-1 min-h-0 overflow-y-auto message-container"
-      @rewind="handleRequestRewind"
-      @interrupt="handleInterrupt"
-    />
+      @scroll="handleMessageScroll"
+    >
+      <!-- Load more history indicator -->
+      <div
+        v-if="hasMoreHistory || loadingMoreHistory"
+        class="text-center py-3"
+      >
+        <button
+          v-if="!loadingMoreHistory"
+          class="text-xs text-unbound-cyan-400 hover:text-unbound-glow px-3 py-1.5 rounded-full border border-unbound-cyan-700 hover:border-unbound-cyan-500 transition-colors"
+          @click="loadMoreHistory"
+        >
+          ↑ Load earlier messages
+        </button>
+        <div
+          v-else
+          class="text-xs text-unbound-muted animate-pulse"
+        >
+          Loading history...
+        </div>
+      </div>
+
+      <MessageList
+        :messages="messages"
+        :compact-markers="compactMarkersList"
+        :checkpoint-messages="checkpointMessages"
+        @rewind="handleRequestRewind"
+        @interrupt="handleInterrupt"
+      />
+    </div>
 
     <!-- Pending tool indicator -->
     <div
@@ -886,6 +1173,7 @@ onMounted(() => {
     <FileTree v-if="filesArray.length > 0" :files="filesArray" class="mx-3 mb-2" />
     <SessionStats :stats="sessionStats" />
     <ChatInput
+      ref="chatInputRef"
       :is-processing="isProcessing"
       :permission-mode="currentSettings.permissionMode"
       :current-file="lastAccessedFile"

@@ -26,7 +26,8 @@
     "unbound"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onWebviewPanel:claude-unbound.chat"
   ],
   "main": "./dist/extension.js",
   "contributes": {

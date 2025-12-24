@@ -137,7 +137,12 @@
       "Bash(npm install:*)",
       "Bash(npm run build:extension:*)",
       "Bash(npm ls:*)",
-      "Bash(identify:*)"
+      "Bash(identify:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node -e:*)",
+      "Bash(npm run typecheck:extension:*)",
+      "Bash(npm run:*)",
+      "WebFetch(domain:marketplace.visualstudio.com)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
