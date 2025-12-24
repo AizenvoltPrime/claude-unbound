@@ -484,13 +484,15 @@ export class ClaudeSession {
             // This ensures each distinct assistant message appears in UI as it completes
             if (this.pendingAssistant && this.pendingAssistant.id !== message.message.id) {
               this.flushPendingAssistant();
-              // Start fresh streaming content for the new message
-              this.streamingContent = { messageId: message.message.id, thinking: '', text: '', isThinking: false, hasStreamedTools: false };
-              log('[ClaudeSession] Started new streamingContent for message:', message.message.id);
+              // Only reset streamingContent if not already set by message_start
+              if (this.streamingContent.messageId !== message.message.id) {
+                this.streamingContent = { messageId: message.message.id, thinking: '', text: '', isThinking: false, hasStreamedTools: false };
+                log('[ClaudeSession] Started new streamingContent for message:', message.message.id);
+              }
             } else if (!this.streamingContent.messageId) {
-              // First message - associate streaming content with this message ID
+              // Fallback: associate streaming content if message_start wasn't received
               this.streamingContent.messageId = message.message.id;
-              log('[ClaudeSession] Associated streamingContent with message:', message.message.id);
+              log('[ClaudeSession] Associated streamingContent with message (fallback):', message.message.id);
             }
 
             const serializedContent = this.serializeContent(message.message.content);
@@ -535,13 +537,35 @@ export class ClaudeSession {
             break;
 
           case 'stream_event': {
-            const event = message.event as { type: string; delta?: { type: string; text?: string; thinking?: string } };
+            const event = message.event as {
+              type: string;
+              message?: { id: string };
+              delta?: { type: string; text?: string; thinking?: string };
+            };
+
+            // Handle message_start FIRST to capture the message ID before any deltas arrive
+            // This ensures all partial events have a valid messageId
+            if (event.type === 'message_start' && event.message?.id) {
+              if (this.streamingContent.messageId && this.streamingContent.messageId !== event.message.id) {
+                // New message starting - flush any pending content from previous message
+                log('[ClaudeSession] message_start: New message ID, flushing previous:', this.streamingContent.messageId);
+                this.flushPendingAssistant();
+              }
+              this.streamingContent = {
+                messageId: event.message.id,
+                thinking: '',
+                text: '',
+                isThinking: false,
+                hasStreamedTools: false
+              };
+              log('[ClaudeSession] message_start: Initialized streamingContent with ID:', event.message.id);
+            }
+
             if (event.type === 'content_block_delta') {
               if (event.delta?.type === 'thinking_delta' && event.delta.thinking) {
                 // Always accumulate thinking content (for final message)
                 this.streamingContent.thinking += event.delta.thinking;
                 this.streamingContent.isThinking = true;
-                log('[ClaudeSession] stream_event: thinking_delta for msg:', this.streamingContent.messageId, 'length:', this.streamingContent.thinking.length, 'hasStreamedTools:', this.streamingContent.hasStreamedTools);
                 // Only send partial updates if we haven't streamed tools yet
                 // Once tools are visible, thinking content is "frozen" in the UI
                 if (!this.streamingContent.hasStreamedTools) {
@@ -561,22 +585,21 @@ export class ClaudeSession {
                 // Always accumulate text content (for final message)
                 this.streamingContent.text += event.delta.text;
                 this.streamingContent.isThinking = false;
-                log('[ClaudeSession] stream_event: text_delta for msg:', this.streamingContent.messageId, 'length:', this.streamingContent.text.length, 'hasStreamedTools:', this.streamingContent.hasStreamedTools);
-                // Only send partial updates if we haven't streamed tools yet
-                if (!this.streamingContent.hasStreamedTools) {
-                  this.options.onMessage({
+                log('[ClaudeSession] TEXT_DELTA sent, length:', this.streamingContent.text.length);
+                // ALWAYS stream text deltas - this is the final response and should appear in real-time
+                // (unlike thinking which is frozen once tools appear to avoid visual glitches above tool cards)
+                this.options.onMessage({
+                  type: 'partial',
+                  data: {
                     type: 'partial',
-                    data: {
-                      type: 'partial',
-                      content: [],
-                      session_id: this.sessionId || '',
-                      messageId: this.streamingContent.messageId,
-                      streamingThinking: this.streamingContent.thinking,
-                      streamingText: this.streamingContent.text,
-                      isThinking: false,
-                    },
-                  });
-                }
+                    content: [],
+                    session_id: this.sessionId || '',
+                    messageId: this.streamingContent.messageId,
+                    streamingThinking: this.streamingContent.thinking,
+                    streamingText: this.streamingContent.text,
+                    isThinking: false,
+                  },
+                });
               }
             }
             break;
@@ -649,8 +672,14 @@ export class ClaudeSession {
               session_id: string;
               is_error?: boolean;
               total_cost_usd?: number;
-              usage?: { input_tokens?: number; output_tokens?: number };
+              usage?: {
+                input_tokens?: number;
+                output_tokens?: number;
+                cache_creation_input_tokens?: number;
+                cache_read_input_tokens?: number;
+              };
               num_turns?: number;
+              modelUsage?: Record<string, { contextWindow?: number }>;
             };
             // Track accumulated cost
             if (resultMsg.total_cost_usd) {
@@ -678,6 +707,10 @@ export class ClaudeSession {
             }
             // Flush accumulated assistant message before signaling done
             this.flushPendingAssistant();
+            // Extract context window size from modelUsage (first model's contextWindow)
+            const contextWindowSize = resultMsg.modelUsage
+              ? Object.values(resultMsg.modelUsage)[0]?.contextWindow ?? 200000
+              : 200000;
             this.options.onMessage({
               type: 'done',
               data: {
@@ -687,7 +720,10 @@ export class ClaudeSession {
                 total_cost_usd: resultMsg.total_cost_usd,
                 total_input_tokens: resultMsg.usage?.input_tokens,
                 total_output_tokens: resultMsg.usage?.output_tokens,
+                cache_creation_tokens: resultMsg.usage?.cache_creation_input_tokens,
+                cache_read_tokens: resultMsg.usage?.cache_read_input_tokens,
                 num_turns: resultMsg.num_turns,
+                context_window_size: contextWindowSize,
               },
             });
             break;

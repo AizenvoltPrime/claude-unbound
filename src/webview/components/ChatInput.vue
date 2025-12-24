@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, type Component } from 'vue';
 import type { PermissionMode } from '@shared/types';
 import { Button } from '@/components/ui/button';
+import {
+  IconPencil,
+  IconCheck,
+  IconBolt,
+  IconClipboard,
+  IconHourglass,
+  IconArrowUp,
+} from '@/components/icons';
 
 const props = defineProps<{
   isProcessing: boolean;
@@ -28,11 +36,11 @@ defineExpose({ focus });
 const canSend = computed(() => inputText.value.trim().length > 0 && !props.isProcessing);
 
 // Permission mode configuration
-const modeConfig: Record<PermissionMode, { icon: string; label: string; shortLabel: string }> = {
-  default: { icon: '✏', label: 'Ask before edits', shortLabel: 'Ask' },
-  acceptEdits: { icon: '✓', label: 'Accept edits', shortLabel: 'Accept' },
-  bypassPermissions: { icon: '⚡', label: 'Bypass permissions', shortLabel: 'Bypass' },
-  plan: { icon: '📋', label: 'Plan mode', shortLabel: 'Plan' },
+const modeConfig: Record<PermissionMode, { icon: Component; label: string; shortLabel: string }> = {
+  default: { icon: IconPencil, label: 'Ask before edits', shortLabel: 'Ask' },
+  acceptEdits: { icon: IconCheck, label: 'Accept edits', shortLabel: 'Accept' },
+  bypassPermissions: { icon: IconBolt, label: 'Bypass permissions', shortLabel: 'Bypass' },
+  plan: { icon: IconClipboard, label: 'Plan mode', shortLabel: 'Plan' },
 };
 
 const modeOrder: PermissionMode[] = ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
@@ -94,12 +102,12 @@ const displayFile = computed(() => {
             <Button
               variant="ghost"
               size="sm"
-              class="h-auto px-2 py-1 text-xs text-unbound-muted hover:text-unbound-cyan-300"
+              class="h-auto px-2 py-1 text-xs text-unbound-muted hover:text-unbound-cyan-300 flex items-center gap-1.5"
               :disabled="isProcessing"
               @click="cycleMode"
               :title="`Click to change mode. Current: ${currentModeConfig.label}`"
             >
-              <span>{{ currentModeConfig.icon }}</span>
+              <component :is="currentModeConfig.icon" :size="12" />
               <span>{{ currentModeConfig.label }}</span>
             </Button>
 
@@ -133,8 +141,8 @@ const displayFile = computed(() => {
               class="w-8 h-8"
               @click="handleSend"
             >
-              <span v-if="isProcessing" class="text-sm">⏳</span>
-              <span v-else class="text-lg font-bold">↑</span>
+              <IconHourglass v-if="isProcessing" :size="14" />
+              <IconArrowUp v-else :size="16" />
             </Button>
           </div>
         </div>

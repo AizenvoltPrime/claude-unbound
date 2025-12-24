@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, type Component } from 'vue';
 import type { ToolCall } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
@@ -11,6 +11,24 @@ import {
   DialogTitle,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  IconHourglass,
+  IconGear,
+  IconLock,
+  IconCheckCircle,
+  IconXCircle,
+  IconCheck,
+  IconWarning,
+  IconBan,
+  IconFile,
+  IconPencil,
+  IconPencilSquare,
+  IconTerminal,
+  IconSearch,
+  IconGlobe,
+  IconWrench,
+  IconClipboard,
+} from '@/components/icons';
 
 const props = defineProps<{
   toolCall: ToolCall;
@@ -197,26 +215,26 @@ const diffLines = computed(() => {
   return result;
 });
 
-const statusIcon = computed(() => {
+const statusIconComponent = computed((): Component => {
   switch (props.toolCall.status) {
     case 'pending':
-      return '⏳';
+      return IconHourglass;
     case 'running':
-      return '⚙️';
+      return IconGear;
     case 'awaiting_approval':
-      return '🔒';
+      return IconLock;
     case 'approved':
-      return '✅';
+      return IconCheckCircle;
     case 'denied':
-      return '❌';
+      return IconXCircle;
     case 'completed':
-      return '✓';
+      return IconCheck;
     case 'failed':
-      return '⚠️';
+      return IconWarning;
     case 'abandoned':
-      return '⊘';  // Not executed
+      return IconBan;
     default:
-      return '•';
+      return IconGear;
   }
 });
 
@@ -252,20 +270,20 @@ const cardClass = computed(() => {
   return 'border-unbound-cyan-800/50';
 });
 
-const toolIcon = computed(() => {
-  const icons: Record<string, string> = {
-    Read: '📄',
-    Write: '✏️',
-    Edit: '📝',
-    Bash: '💻',
-    Glob: '🔍',
-    Grep: '🔎',
-    WebFetch: '🌐',
-    WebSearch: '🔍',
-    LSP: '🔧',
-    Task: '📋',
+const toolIconComponent = computed((): Component => {
+  const icons: Record<string, Component> = {
+    Read: IconFile,
+    Write: IconPencil,
+    Edit: IconPencilSquare,
+    Bash: IconTerminal,
+    Glob: IconSearch,
+    Grep: IconSearch,
+    WebFetch: IconGlobe,
+    WebSearch: IconSearch,
+    LSP: IconWrench,
+    Task: IconClipboard,
   };
-  return icons[props.toolCall.name] || '🔧';
+  return icons[props.toolCall.name] || IconWrench;
 });
 
 function formatInput(input: Record<string, unknown>): string {
@@ -294,13 +312,13 @@ function formatInput(input: Record<string, unknown>): string {
   <Card class="text-sm overflow-hidden" :class="cardClass">
     <!-- Header: Tool name and status -->
     <CardHeader class="flex flex-row items-center gap-2 px-3 py-1.5 bg-unbound-bg-card border-b border-unbound-cyan-900/30 space-y-0">
-      <span class="text-lg">{{ toolIcon }}</span>
+      <component :is="toolIconComponent" :size="18" class="text-unbound-cyan-400 shrink-0" />
       <span class="text-unbound-cyan-400 font-medium">{{ toolCall.name }}</span>
       <!-- For file ops, show file path -->
       <span v-if="isFileOperation && filePath" class="text-unbound-muted text-xs truncate max-w-[300px]">
         {{ filePath }}
       </span>
-      <span :class="statusClass" class="ml-auto">{{ statusIcon }}</span>
+      <component :is="statusIconComponent" :size="16" :class="statusClass" class="ml-auto shrink-0" />
 
       <!-- Running indicator with interrupt button -->
       <Button

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue';
+import { ref, watch, onUnmounted, type Component, markRaw } from 'vue';
 import { Button } from '@/components/ui/button';
+import { IconInfo, IconCheckCircle, IconWarning, IconXCircle, IconXMark } from '@/components/icons';
 
 const TOAST_DURATION_MS = 4000;
 
@@ -62,11 +63,11 @@ const typeStyles: Record<Toast['type'], string> = {
   error: 'bg-red-600',
 };
 
-const typeIcons: Record<Toast['type'], string> = {
-  info: 'ℹ️',
-  success: '✅',
-  warning: '⚠️',
-  error: '❌',
+const typeIcons: Record<Toast['type'], Component> = {
+  info: markRaw(IconInfo),
+  success: markRaw(IconCheckCircle),
+  warning: markRaw(IconWarning),
+  error: markRaw(IconXCircle),
 };
 
 defineExpose({ addToast });
@@ -84,7 +85,7 @@ defineExpose({ addToast });
             typeStyles[toast.type]
           ]"
         >
-          <span>{{ typeIcons[toast.type] }}</span>
+          <component :is="typeIcons[toast.type]" :size="16" class="shrink-0" />
           <span class="flex-1">{{ toast.message }}</span>
           <Button
             variant="ghost"
@@ -92,7 +93,7 @@ defineExpose({ addToast });
             class="opacity-70 hover:opacity-100 h-5 w-5 hover:bg-white/20"
             @click="removeToast(toast.id)"
           >
-            ✕
+            <IconXMark :size="12" />
           </Button>
         </div>
       </TransitionGroup>

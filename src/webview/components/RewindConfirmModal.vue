@@ -11,6 +11,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
+import { IconWarning } from '@/components/icons';
 
 defineProps<{
   visible: boolean;
@@ -32,7 +33,7 @@ const emit = defineEmits<{
         </AlertDialogTitle>
         <AlertDialogDescription>
           <div class="flex items-start gap-3 mt-2">
-            <span class="text-2xl shrink-0">⚠️</span>
+            <IconWarning :size="24" class="shrink-0 text-yellow-500" />
             <div>
               <p class="mb-2 text-foreground">
                 This will <strong>revert all file changes</strong> made after this point to their previous state.

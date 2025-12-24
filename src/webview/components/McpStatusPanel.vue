@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { McpServerStatusInfo } from '@shared/types';
+import type { Component } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -9,6 +10,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  IconCheckCircle,
+  IconXCircle,
+  IconKey,
+  IconHourglass,
+  IconGear,
+} from '@/components/icons';
 
 defineProps<{
   servers: McpServerStatusInfo[];
@@ -20,18 +28,18 @@ const emit = defineEmits<{
   (e: 'refresh'): void;
 }>();
 
-function getStatusIcon(status: McpServerStatusInfo['status']): string {
+function getStatusIcon(status: McpServerStatusInfo['status']): Component {
   switch (status) {
     case 'connected':
-      return '✅';
+      return IconCheckCircle;
     case 'failed':
-      return '❌';
+      return IconXCircle;
     case 'needs-auth':
-      return '🔐';
+      return IconKey;
     case 'pending':
-      return '⏳';
+      return IconHourglass;
     default:
-      return '•';
+      return IconGear;
   }
 }
 
@@ -100,7 +108,7 @@ function getStatusClass(status: McpServerStatusInfo['status']): string {
             <CardContent class="p-3">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <span>{{ getStatusIcon(server.status) }}</span>
+                  <component :is="getStatusIcon(server.status)" :size="16" :class="getStatusClass(server.status)" />
                   <span class="font-medium">{{ server.name }}</span>
                 </div>
                 <span

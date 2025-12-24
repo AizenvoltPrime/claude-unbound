@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, type Component } from 'vue';
 import type { McpServerStatusInfo } from '@shared/types';
 import { Button } from '@/components/ui/button';
+import { IconCheck, IconExclamation } from '@/components/icons';
 
 const props = defineProps<{
   servers: McpServerStatusInfo[];
@@ -13,7 +14,7 @@ defineEmits<{
 
 const statusSummary = computed(() => {
   if (props.servers.length === 0) {
-    return { icon: '', label: '', color: '' };
+    return { icon: null, label: '', color: '', text: '' };
   }
 
   const connected = props.servers.filter(s => s.status === 'connected').length;
@@ -23,24 +24,27 @@ const statusSummary = computed(() => {
 
   if (pending > 0) {
     return {
-      icon: '...',
+      icon: null,
       label: `MCP: ${connected}/${total} connecting`,
       color: 'text-yellow-500',
+      text: '...',
     };
   }
 
   if (failed > 0) {
     return {
-      icon: '!',
+      icon: IconExclamation,
       label: `MCP: ${connected}/${total} (${failed} failed)`,
       color: 'text-red-500',
+      text: '',
     };
   }
 
   return {
-    icon: '✓',
+    icon: IconCheck,
     label: `MCP: ${connected}/${total}`,
     color: 'text-green-500',
+    text: '',
   };
 });
 
@@ -57,10 +61,11 @@ const hasServers = computed(() => props.servers.length > 0);
     @click="$emit('click')"
   >
     <span
-      class="w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-bold"
+      class="w-4 h-4 flex items-center justify-center rounded-full"
       :class="statusSummary.color"
     >
-      {{ statusSummary.icon }}
+      <component v-if="statusSummary.icon" :is="statusSummary.icon" :size="12" />
+      <span v-else class="text-[10px] font-bold">{{ statusSummary.text }}</span>
     </span>
     <span class="hidden sm:inline opacity-70">{{ servers.length }} MCP</span>
   </Button>

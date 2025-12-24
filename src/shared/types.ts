@@ -234,7 +234,10 @@ export interface ResultMessage {
   total_cost_usd?: number;
   total_input_tokens?: number;
   total_output_tokens?: number;
+  cache_creation_tokens?: number;
+  cache_read_tokens?: number;
   num_turns?: number;
+  context_window_size?: number;
 }
 
 // Messages from Webview → Extension
@@ -360,7 +363,10 @@ export interface SessionStats {
   totalCostUsd: number;
   totalInputTokens: number;
   totalOutputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
   numTurns: number;
+  contextWindowSize: number;
 }
 
 export interface FileEntry {

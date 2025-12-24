@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, type Component } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { IconStop, IconWarning, IconXMark } from '@/components/icons';
 
 const props = defineProps<{
   currentSpend: number;
@@ -31,7 +32,7 @@ const alertClass = computed(() => {
   return 'bg-yellow-900/30 border-yellow-600/50';
 });
 
-const iconEmoji = computed(() => props.exceeded ? '🛑' : '⚠️');
+const iconComponent = computed((): Component => props.exceeded ? IconStop : IconWarning);
 </script>
 
 <template>
@@ -39,7 +40,7 @@ const iconEmoji = computed(() => props.exceeded ? '🛑' : '⚠️');
     class="flex items-center gap-3 px-4 py-2 rounded-none border-x-0 border-t-0"
     :class="alertClass"
   >
-    <span class="text-lg shrink-0">{{ iconEmoji }}</span>
+    <component :is="iconComponent" :size="20" class="shrink-0" />
 
     <div class="flex-1 min-w-0">
       <AlertTitle v-if="exceeded" class="font-medium text-red-400 mb-0">
@@ -69,7 +70,7 @@ const iconEmoji = computed(() => props.exceeded ? '🛑' : '⚠️');
       @click="$emit('dismiss')"
       title="Dismiss"
     >
-      &times;
+      <IconXMark :size="12" />
     </Button>
   </Alert>
 </template>

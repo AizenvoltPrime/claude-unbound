@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   messages: ChatMessage[];
+  streamingMessage?: ChatMessage | null; // Separate streaming message (isolated from messages array)
   compactMarkers?: CompactMarkerType[];
   checkpointMessages?: Set<string>; // Message IDs that have file checkpoints
 }>();
@@ -75,9 +76,9 @@ function formatMarkdown(text: string): string {
 </script>
 
 <template>
-  <div class="p-4 space-y-4 bg-unbound-bg" :class="messages.length === 0 ? 'flex flex-col justify-center items-center' : ''">
+  <div class="p-4 space-y-4 bg-unbound-bg" :class="messages.length === 0 && !streamingMessage ? 'flex flex-col justify-center items-center' : ''">
     <!-- Welcome message -->
-    <div v-if="messages.length === 0" class="text-center">
+    <div v-if="messages.length === 0 && !streamingMessage" class="text-center">
       <div class="mb-4 text-5xl">⚡</div>
       <p class="text-xl mb-2 text-unbound-glow font-medium">Welcome to Claude Unbound</p>
       <p class="text-sm text-unbound-muted">Unleash the full power of Claude AI. Ask anything about your code or let me help you build something new.</p>
@@ -126,13 +127,7 @@ function formatMarkdown(text: string): string {
           :is-streaming="message.isThinkingPhase"
         />
 
-        <div
-          class="prose prose-sm max-w-none prose-unbound pl-4"
-          :class="message.isPartial && 'opacity-80'"
-          v-html="formatMarkdown(message.content)"
-        />
-
-        <!-- Tool calls -->
+        <!-- Tool calls appear BEFORE text (Claude: think → use tools → respond) -->
         <div v-if="message.toolCalls?.length" class="pl-4 space-y-2">
           <ToolCallCard
             v-for="tool in message.toolCalls"
@@ -141,8 +136,46 @@ function formatMarkdown(text: string): string {
             @interrupt="emit('interrupt', $event)"
           />
         </div>
+
+        <!-- Final text response appears AFTER tools -->
+        <div
+          v-if="message.content"
+          class="prose prose-sm max-w-none prose-unbound pl-4"
+          :class="message.isPartial && 'opacity-80'"
+          v-html="formatMarkdown(message.content)"
+        />
       </div>
     </template>
+
+    <!-- Streaming message (isolated from messages array to prevent flashing) -->
+    <div
+      v-if="streamingMessage"
+      class="group relative space-y-3"
+    >
+      <ThinkingIndicator
+        v-if="streamingMessage.thinking || streamingMessage.isPartial"
+        :thinking="streamingMessage.thinking"
+        :is-streaming="streamingMessage.isThinkingPhase"
+      />
+
+      <!-- Tool calls appear BEFORE text (Claude: think → use tools → respond) -->
+      <div v-if="streamingMessage.toolCalls?.length" class="pl-4 space-y-2">
+        <ToolCallCard
+          v-for="tool in streamingMessage.toolCalls"
+          :key="tool.id"
+          :tool-call="tool"
+          @interrupt="emit('interrupt', $event)"
+        />
+      </div>
+
+      <!-- Final text response appears AFTER tools -->
+      <div
+        v-if="streamingMessage.content"
+        class="prose prose-sm max-w-none prose-unbound pl-4"
+        :class="streamingMessage.isPartial && 'opacity-80'"
+        v-html="formatMarkdown(streamingMessage.content)"
+      />
+    </div>
   </div>
 </template>
 
