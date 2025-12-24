@@ -115,8 +115,8 @@
           ],
           "default": null,
           "minimum": 1000,
-          "maximum": 100000,
-          "description": "Maximum tokens for extended thinking/reasoning (null for default)"
+          "maximum": 63999,
+          "description": "Maximum tokens for extended thinking/reasoning (null to disable)"
         },
         "claude-unbound.betasEnabled": {
           "type": "array",

@@ -288,21 +288,21 @@ export class ChatPanelProvider {
 
       case "setModel": {
         const config = vscode.workspace.getConfiguration("claude-unbound");
-        await config.update("model", message.model, vscode.ConfigurationTarget.Workspace);
+        await config.update("model", message.model, vscode.ConfigurationTarget.Global);
         await session.setModel(message.model);
         break;
       }
 
       case "setMaxThinkingTokens": {
         const config = vscode.workspace.getConfiguration("claude-unbound");
-        await config.update("maxThinkingTokens", message.tokens, vscode.ConfigurationTarget.Workspace);
+        await config.update("maxThinkingTokens", message.tokens, vscode.ConfigurationTarget.Global);
         await session.setMaxThinkingTokens(message.tokens);
         break;
       }
 
       case "setBudgetLimit": {
         const config = vscode.workspace.getConfiguration("claude-unbound");
-        await config.update("maxBudgetUsd", message.budgetUsd, vscode.ConfigurationTarget.Workspace);
+        await config.update("maxBudgetUsd", message.budgetUsd, vscode.ConfigurationTarget.Global);
         break;
       }
 
@@ -310,13 +310,13 @@ export class ChatPanelProvider {
         const config = vscode.workspace.getConfiguration("claude-unbound");
         const currentBetas = config.get<string[]>("betasEnabled", []);
         const newBetas = message.enabled ? [...currentBetas, message.beta] : currentBetas.filter((b) => b !== message.beta);
-        await config.update("betasEnabled", newBetas, vscode.ConfigurationTarget.Workspace);
+        await config.update("betasEnabled", newBetas, vscode.ConfigurationTarget.Global);
         break;
       }
 
       case "setPermissionMode": {
         const config = vscode.workspace.getConfiguration("claude-unbound");
-        await config.update("permissionMode", message.mode, vscode.ConfigurationTarget.Workspace);
+        await config.update("permissionMode", message.mode, vscode.ConfigurationTarget.Global);
         await session.setPermissionMode(message.mode);
         break;
       }
@@ -373,14 +373,14 @@ export class ChatPanelProvider {
   private sendCurrentSettings(panel: vscode.WebviewPanel): void {
     const config = vscode.workspace.getConfiguration("claude-unbound");
     const settings: ExtensionSettings = {
-      model: config.get<string>("model", ""),
-      maxTurns: config.get<number>("maxTurns", 50),
-      maxBudgetUsd: config.get<number | null>("maxBudgetUsd", null),
-      maxThinkingTokens: config.get<number | null>("maxThinkingTokens", null),
-      betasEnabled: config.get<string[]>("betasEnabled", []),
-      permissionMode: config.get<PermissionMode>("permissionMode", "default"),
-      enableFileCheckpointing: config.get<boolean>("enableFileCheckpointing", true),
-      sandbox: config.get("sandbox", { enabled: false }),
+      model: config.inspect<string>("model")?.globalValue ?? "",
+      maxTurns: config.inspect<number>("maxTurns")?.globalValue ?? 50,
+      maxBudgetUsd: config.inspect<number | null>("maxBudgetUsd")?.globalValue ?? null,
+      maxThinkingTokens: config.inspect<number | null>("maxThinkingTokens")?.globalValue ?? null,
+      betasEnabled: config.inspect<string[]>("betasEnabled")?.globalValue ?? [],
+      permissionMode: config.inspect<PermissionMode>("permissionMode")?.globalValue ?? "default",
+      enableFileCheckpointing: config.inspect<boolean>("enableFileCheckpointing")?.globalValue ?? true,
+      sandbox: config.inspect<{ enabled: boolean }>("sandbox")?.globalValue ?? { enabled: false },
     };
     this.postMessageToPanel(panel, { type: "settingsUpdate", settings });
   }

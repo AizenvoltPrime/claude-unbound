@@ -40,6 +40,7 @@ const emit = defineEmits<{
 const localModel = ref(props.settings.model);
 const localMaxThinkingTokens = ref(props.settings.maxThinkingTokens);
 const localBudgetLimit = ref(props.settings.maxBudgetUsd);
+const lastThinkingTokens = ref(props.settings.maxThinkingTokens ?? 10000);
 
 // Computed with getter/setter for derived boolean state
 // This ensures the toggle is always in sync with localMaxThinkingTokens
@@ -47,11 +48,12 @@ const enableExtendedThinking = computed({
   get: () => localMaxThinkingTokens.value !== null,
   set: (enabled: boolean) => {
     if (!enabled) {
+      lastThinkingTokens.value = localMaxThinkingTokens.value ?? 10000;
       localMaxThinkingTokens.value = null;
       emit('setMaxThinkingTokens', null);
     } else {
-      localMaxThinkingTokens.value = 10000;
-      emit('setMaxThinkingTokens', 10000);
+      localMaxThinkingTokens.value = lastThinkingTokens.value;
+      emit('setMaxThinkingTokens', lastThinkingTokens.value);
     }
   }
 });
@@ -61,6 +63,9 @@ watch(() => props.settings, (newSettings) => {
   localModel.value = newSettings.model;
   localMaxThinkingTokens.value = newSettings.maxThinkingTokens;
   localBudgetLimit.value = newSettings.maxBudgetUsd;
+  if (newSettings.maxThinkingTokens !== null) {
+    lastThinkingTokens.value = newSettings.maxThinkingTokens;
+  }
 }, { deep: true, immediate: true });
 
 const is1MContextEnabled = computed({
