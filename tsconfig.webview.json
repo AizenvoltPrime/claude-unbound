@@ -13,7 +13,8 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@/*": ["./src/webview/*"]
     }
   },
   "include": ["src/webview/**/*", "src/shared/**/*"],

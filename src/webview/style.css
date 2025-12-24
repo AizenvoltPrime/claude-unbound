@@ -2,10 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
-  font-size: var(--vscode-font-size, 13px);
-  line-height: 1.5;
+@layer base {
+  :root {
+    /* shadcn-vue theme variables mapped to VS Code + Unbound colors */
+    /* Using HSL values for compatibility with shadcn's opacity modifiers */
+
+    /* Primary: Unbound cyan (#00bcd4 = 187 100% 42%) */
+    --primary: 187 100% 42%;
+    --primary-foreground: 180 100% 94%;
+
+    /* Background: Deep navy from unbound theme */
+    --background: 210 60% 10%;
+    --foreground: 180 100% 94%;
+
+    /* Card: Slightly lighter navy */
+    --card: 210 50% 14%;
+    --card-foreground: 180 100% 94%;
+
+    /* Popover: Uses VS Code dropdown background */
+    --popover: 210 50% 14%;
+    --popover-foreground: 180 100% 94%;
+
+    /* Secondary: Muted blue-gray */
+    --secondary: 200 20% 25%;
+    --secondary-foreground: 180 30% 85%;
+
+    /* Muted: Subtle backgrounds */
+    --muted: 200 20% 20%;
+    --muted-foreground: 200 15% 55%;
+
+    /* Accent: Cyan accent */
+    --accent: 187 70% 35%;
+    --accent-foreground: 180 100% 94%;
+
+    /* Destructive: Red for errors/warnings */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Border and Input */
+    --border: 200 20% 25%;
+    --input: 200 20% 25%;
+    --ring: 187 100% 42%;
+
+    /* Border radius */
+    --radius: 0.375rem;
+
+    /* Font settings from VS Code */
+    font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+    font-size: var(--vscode-font-size, 13px);
+    line-height: 1.5;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
 html, body {
