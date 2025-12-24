@@ -29,6 +29,8 @@ import type {
   ActiveSubagent,
   CompactMarker,
   PermissionMode,
+  HistoryMessage,
+  HistoryToolCall,
 } from '@shared/types';
 
 const { postMessage, onMessage } = useVSCode();
@@ -146,6 +148,17 @@ function trackFileAccess(toolName: string, input: Record<string, unknown>) {
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// Convert HistoryToolCall[] to ToolCall[] (history tools are always completed)
+function convertHistoryTools(tools: HistoryToolCall[] | undefined): ToolCall[] | undefined {
+  return tools?.map((t) => ({
+    id: t.id,
+    name: t.name,
+    input: t.input,
+    status: 'completed' as const,
+    result: t.result,
+  }));
 }
 
 function handleSendMessage(content: string) {
@@ -920,21 +933,34 @@ onMounted(() => {
         break;
 
       // New: Assistant message replay (for resumed sessions)
-      case 'assistantReplay':
-        webLog('[App] assistantReplay received:', message.content.slice(0, 50));
+      case 'assistantReplay': {
         messages.value.push({
           id: generateId(),
           role: 'assistant',
           content: message.content,
           thinking: message.thinking,
+          toolCalls: convertHistoryTools(message.tools),
           timestamp: Date.now(),
           isReplay: true,
         });
         break;
+      }
 
       // History pagination chunk
       case 'historyChunk': {
         webLog('[App] historyChunk received:', message.messages.length, 'messages, hasMore:', message.hasMore);
+
+        // Log raw messages to inspect tools
+        for (let i = 0; i < message.messages.length; i++) {
+          const m = message.messages[i];
+          webLog('[App] historyChunk msg[' + i + ']:', 'type=' + m.type, 'tools=' + (m.tools ? m.tools.length : 'none'), 'content.length=' + (m.content?.length || 0));
+          if (m.tools) {
+            for (const t of m.tools) {
+              webLog('[App] historyChunk tool:', t.name, 'id=' + t.id);
+            }
+          }
+        }
+
         loadingMoreHistory.value = false;
         hasMoreHistory.value = message.hasMore;
         nextHistoryOffset.value = message.nextOffset;
@@ -944,14 +970,17 @@ onMounted(() => {
           const container = messageContainerRef.value;
           const previousScrollHeight = container?.scrollHeight || 0;
 
-          const olderMessages: ChatMessage[] = message.messages.map(msg => ({
+          const olderMessages: ChatMessage[] = message.messages.map((msg: HistoryMessage) => ({
             id: generateId(),
             role: msg.type,
             content: msg.content,
             thinking: msg.thinking,
+            toolCalls: convertHistoryTools(msg.tools),
             timestamp: Date.now(),
             isReplay: true,
           }));
+
+          webLog('[App] Adding', olderMessages.length, 'older messages to list');
 
           // Prepend to front (older messages come first)
           messages.value = [...olderMessages, ...messages.value];

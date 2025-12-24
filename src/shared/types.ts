@@ -182,6 +182,28 @@ export interface ThinkingBlock {
 
 export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | ThinkingBlock;
 
+/**
+ * Tool call info for session history (simplified from live ToolCall).
+ * Used when loading past sessions from JSONL.
+ */
+export interface HistoryToolCall {
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+  result?: string;  // Tool result if available
+}
+
+/**
+ * Message format for session history (loaded from JSONL).
+ * Includes tool calls which are parsed from content blocks.
+ */
+export interface HistoryMessage {
+  type: 'user' | 'assistant';
+  content: string;
+  thinking?: string;
+  tools?: HistoryToolCall[];  // Tool calls for this message
+}
+
 // Serializable message types (subset of SDK types)
 export interface AssistantMessage {
   type: 'assistant';
@@ -295,9 +317,9 @@ export type ExtensionToWebviewMessage =
   // New: User message replay (for resumed sessions)
   | { type: 'userReplay'; content: string; isSynthetic?: boolean }
   // New: Assistant message replay (for resumed sessions)
-  | { type: 'assistantReplay'; content: string; thinking?: string }
-  // History pagination
-  | { type: 'historyChunk'; messages: Array<{ type: 'user' | 'assistant'; content: string; thinking?: string }>; hasMore: boolean; nextOffset: number }
+  | { type: 'assistantReplay'; content: string; thinking?: string; tools?: HistoryToolCall[] }
+  // History pagination (includes tool calls for Edit/Write/etc.)
+  | { type: 'historyChunk'; messages: HistoryMessage[]; hasMore: boolean; nextOffset: number }
   // New: Permission request for file operations
   | {
       type: 'requestPermission';

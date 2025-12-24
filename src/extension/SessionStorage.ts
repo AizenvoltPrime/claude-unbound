@@ -4,6 +4,16 @@ import * as os from 'os';
 import type { StoredSession } from '../shared/types';
 import { log } from './logger';
 
+/**
+ * Content block types as stored in JSONL by Claude Code CLI.
+ * These match the SDK's content block structure.
+ */
+export type JsonlContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'thinking'; thinking: string }
+  | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
+  | { type: 'tool_result'; tool_use_id: string; content: string };
+
 export interface ClaudeSessionEntry {
   type: string;
   parentUuid?: string | null;
@@ -17,13 +27,21 @@ export interface ClaudeSessionEntry {
   customTitle?: string;  // User-set name via /rename
   message?: {
     role: string;
-    content: string | Array<{ type: string; text?: string; thinking?: string }>;
+    content: string | JsonlContentBlock[];
     model?: string;
     id?: string;
   };
   uuid?: string;
   timestamp?: string;
   isMeta?: boolean;
+  // Tool result metadata (present on user entries that are tool results)
+  toolUseResult?: {
+    type?: string;
+    filePath?: string;
+    oldString?: string;
+    newString?: string;
+    originalFile?: string;
+  };
 }
 
 // Re-export StoredSession for convenience
@@ -263,8 +281,10 @@ async function parseSessionFile(filePath: string): Promise<{
 
             preview = extractPreviewText(textToPreview);
           } else if (Array.isArray(msgContent)) {
-            const textBlock = msgContent.find(b => b.type === 'text' && b.text);
-            if (textBlock?.text) {
+            const textBlock = (msgContent as JsonlContentBlock[]).find(
+              (b): b is { type: 'text'; text: string } => b.type === 'text' && 'text' in b
+            );
+            if (textBlock) {
               let textToPreview = textBlock.text;
 
               // Handle slash commands in array content too

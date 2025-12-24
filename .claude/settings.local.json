@@ -142,7 +142,10 @@
       "Bash(node -e:*)",
       "Bash(npm run typecheck:extension:*)",
       "Bash(npm run:*)",
-      "WebFetch(domain:marketplace.visualstudio.com)"
+      "WebFetch(domain:marketplace.visualstudio.com)",
+      "WebFetch(domain:www.shadcn-vue.com)",
+      "Bash(npx --yes shadcn-vue@latest add button:*)",
+      "Bash(npx --yes shadcn-vue@latest add:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

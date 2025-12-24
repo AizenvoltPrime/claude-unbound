@@ -13,10 +13,12 @@ import {
   renameSession,
   type StoredSession,
 } from "./SessionStorage";
-import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, McpServerConfig, ExtensionSettings, PermissionMode } from "../shared/types";
+import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, McpServerConfig, ExtensionSettings, PermissionMode, HistoryMessage, HistoryToolCall } from "../shared/types";
+import type { JsonlContentBlock } from "./SessionStorage";
 
 const SESSIONS_PAGE_SIZE = 20;
 const HISTORY_PAGE_SIZE = 30;
+const TOOL_RESULT_MAX_LENGTH = 500;
 
 interface PanelInstance {
   panel: vscode.WebviewPanel;
@@ -68,11 +70,8 @@ export class ChatPanelProvider {
     offset: number = 0,
     limit: number = SESSIONS_PAGE_SIZE
   ): Promise<{ sessions: StoredSession[]; hasMore: boolean; nextOffset: number }> {
-    log("[ChatPanelProvider] getStoredSessions called, workspacePath:", this.workspacePath, "offset:", offset);
-
     if (!this.allSessionsCache) {
       this.allSessionsCache = await listSessions(this.workspacePath);
-      log("[ChatPanelProvider] Got", this.allSessionsCache.length, "sessions from listSessions");
     }
 
     const total = this.allSessionsCache.length;
@@ -80,7 +79,6 @@ export class ChatPanelProvider {
     const hasMore = offset + limit < total;
     const nextOffset = offset + sessions.length;
 
-    log("[ChatPanelProvider] Returning", sessions.length, "sessions, hasMore:", hasMore);
     return { sessions, hasMore, nextOffset };
   }
 
@@ -250,14 +248,11 @@ export class ChatPanelProvider {
         break;
 
       case "resumeSession":
-        log("[ChatPanelProvider] resumeSession requested:", message.sessionId);
         if (message.sessionId) {
           session.setResumeSession(message.sessionId);
-          log("[ChatPanelProvider] setResumeSession called");
 
           this.loadSessionHistory(message.sessionId, panel)
             .then(() => {
-              log("[ChatPanelProvider] Session history loaded, sending sessionStarted");
               this.postMessageToPanel(panel, { type: "sessionStarted", sessionId: message.sessionId });
             })
             .catch((err) => {
@@ -275,10 +270,8 @@ export class ChatPanelProvider {
         break;
 
       case "ready": {
-        log("[ChatPanelProvider] Webview ready, fetching stored sessions...");
         this.getStoredSessions()
           .then(({ sessions, hasMore, nextOffset }) => {
-            log("[ChatPanelProvider] Ready handler: got", sessions.length, "sessions, hasMore:", hasMore);
             this.postMessageToPanel(panel, { type: "storedSessions", sessions, hasMore, nextOffset, isFirstPage: true });
           })
           .catch((err) => {
@@ -366,12 +359,10 @@ export class ChatPanelProvider {
         break;
 
       case "requestMoreHistory":
-        log("[ChatPanelProvider] requestMoreHistory:", message.sessionId, "offset:", message.offset);
         await this.loadMoreHistory(message.sessionId, message.offset, panel);
         break;
 
       case "requestMoreSessions": {
-        log("[ChatPanelProvider] requestMoreSessions, offset:", message.offset);
         const { sessions, hasMore, nextOffset } = await this.getStoredSessions(message.offset);
         this.postMessageToPanel(panel, { type: "storedSessions", sessions, hasMore, nextOffset, isFirstPage: false });
         break;
@@ -451,9 +442,7 @@ export class ChatPanelProvider {
   }
 
   private async loadSessionHistory(sessionId: string, panel: vscode.WebviewPanel): Promise<void> {
-    log("[ChatPanelProvider] loadSessionHistory:", sessionId);
     const result = await readSessionEntriesPaginated(this.workspacePath, sessionId, 0, HISTORY_PAGE_SIZE);
-    log("[ChatPanelProvider] Loaded", result.entries.length, "of", result.totalCount, "entries");
 
     const messages = this.convertEntriesToMessages(result.entries);
 
@@ -469,6 +458,7 @@ export class ChatPanelProvider {
           type: "assistantReplay",
           content: msg.content,
           thinking: msg.thinking,
+          tools: msg.tools,
         });
       }
     }
@@ -481,15 +471,12 @@ export class ChatPanelProvider {
         nextOffset: result.nextOffset,
       });
     }
-    log("[ChatPanelProvider] Session history replay complete");
   }
 
   private async loadMoreHistory(sessionId: string, offset: number, panel: vscode.WebviewPanel): Promise<void> {
-    log("[ChatPanelProvider] loadMoreHistory:", sessionId, "offset:", offset);
     const result = await readSessionEntriesPaginated(this.workspacePath, sessionId, offset, HISTORY_PAGE_SIZE);
 
     const messages = this.convertEntriesToMessages(result.entries);
-    log("[ChatPanelProvider] Sending", messages.length, "more messages, hasMore:", result.hasMore);
 
     this.postMessageToPanel(panel, {
       type: "historyChunk",
@@ -501,21 +488,43 @@ export class ChatPanelProvider {
 
   private convertEntriesToMessages(
     entries: ReturnType<typeof readSessionEntries> extends Promise<infer T> ? T : never
-  ): Array<{ type: "user" | "assistant"; content: string; thinking?: string }> {
-    const messages: Array<{ type: "user" | "assistant"; content: string; thinking?: string }> = [];
+  ): HistoryMessage[] {
+    const messages: HistoryMessage[] = [];
+    // Map tool_use_id -> tool result (from subsequent user messages)
+    const toolResults = new Map<string, string>();
 
+    // First pass: collect all tool results from user messages
+    for (const entry of entries) {
+      if (entry.type === "user" && entry.message && Array.isArray(entry.message.content)) {
+        for (const block of entry.message.content as JsonlContentBlock[]) {
+          if (block.type === "tool_result") {
+            // Truncate long tool results for display
+            const result = block.content.length > TOOL_RESULT_MAX_LENGTH
+              ? block.content.slice(0, TOOL_RESULT_MAX_LENGTH) + "... (truncated)"
+              : block.content;
+            toolResults.set(block.tool_use_id, result);
+          }
+        }
+      }
+    }
+
+    // Second pass: build messages with tool calls
     for (const entry of entries) {
       if (entry.type === "user" && entry.message && !entry.isMeta) {
-        const content =
-          typeof entry.message.content === "string"
-            ? entry.message.content
-            : Array.isArray(entry.message.content)
-            ? entry.message.content
-                .filter((b): b is { type: string; text: string } => b.type === "text" && typeof b.text === "string")
-                .map((b) => b.text)
-                .join("")
-            : "";
+        const msgContent = entry.message.content;
+        let content = "";
 
+        if (typeof msgContent === "string") {
+          content = msgContent;
+        } else if (Array.isArray(msgContent)) {
+          // Extract text blocks (skip tool_result blocks - those are tool responses)
+          content = (msgContent as JsonlContentBlock[])
+            .filter((b): b is { type: 'text'; text: string } => b.type === "text" && typeof b.text === "string")
+            .map((b) => b.text)
+            .join("");
+        }
+
+        // Skip system messages and command wrappers
         if (
           !content ||
           content.startsWith("<command-name>") ||
@@ -529,31 +538,61 @@ export class ChatPanelProvider {
         messages.push({ type: "user", content });
       } else if (entry.type === "assistant" && entry.message) {
         const msgContent = entry.message.content;
+
         let textContent = "";
         let thinkingContent = "";
+        const tools: HistoryToolCall[] = [];
 
         if (typeof msgContent === "string") {
           textContent = msgContent;
         } else if (Array.isArray(msgContent)) {
-          textContent = msgContent
-            .filter((b): b is { type: string; text?: string } => b.type === "text" && typeof b.text === "string")
-            .map((b) => b.text || "")
+          const blocks = msgContent as JsonlContentBlock[];
+
+          // Extract text content
+          textContent = blocks
+            .filter((b): b is { type: 'text'; text: string } => b.type === "text" && typeof b.text === "string")
+            .map((b) => b.text)
             .join("");
-          thinkingContent = msgContent
-            .filter((b): b is { type: string; thinking?: string } => b.type === "thinking" && typeof b.thinking === "string")
-            .map((b) => b.thinking || "")
+
+          // Extract thinking content
+          thinkingContent = blocks
+            .filter((b): b is { type: 'thinking'; thinking: string } => b.type === "thinking" && typeof b.thinking === "string")
+            .map((b) => b.thinking)
             .join("\n\n");
+
+          // Extract tool_use blocks
+          for (const block of blocks) {
+            if (block.type === "tool_use") {
+              const tool: HistoryToolCall = {
+                id: block.id,
+                name: block.name,
+                input: block.input,
+              };
+              // Attach result if we have it
+              const result = toolResults.get(block.id);
+              if (result) {
+                tool.result = result;
+              }
+              tools.push(tool);
+            }
+          }
         }
 
-        if ((!textContent && !thinkingContent) || textContent === "No response requested.") {
+        // Skip empty messages (unless they have tool calls)
+        if (!textContent && !thinkingContent && tools.length === 0) {
+          continue;
+        }
+        if (textContent === "No response requested." && tools.length === 0) {
           continue;
         }
 
-        messages.push({
+        const msg: HistoryMessage = {
           type: "assistant",
           content: textContent,
           thinking: thinkingContent || undefined,
-        });
+          tools: tools.length > 0 ? tools : undefined,
+        };
+        messages.push(msg);
       }
     }
 
