@@ -43,18 +43,21 @@ export class PermissionHandler {
     context: CanUseToolContext
   ): Promise<PermissionResult> {
     const config = vscode.workspace.getConfiguration('claude-unbound');
-    const permissionMode = config.get<string>('permissionMode', 'ask');
+    const permissionMode = config.get<string>('permissionMode', 'default');
 
-    if (permissionMode === 'auto' || permissionMode === 'acceptEdits') {
+    if (permissionMode === 'bypassPermissions') {
       return { behavior: 'allow', updatedInput: input };
     }
 
     if (toolName === 'Edit' || toolName === 'Write') {
+      if (permissionMode === 'acceptEdits') {
+        return { behavior: 'allow', updatedInput: input };
+      }
       const typedInput = input as unknown as FileEditInput | FileWriteInput;
       const result = await this.requestFilePermissionFromWebview(toolName, typedInput, context);
 
       if (result.neverAskAgain) {
-        await config.update('permissionMode', 'acceptEdits', vscode.ConfigurationTarget.Workspace);
+        await config.update('permissionMode', 'acceptEdits', vscode.ConfigurationTarget.Global);
       }
 
       if (!result.approved) {
@@ -71,7 +74,7 @@ export class PermissionHandler {
       const result = await this.requestBashPermissionFromWebview(input, context);
 
       if (result.neverAskAgain) {
-        await config.update('permissionMode', 'auto', vscode.ConfigurationTarget.Workspace);
+        await config.update('permissionMode', 'acceptEdits', vscode.ConfigurationTarget.Global);
       }
 
       if (!result.approved) {
@@ -114,7 +117,7 @@ export class PermissionHandler {
     context: CanUseToolContext
   ): Promise<ApprovalResult> {
     if (!this.postMessageToWebview) {
-      return { approved: true };
+      return { approved: false, customMessage: 'Cannot request permission: webview not available' };
     }
 
     const filePath = input.file_path;
@@ -168,11 +171,11 @@ export class PermissionHandler {
     input: Record<string, unknown>,
     context: CanUseToolContext
   ): Promise<ApprovalResult> {
-    if (!this.postMessageToWebview) {
-      return { approved: true };
-    }
+    const command = typeof input.command === 'string' ? input.command : JSON.stringify(input);
 
-    const command = input.command as string;
+    if (!this.postMessageToWebview) {
+      return { approved: false, customMessage: 'Cannot request permission: webview not available' };
+    }
 
     return new Promise<ApprovalResult>((resolve) => {
       const abortHandler = () => {

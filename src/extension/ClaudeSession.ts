@@ -98,6 +98,8 @@ export class ClaudeSession {
   private streamingContent: StreamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false };
   // Tracks tools that were streamed to UI - if they never reach PreToolUse/completion, they're "abandoned"
   private streamedToolIds: Map<string, StreamedToolInfo> = new Map();
+  // Turn-level tracking: persists across messages within a single turn (reset in sendMessage)
+  private toolsUsedThisTurn = false;
 
   constructor(private options: SessionOptions) {}
 
@@ -180,6 +182,7 @@ export class ClaudeSession {
     this.abortController = new AbortController();
     this.pendingAssistant = null;
     this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false };
+    this.toolsUsedThisTurn = false;  // Reset at start of each turn
     this.options.onMessage({ type: 'processing', isProcessing: true });
 
     try {
@@ -281,6 +284,11 @@ export class ClaudeSession {
               async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
                 const p = params as { tool_name?: string; tool_input?: unknown };
                 log('[ClaudeSession] PreToolUse hook fired:', p.tool_name, 'toolUseId:', toolUseId);
+                // Also set toolsUsedThisTurn here in case toolStreaming didn't fire (e.g., permission flow)
+                if (p.tool_name) {
+                  log('[ClaudeSession] PreToolUse setting toolsUsedThisTurn TRUE for:', p.tool_name);
+                  this.toolsUsedThisTurn = true;
+                }
                 if (p.tool_name && toolUseId) {
                   // Remove from orphan tracking - this tool IS executing
                   this.streamedToolIds.delete(toolUseId);
@@ -690,6 +698,7 @@ export class ClaudeSession {
               num_turns?: number;
               modelUsage?: Record<string, { contextWindow?: number }>;
             };
+
             // Track accumulated cost
             if (resultMsg.total_cost_usd) {
               this.accumulatedCost = resultMsg.total_cost_usd;
@@ -720,6 +729,31 @@ export class ClaudeSession {
             const contextWindowSize = resultMsg.modelUsage
               ? Object.values(resultMsg.modelUsage)[0]?.contextWindow ?? 200000
               : 200000;
+
+            // When tools are used, the SDK sums context from multiple API requests:
+            // 1. First request: Claude decides to use tool(s)
+            // 2. Second request: Claude processes tool result(s)
+            // This causes ~2x inflation for single-tool turns. With N tools it's (N+1)x,
+            // but divide-by-2 is a reasonable approximation for the common single-tool case.
+            // TODO: Track actual tool count for more accurate normalization
+            // Note: Use turn-level tracking because streamingContent resets on new message IDs
+            const hadToolsThisTurn = this.toolsUsedThisTurn;
+            const divisor = hadToolsThisTurn ? 2 : 1;
+
+            const inputTokens = resultMsg.usage?.input_tokens ?? 0;
+            const cacheCreation = resultMsg.usage?.cache_creation_input_tokens ?? 0;
+            const cacheRead = resultMsg.usage?.cache_read_input_tokens ?? 0;
+
+            log('[ClaudeSession] CONTEXT STATS DEBUG:');
+            log('  hadToolsThisTurn:', hadToolsThisTurn);
+            log('  divisor:', divisor);
+            log('  Raw input_tokens:', inputTokens);
+            log('  Raw cache_creation:', cacheCreation);
+            log('  Raw cache_read:', cacheRead);
+            log('  Adjusted input_tokens:', Math.round(inputTokens / divisor));
+            log('  Adjusted cache_creation:', Math.round(cacheCreation / divisor));
+            log('  Adjusted cache_read:', Math.round(cacheRead / divisor));
+
             this.options.onMessage({
               type: 'done',
               data: {
@@ -727,10 +761,10 @@ export class ClaudeSession {
                 session_id: resultMsg.session_id,
                 is_done: !resultMsg.is_error,
                 total_cost_usd: resultMsg.total_cost_usd,
-                total_input_tokens: resultMsg.usage?.input_tokens,
+                total_input_tokens: Math.round(inputTokens / divisor),
+                cache_creation_tokens: Math.round(cacheCreation / divisor),
+                cache_read_tokens: Math.round(cacheRead / divisor),
                 total_output_tokens: resultMsg.usage?.output_tokens,
-                cache_creation_tokens: resultMsg.usage?.cache_creation_input_tokens,
-                cache_read_tokens: resultMsg.usage?.cache_read_input_tokens,
                 num_turns: resultMsg.num_turns,
                 context_window_size: contextWindowSize,
               },

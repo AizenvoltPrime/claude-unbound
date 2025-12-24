@@ -11,6 +11,7 @@ import {
   readSessionEntries,
   readSessionEntriesPaginated,
   renameSession,
+  extractSessionStats,
   type StoredSession,
 } from "./SessionStorage";
 import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, McpServerConfig, ExtensionSettings, PermissionMode, HistoryMessage, HistoryToolCall } from "../shared/types";
@@ -180,6 +181,14 @@ export class ChatPanelProvider {
     panelDisposables.push(
       panel.webview.onDidReceiveMessage((message: WebviewToExtensionMessage) => {
         this.handleWebviewMessage(message, panelId);
+      })
+    );
+
+    panelDisposables.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('claude-unbound')) {
+          this.sendCurrentSettings(panel);
+        }
       })
     );
 
@@ -461,6 +470,31 @@ export class ChatPanelProvider {
           tools: msg.tools,
         });
       }
+    }
+
+    try {
+      const stats = await extractSessionStats(this.workspacePath, sessionId);
+      if (stats) {
+        // Send all stats from history. Context stats are now normalized:
+        // - extractSessionStats applies divide-by-2 for messages with tool calls
+        // - This matches the same logic used for live SDK stats
+        this.postMessageToPanel(panel, {
+          type: "done",
+          data: {
+            type: "result",
+            session_id: sessionId,
+            is_done: true,
+            total_input_tokens: stats.totalInputTokens,
+            total_output_tokens: stats.totalOutputTokens,
+            cache_creation_tokens: stats.cacheCreationTokens,
+            cache_read_tokens: stats.cacheReadTokens,
+            num_turns: stats.numTurns,
+            context_window_size: stats.contextWindowSize,
+          },
+        });
+      }
+    } catch {
+      // Stats extraction failed - session will load without stats
     }
 
     if (result.hasMore) {

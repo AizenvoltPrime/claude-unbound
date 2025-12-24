@@ -32,7 +32,7 @@ Unleash the full power of Claude AI as your VS Code coding assistant.
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| `claude-unbound.permissionMode` | How to handle tool permissions (`ask` or `auto`) | `ask` |
+| `claude-unbound.permissionMode` | How to handle tool permissions (`default`, `acceptEdits`, `bypassPermissions`, `plan`) | `default` |
 | `claude-unbound.maxTurns` | Maximum conversation turns per session | `50` |
 
 ## Requirements

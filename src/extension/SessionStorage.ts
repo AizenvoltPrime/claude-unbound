@@ -30,6 +30,12 @@ export interface ClaudeSessionEntry {
     content: string | JsonlContentBlock[];
     model?: string;
     id?: string;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
   };
   uuid?: string;
   timestamp?: string;
@@ -388,6 +394,78 @@ export async function readSessionEntries(workspacePath: string, sessionId: strin
   } catch (err) {
     return [];
   }
+}
+
+export interface ExtractedSessionStats {
+  totalCostUsd: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  numTurns: number;
+  contextWindowSize: number;
+}
+
+export async function extractSessionStats(
+  workspacePath: string,
+  sessionId: string
+): Promise<ExtractedSessionStats | undefined> {
+  const entries = await readSessionEntries(workspacePath, sessionId);
+
+  const assistantEntries = entries.filter(e =>
+    e.type === 'assistant' && e.message?.usage && !e.isSidechain
+  );
+
+  if (assistantEntries.length === 0) return undefined;
+
+  // Deduplicate by message ID and track if message had tool calls
+  const messageData = new Map<string, {
+    usage: NonNullable<ClaudeSessionEntry['message']>['usage'];
+    hadTools: boolean;
+  }>();
+
+  for (const entry of assistantEntries) {
+    const usage = entry.message?.usage;
+    const messageId = entry.message?.id;
+    const content = entry.message?.content;
+    if (!usage || !messageId) continue;
+
+    // Check if this message has tool_use blocks
+    const hadTools = Array.isArray(content) &&
+      content.some(block => typeof block === 'object' && 'type' in block && block.type === 'tool_use');
+
+    messageData.set(messageId, { usage, hadTools });
+  }
+
+  // Sum output tokens across all messages
+  let totalOutputTokens = 0;
+  for (const data of messageData.values()) {
+    totalOutputTokens += data.usage?.output_tokens ?? 0;
+  }
+
+  // Get the LAST message's context stats (represents current session state)
+  const lastEntry = Array.from(messageData.values()).pop();
+  if (!lastEntry) return undefined;
+
+  const { usage, hadTools } = lastEntry;
+  // Apply divide-by-2 if the last message had tools (same logic as live stats)
+  // Note: This is an approximation for single-tool turns. With N tools it's (N+1)x.
+  const divisor = hadTools ? 2 : 1;
+
+  const inputTokens = usage?.input_tokens ?? 0;
+  const cacheCreation = usage?.cache_creation_input_tokens ?? 0;
+  const cacheRead = usage?.cache_read_input_tokens ?? 0;
+
+  return {
+    totalCostUsd: 0,
+    totalInputTokens: Math.round(inputTokens / divisor),
+    totalOutputTokens,
+    cacheCreationTokens: Math.round(cacheCreation / divisor),
+    cacheReadTokens: Math.round(cacheRead / divisor),
+    numTurns: messageData.size,
+    // TODO: Extract actual context window from JSONL modelUsage field when available
+    contextWindowSize: 200000,
+  };
 }
 
 /**
