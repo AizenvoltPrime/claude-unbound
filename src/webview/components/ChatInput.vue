@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { PermissionMode } from '@shared/types';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   isProcessing: boolean;
@@ -90,15 +91,17 @@ const displayFile = computed(() => {
         <div class="flex items-center justify-between px-3 py-2 border-t border-unbound-cyan-900/30">
           <div class="flex items-center gap-3">
             <!-- Mode toggle button -->
-            <button
-              class="flex items-center gap-1.5 text-xs text-unbound-muted hover:text-unbound-cyan-300 transition-colors"
+            <Button
+              variant="ghost"
+              size="sm"
+              class="h-auto px-2 py-1 text-xs text-unbound-muted hover:text-unbound-cyan-300"
               :disabled="isProcessing"
               @click="cycleMode"
               :title="`Click to change mode. Current: ${currentModeConfig.label}`"
             >
               <span>{{ currentModeConfig.icon }}</span>
               <span>{{ currentModeConfig.label }}</span>
-            </button>
+            </Button>
 
             <!-- Current file indicator -->
             <div v-if="displayFile" class="flex items-center gap-1.5 text-xs text-unbound-muted">
@@ -113,27 +116,26 @@ const displayFile = computed(() => {
             <span class="text-xs text-unbound-muted">/</span>
 
             <!-- Cancel button -->
-            <button
+            <Button
               v-if="isProcessing"
-              class="px-2 py-1 rounded text-xs bg-red-600/20 text-red-400 hover:bg-red-600/40 transition-colors"
+              variant="destructive"
+              size="sm"
+              class="h-7 px-2 text-xs bg-red-600/20 text-red-400 hover:bg-red-600/40"
               @click="handleCancel"
             >
               Cancel
-            </button>
+            </Button>
 
             <!-- Send button -->
-            <button
+            <Button
               :disabled="!canSend"
-              class="w-8 h-8 rounded-lg flex items-center justify-center
-                     bg-unbound-cyan-600 text-white
-                     hover:bg-unbound-cyan-500
-                     disabled:opacity-30 disabled:cursor-not-allowed
-                     transition-colors"
+              size="icon"
+              class="w-8 h-8"
               @click="handleSend"
             >
               <span v-if="isProcessing" class="text-sm">⏳</span>
               <span v-else class="text-lg font-bold">↑</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>

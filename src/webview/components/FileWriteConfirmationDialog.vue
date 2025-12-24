@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   visible: boolean;
@@ -117,53 +118,40 @@ function resetState() {
           <div class="flex flex-col gap-2 p-4 border-t border-unbound-cyan-900/50">
             <div v-if="!showCustomInput" class="grid grid-cols-2 gap-2">
               <!-- Yes button -->
-              <button
-                class="px-4 py-2.5 rounded text-sm font-medium transition-colors bg-unbound-cyan-600 text-white hover:bg-unbound-cyan-500"
-                @click="handleYes"
-              >
+              <Button @click="handleYes">
                 <span class="mr-1">1</span> Yes
-              </button>
+              </Button>
 
               <!-- Yes, don't ask again -->
-              <button
-                class="px-4 py-2.5 rounded text-sm transition-colors bg-unbound-bg border border-unbound-cyan-700/50 text-unbound-cyan-300 hover:bg-unbound-cyan-900/30"
-                @click="handleYesNeverAsk"
-              >
+              <Button variant="outline" @click="handleYesNeverAsk">
                 <span class="mr-1">2</span> Yes, and don't ask again
-              </button>
+              </Button>
 
               <!-- No -->
-              <button
-                class="px-4 py-2.5 rounded text-sm transition-colors bg-unbound-bg border border-unbound-cyan-700/50 text-unbound-text hover:bg-unbound-cyan-900/30"
-                @click="handleNo"
-              >
+              <Button variant="outline" @click="handleNo">
                 <span class="mr-1">3</span> No
-              </button>
+              </Button>
 
               <!-- Tell Claude -->
-              <button
-                class="px-4 py-2.5 rounded text-sm transition-colors bg-unbound-bg border border-unbound-cyan-700/50 text-unbound-muted hover:bg-unbound-cyan-900/30"
-                @click="handleCustom"
-              >
+              <Button variant="secondary" @click="handleCustom">
                 Tell Claude what to do instead
-              </button>
+              </Button>
             </div>
 
             <!-- Custom input action buttons -->
             <div v-else class="flex justify-end gap-2">
-              <button
-                class="px-4 py-2 rounded text-sm transition-colors hover:bg-unbound-cyan-900/30 text-unbound-muted"
+              <Button
+                variant="ghost"
                 @click="showCustomInput = false; customMessage = ''"
               >
                 Back
-              </button>
-              <button
-                class="px-4 py-2 rounded text-sm font-medium transition-colors bg-unbound-cyan-600 text-white hover:bg-unbound-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              </Button>
+              <Button
                 :disabled="!customMessage.trim()"
                 @click="handleCustom"
               >
                 Send to Claude
-              </button>
+              </Button>
             </div>
           </div>
         </div>

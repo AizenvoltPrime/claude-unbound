@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Button } from '@/components/ui/button';
+
 defineProps<{
   visible: boolean;
   messagePreview?: string;
@@ -52,18 +54,18 @@ const emit = defineEmits<{
           </div>
 
           <div class="flex justify-end gap-3 p-4 border-t border-vscode-border">
-            <button
-              class="px-4 py-2 rounded text-sm hover:bg-vscode-input-bg transition-colors"
+            <Button
+              variant="ghost"
               @click="emit('cancel')"
             >
               Cancel
-            </button>
-            <button
-              class="px-4 py-2 rounded bg-yellow-600 text-white text-sm hover:bg-yellow-700 transition-colors flex items-center gap-2"
+            </Button>
+            <Button
+              class="bg-yellow-600 hover:bg-yellow-700"
               @click="emit('confirm')"
             >
-              <span>Rewind Files</span>
-            </button>
+              Rewind Files
+            </Button>
           </div>
         </div>
       </div>

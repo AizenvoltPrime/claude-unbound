@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { ToolCall } from '@shared/types';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   toolCall: ToolCall;
@@ -113,14 +114,16 @@ function formatInput(input: Record<string, unknown>): string {
       <span :class="statusClass" class="ml-1">{{ statusIcon }}</span>
 
       <!-- Running indicator with interrupt button -->
-      <button
+      <Button
         v-if="isRunning"
-        class="ml-auto text-xs px-2 py-0.5 rounded bg-red-600/20 text-red-400 hover:bg-red-600/40 transition-colors"
+        variant="destructive"
+        size="sm"
+        class="ml-auto h-6 px-2 text-xs bg-red-600/20 text-red-400 hover:bg-red-600/40"
         @click="$emit('interrupt', toolCall.id)"
         title="Interrupt this tool"
       >
         Stop
-      </button>
+      </Button>
     </div>
 
     <!-- Body: Input/Output -->

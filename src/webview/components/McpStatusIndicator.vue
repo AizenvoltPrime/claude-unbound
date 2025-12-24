@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { McpServerStatusInfo } from '@shared/types';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   servers: McpServerStatusInfo[];
@@ -47,9 +48,11 @@ const hasServers = computed(() => props.servers.length > 0);
 </script>
 
 <template>
-  <button
+  <Button
     v-if="hasServers"
-    class="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-vscode-input-bg transition-colors"
+    variant="ghost"
+    size="sm"
+    class="h-auto py-1 px-2 text-xs"
     :title="statusSummary.label"
     @click="$emit('click')"
   >
@@ -60,5 +63,5 @@ const hasServers = computed(() => props.servers.length > 0);
       {{ statusSummary.icon }}
     </span>
     <span class="hidden sm:inline opacity-70">{{ servers.length }} MCP</span>
-  </button>
+  </Button>
 </template>

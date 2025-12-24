@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   currentSpend: number;
@@ -61,12 +62,14 @@ const iconEmoji = computed(() => props.exceeded ? '🛑' : '⚠️');
       </div>
     </div>
 
-    <button
-      class="opacity-50 hover:opacity-100 transition-opacity"
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      class="opacity-50 hover:opacity-100 h-6 w-6"
       @click="$emit('dismiss')"
       title="Dismiss"
     >
       &times;
-    </button>
+    </Button>
   </div>
 </template>

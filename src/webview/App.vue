@@ -13,6 +13,7 @@ import BudgetWarning from './components/BudgetWarning.vue';
 import RewindConfirmModal from './components/RewindConfirmModal.vue';
 import FileWriteConfirmationDialog from './components/FileWriteConfirmationDialog.vue';
 import { useVSCode } from './composables/useVSCode';
+import { Button } from '@/components/ui/button';
 import type {
   ChatMessage,
   ToolCall,
@@ -1017,13 +1018,15 @@ onMounted(() => {
       />
 
       <!-- Settings button -->
-      <button
-        class="p-1 rounded hover:bg-unbound-cyan-900/30 transition-colors text-lg text-unbound-cyan-400"
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        class="text-lg text-unbound-cyan-400 hover:bg-unbound-cyan-900/30"
         title="Settings"
         @click="showSettingsPanel = true"
       >
         ⚙️
-      </button>
+      </Button>
     </div>
 
     <!-- Budget Warning Banner -->
@@ -1040,8 +1043,9 @@ onMounted(() => {
 
     <!-- Session picker dropdown (select-box style) -->
     <div v-if="storedSessions.length > 0" class="px-3 py-2 border-b border-unbound-cyan-900/30 bg-unbound-bg-light">
-      <button
-        class="w-full text-xs text-unbound-cyan-400 hover:text-unbound-glow flex items-center gap-2 p-2 rounded border border-unbound-cyan-800/50 hover:border-unbound-cyan-600/50 transition-colors bg-unbound-bg"
+      <Button
+        variant="outline"
+        class="w-full h-auto justify-start text-xs text-unbound-cyan-400 hover:text-unbound-glow p-2"
         @click="toggleSessionPicker"
       >
         <span>📋</span>
@@ -1052,7 +1056,7 @@ onMounted(() => {
           Select a session ({{ storedSessions.length }})
         </span>
         <span class="text-unbound-muted">{{ showSessionPicker ? '▲' : '▼' }}</span>
-      </button>
+      </Button>
 
       <div
         v-if="showSessionPicker"
@@ -1076,50 +1080,51 @@ onMounted(() => {
               @keyup.enter="submitRenameSession"
               @keyup.escape="cancelRenameSession"
             />
-            <button
-              class="px-2 py-1 text-xs bg-unbound-cyan-700 hover:bg-unbound-cyan-600 rounded text-unbound-text"
-              @click="submitRenameSession"
-            >✓</button>
-            <button
-              class="px-2 py-1 text-xs bg-unbound-bg hover:bg-unbound-cyan-900/30 rounded text-unbound-muted"
-              @click="cancelRenameSession"
-            >✗</button>
+            <Button size="sm" class="h-6 px-2" @click="submitRenameSession">✓</Button>
+            <Button variant="ghost" size="sm" class="h-6 px-2" @click="cancelRenameSession">✗</Button>
           </div>
           <!-- Normal display mode -->
           <div v-else class="flex items-center">
-            <button
-              class="flex-1 text-left p-2 text-xs rounded transition-colors text-unbound-text"
+            <Button
+              variant="ghost"
+              class="flex-1 h-auto justify-start text-left p-2 text-xs text-unbound-text"
               :class="[
                 selectedSessionId === session.id
                   ? 'bg-unbound-cyan-900/50 border-l-2 border-unbound-cyan-400'
-                  : 'hover:bg-unbound-cyan-900/30'
+                  : ''
               ]"
               @click="handleResumeSession(session.id)"
             >
-              <div class="font-medium truncate flex items-center gap-1">
-                <span v-if="selectedSessionId === session.id" class="text-unbound-cyan-400">✓</span>
-                {{ getSessionDisplayName(session) }}
+              <div class="w-full">
+                <div class="font-medium truncate flex items-center gap-1">
+                  <span v-if="selectedSessionId === session.id" class="text-unbound-cyan-400">✓</span>
+                  {{ getSessionDisplayName(session) }}
+                </div>
+                <div class="text-unbound-muted" :class="{ 'ml-4': selectedSessionId === session.id }">
+                  {{ formatSessionTime(session.timestamp) }}
+                </div>
               </div>
-              <div class="text-unbound-muted" :class="{ 'ml-4': selectedSessionId === session.id }">
-                {{ formatSessionTime(session.timestamp) }}
-              </div>
-            </button>
-            <button
-              class="p-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity text-unbound-muted hover:text-unbound-cyan-400"
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              class="opacity-0 group-hover:opacity-100 text-unbound-muted hover:text-unbound-cyan-400"
               title="Rename session"
               @click.stop="startRenameSession(session.id, getSessionDisplayName(session))"
-            >✏️</button>
+            >✏️</Button>
           </div>
         </div>
         <!-- Load more indicator -->
         <div v-if="hasMoreSessions || loadingMoreSessions" class="text-center py-2">
-          <button
+          <Button
             v-if="!loadingMoreSessions"
+            variant="link"
+            size="sm"
             class="text-xs text-unbound-cyan-400 hover:text-unbound-glow"
             @click="loadMoreSessions"
           >
             ↓ Load more sessions
-          </button>
+          </Button>
           <div v-else class="text-xs text-unbound-muted animate-pulse">
             Loading...
           </div>
@@ -1137,13 +1142,15 @@ onMounted(() => {
         v-if="hasMoreHistory || loadingMoreHistory"
         class="text-center py-3"
       >
-        <button
+        <Button
           v-if="!loadingMoreHistory"
-          class="text-xs text-unbound-cyan-400 hover:text-unbound-glow px-3 py-1.5 rounded-full border border-unbound-cyan-700 hover:border-unbound-cyan-500 transition-colors"
+          variant="outline"
+          size="sm"
+          class="text-xs text-unbound-cyan-400 hover:text-unbound-glow rounded-full"
           @click="loadMoreHistory"
         >
           ↑ Load earlier messages
-        </button>
+        </Button>
         <div
           v-else
           class="text-xs text-unbound-muted animate-pulse"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue';
+import { Button } from '@/components/ui/button';
 
 const TOAST_DURATION_MS = 4000;
 
@@ -85,12 +86,14 @@ defineExpose({ addToast });
         >
           <span>{{ typeIcons[toast.type] }}</span>
           <span class="flex-1">{{ toast.message }}</span>
-          <button
-            class="opacity-70 hover:opacity-100"
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            class="opacity-70 hover:opacity-100 h-5 w-5 hover:bg-white/20"
             @click="removeToast(toast.id)"
           >
             ✕
-          </button>
+          </Button>
         </div>
       </TransitionGroup>
     </div>

@@ -6,6 +6,7 @@ import type { ChatMessage, CompactMarker as CompactMarkerType } from '@shared/ty
 import ToolCallCard from './ToolCallCard.vue';
 import CompactMarker from './CompactMarker.vue';
 import ThinkingIndicator from './ThinkingIndicator.vue';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   messages: ChatMessage[];
@@ -96,14 +97,16 @@ function formatMarkdown(text: string): string {
         class="group relative"
       >
         <!-- Rewind button -->
-        <button
+        <Button
           v-if="canRewindTo(message)"
-          class="absolute -left-6 top-2 opacity-0 group-hover:opacity-100 transition-opacity text-base text-unbound-cyan-400 hover:text-unbound-glow"
+          variant="ghost"
+          size="icon-sm"
+          class="absolute -left-6 top-2 opacity-0 group-hover:opacity-100 text-base text-unbound-cyan-400 hover:text-unbound-glow hover:bg-transparent"
           title="Undo file changes after this point"
           @click="emit('rewind', message.id)"
         >
           ⏪
-        </button>
+        </Button>
 
         <div
           class="rounded-lg px-4 py-3 border-l-2 border-unbound-cyan-500 bg-unbound-bg-card"

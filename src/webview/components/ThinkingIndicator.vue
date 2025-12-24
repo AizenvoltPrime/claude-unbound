@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   thinking?: string;
@@ -32,9 +33,10 @@ function toggleExpand() {
 
 <template>
   <div v-if="isStreaming || hasContent" class="text-sm">
-    <button
-      type="button"
-      class="flex items-center gap-2 text-unbound-cyan-300 hover:text-unbound-cyan-200 transition-colors cursor-pointer"
+    <Button
+      variant="ghost"
+      size="sm"
+      class="h-auto p-0 text-unbound-cyan-300 hover:text-unbound-cyan-200 hover:bg-transparent"
       @click="toggleExpand"
     >
       <span class="text-unbound-cyan-400">•</span>
@@ -45,7 +47,7 @@ function toggleExpand() {
       <span v-if="hasContent" class="text-xs transition-transform duration-200" :class="{ 'rotate-90': isExpanded }">
         ▶
       </span>
-    </button>
+    </Button>
 
     <div
       v-if="isExpanded && hasContent"

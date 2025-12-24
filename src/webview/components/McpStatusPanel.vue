@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { McpServerStatusInfo } from '@shared/types';
+import { Button } from '@/components/ui/button';
 
 defineProps<{
   servers: McpServerStatusInfo[];
@@ -69,18 +70,21 @@ function getStatusClass(status: McpServerStatusInfo['status']): string {
           <div class="flex items-center justify-between p-4 border-b border-vscode-border">
             <h2 class="font-semibold">MCP Servers</h2>
             <div class="flex items-center gap-2">
-              <button
-                class="text-xs px-2 py-1 rounded bg-vscode-button-bg text-vscode-button-fg hover:opacity-90"
+              <Button
+                size="sm"
+                class="h-7"
                 @click="emit('refresh')"
               >
                 Refresh
-              </button>
-              <button
-                class="text-xl opacity-70 hover:opacity-100"
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                class="opacity-70 hover:opacity-100"
                 @click="emit('close')"
               >
                 &times;
-              </button>
+              </Button>
             </div>
           </div>
 

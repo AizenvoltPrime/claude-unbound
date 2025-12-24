@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   original: string;
@@ -50,18 +51,12 @@ const lines = computed(() => {
     <div class="bg-vscode-input-bg px-3 py-2 border-b border-vscode-border flex justify-between items-center">
       <span class="font-medium text-sm">{{ fileName }}</span>
       <div class="flex gap-2">
-        <button
-          class="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700"
-          @click="emit('reject')"
-        >
+        <Button variant="destructive" size="sm" @click="emit('reject')">
           Reject
-        </button>
-        <button
-          class="px-2 py-1 text-xs rounded bg-green-600 text-white hover:bg-green-700"
-          @click="emit('approve')"
-        >
+        </Button>
+        <Button size="sm" class="bg-green-600 hover:bg-green-700" @click="emit('approve')">
           Approve
-        </button>
+        </Button>
       </div>
     </div>
 

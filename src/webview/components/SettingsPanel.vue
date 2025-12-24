@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import type { ExtensionSettings, ModelInfo, PermissionMode } from '@shared/types';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   settings: ExtensionSettings;
@@ -121,12 +122,14 @@ const modelOptions = computed(() => {
         <div class="p-4">
           <div class="flex items-center justify-between mb-6">
             <h2 class="text-lg font-semibold">Settings</h2>
-            <button
-              class="text-xl opacity-70 hover:opacity-100"
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              class="opacity-70 hover:opacity-100"
               @click="emit('close')"
             >
               &times;
-            </button>
+            </Button>
           </div>
 
           <!-- Model Selection -->
@@ -242,12 +245,12 @@ const modelOptions = computed(() => {
           <hr class="border-vscode-border my-4" />
 
           <!-- VS Code Settings Link -->
-          <button
-            class="w-full py-2 px-3 rounded bg-vscode-button-bg text-vscode-button-fg text-sm hover:opacity-90 flex items-center justify-center gap-2"
+          <Button
+            class="w-full"
             @click="emit('openVSCodeSettings')"
           >
-            <span>Open VS Code Settings</span>
-          </button>
+            Open VS Code Settings
+          </Button>
 
           <!-- Info -->
           <p class="text-xs opacity-50 mt-4 text-center">
