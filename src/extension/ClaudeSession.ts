@@ -283,10 +283,7 @@ export class ClaudeSession {
             hooks: [
               async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
                 const p = params as { tool_name?: string; tool_input?: unknown };
-                log('[ClaudeSession] PreToolUse hook fired:', p.tool_name, 'toolUseId:', toolUseId);
-                // Also set toolsUsedThisTurn here in case toolStreaming didn't fire (e.g., permission flow)
                 if (p.tool_name) {
-                  log('[ClaudeSession] PreToolUse setting toolsUsedThisTurn TRUE for:', p.tool_name);
                   this.toolsUsedThisTurn = true;
                 }
                 if (p.tool_name && toolUseId) {
@@ -743,16 +740,6 @@ export class ClaudeSession {
             const inputTokens = resultMsg.usage?.input_tokens ?? 0;
             const cacheCreation = resultMsg.usage?.cache_creation_input_tokens ?? 0;
             const cacheRead = resultMsg.usage?.cache_read_input_tokens ?? 0;
-
-            log('[ClaudeSession] CONTEXT STATS DEBUG:');
-            log('  hadToolsThisTurn:', hadToolsThisTurn);
-            log('  divisor:', divisor);
-            log('  Raw input_tokens:', inputTokens);
-            log('  Raw cache_creation:', cacheCreation);
-            log('  Raw cache_read:', cacheRead);
-            log('  Adjusted input_tokens:', Math.round(inputTokens / divisor));
-            log('  Adjusted cache_creation:', Math.round(cacheCreation / divisor));
-            log('  Adjusted cache_read:', Math.round(cacheRead / divisor));
 
             this.options.onMessage({
               type: 'done',
