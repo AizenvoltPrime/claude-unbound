@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
 
 const props = defineProps<{
   currentSpend: number;
@@ -17,14 +19,14 @@ const percentUsed = computed(() => {
   return Math.min((props.currentSpend / props.limit) * 100, 100);
 });
 
-const progressColor = computed(() => {
-  if (props.exceeded) return 'bg-red-500';
-  if (percentUsed.value >= 90) return 'bg-red-500';
-  if (percentUsed.value >= 80) return 'bg-yellow-500';
-  return 'bg-green-500';
+const progressClass = computed(() => {
+  if (props.exceeded) return '[&>div]:bg-red-500';
+  if (percentUsed.value >= 90) return '[&>div]:bg-red-500';
+  if (percentUsed.value >= 80) return '[&>div]:bg-yellow-500';
+  return '[&>div]:bg-green-500';
 });
 
-const bannerClass = computed(() => {
+const alertClass = computed(() => {
   if (props.exceeded) return 'bg-red-900/30 border-red-600/50';
   return 'bg-yellow-900/30 border-yellow-600/50';
 });
@@ -33,43 +35,41 @@ const iconEmoji = computed(() => props.exceeded ? '🛑' : '⚠️');
 </script>
 
 <template>
-  <div
-    class="flex items-center gap-3 px-4 py-2 border-b text-sm"
-    :class="bannerClass"
+  <Alert
+    class="flex items-center gap-3 px-4 py-2 rounded-none border-x-0 border-t-0"
+    :class="alertClass"
   >
-    <span class="text-lg">{{ iconEmoji }}</span>
+    <span class="text-lg shrink-0">{{ iconEmoji }}</span>
 
-    <div class="flex-1">
-      <div v-if="exceeded" class="font-medium text-red-400">
+    <div class="flex-1 min-w-0">
+      <AlertTitle v-if="exceeded" class="font-medium text-red-400 mb-0">
         Budget limit exceeded
-      </div>
-      <div v-else class="font-medium text-yellow-400">
+      </AlertTitle>
+      <AlertTitle v-else class="font-medium text-yellow-400 mb-0">
         Approaching budget limit
-      </div>
+      </AlertTitle>
 
-      <div class="flex items-center gap-3 mt-1">
-        <div class="flex-1 max-w-32 h-1.5 rounded-full bg-gray-700 overflow-hidden">
-          <div
-            class="h-full rounded-full transition-all duration-300"
-            :class="progressColor"
-            :style="{ width: `${percentUsed}%` }"
-          ></div>
-        </div>
+      <AlertDescription class="flex items-center gap-3 mt-1">
+        <Progress
+          :model-value="percentUsed"
+          class="flex-1 max-w-32 h-1.5 bg-gray-700"
+          :class="progressClass"
+        />
         <span class="text-xs opacity-70">
           ${{ currentSpend.toFixed(2) }} / ${{ limit.toFixed(2) }}
           ({{ percentUsed.toFixed(0) }}%)
         </span>
-      </div>
+      </AlertDescription>
     </div>
 
     <Button
       variant="ghost"
       size="icon-sm"
-      class="opacity-50 hover:opacity-100 h-6 w-6"
+      class="opacity-50 hover:opacity-100 h-6 w-6 shrink-0"
       @click="$emit('dismiss')"
       title="Dismiss"
     >
       &times;
     </Button>
-  </div>
+  </Alert>
 </template>

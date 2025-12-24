@@ -2,6 +2,8 @@
 import { computed } from 'vue';
 import type { ToolCall } from '@shared/types';
 import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 const props = defineProps<{
   toolCall: ToolCall;
@@ -60,6 +62,12 @@ const isFailed = computed(() => props.toolCall.status === 'failed');
 const isAbandoned = computed(() => props.toolCall.status === 'abandoned');
 const isAwaitingApproval = computed(() => props.toolCall.status === 'awaiting_approval');
 
+const cardClass = computed(() => {
+  if (isFailed.value) return 'border-red-500/50';
+  if (isAbandoned.value) return 'border-gray-500/50 opacity-60';
+  return 'border-unbound-cyan-800/50';
+});
+
 const toolIcon = computed(() => {
   const icons: Record<string, string> = {
     Read: '📄',
@@ -99,16 +107,9 @@ function formatInput(input: Record<string, unknown>): string {
 </script>
 
 <template>
-  <div
-    class="rounded-lg text-sm overflow-hidden"
-    :class="[
-      isFailed ? 'border border-red-500/50' :
-      isAbandoned ? 'border border-gray-500/50 opacity-60' :
-      'border border-unbound-cyan-800/50'
-    ]"
-  >
+  <Card class="text-sm overflow-hidden" :class="cardClass">
     <!-- Header: Task label -->
-    <div class="flex items-center gap-2 px-3 py-1.5 bg-unbound-bg-card border-b border-unbound-cyan-900/30">
+    <CardHeader class="flex flex-row items-center gap-2 px-3 py-1.5 bg-unbound-bg-card border-b border-unbound-cyan-900/30 space-y-0">
       <span class="text-unbound-cyan-400 font-medium">Task:</span>
       <span class="text-unbound-text">{{ toolCall.name }}</span>
       <span :class="statusClass" class="ml-1">{{ statusIcon }}</span>
@@ -124,10 +125,10 @@ function formatInput(input: Record<string, unknown>): string {
       >
         Stop
       </Button>
-    </div>
+    </CardHeader>
 
     <!-- Body: Input/Output -->
-    <div class="bg-unbound-bg p-3 space-y-2">
+    <CardContent class="bg-unbound-bg p-3 space-y-2">
       <!-- Input display -->
       <div class="flex items-start gap-2 text-xs">
         <span class="text-unbound-cyan-500 font-medium shrink-0">IN</span>
@@ -135,12 +136,14 @@ function formatInput(input: Record<string, unknown>): string {
       </div>
 
       <!-- Error message for failed tools -->
-      <div
+      <Alert
         v-if="isFailed && toolCall.errorMessage"
-        class="p-2 rounded text-xs bg-red-900/20 text-red-400 border border-red-500/30"
+        variant="destructive"
+        class="p-2 text-xs bg-red-900/20 border-red-500/30"
       >
-        <strong>Error:</strong> {{ toolCall.errorMessage }}
-      </div>
+        <AlertTitle class="text-red-400 font-semibold mb-0">Error</AlertTitle>
+        <AlertDescription class="text-red-400">{{ toolCall.errorMessage }}</AlertDescription>
+      </Alert>
 
       <!-- Normal result display -->
       <div
@@ -159,27 +162,29 @@ function formatInput(input: Record<string, unknown>): string {
       </div>
 
       <!-- Awaiting approval indicator -->
-      <div
+      <Alert
         v-if="isAwaitingApproval"
-        class="p-2 rounded text-xs bg-amber-900/20 text-amber-400 border border-amber-500/30 animate-pulse"
+        class="p-2 text-xs bg-amber-900/20 border-amber-500/30 animate-pulse"
       >
-        <strong>Awaiting your approval</strong> — Please respond to the dialog
-      </div>
+        <AlertTitle class="text-amber-400 font-semibold mb-0">Awaiting your approval</AlertTitle>
+        <AlertDescription class="text-amber-400">Please respond to the dialog</AlertDescription>
+      </Alert>
 
       <!-- Abandoned indicator -->
-      <div
+      <Alert
         v-if="isAbandoned"
-        class="p-2 rounded text-xs bg-gray-800/40 text-gray-400 border border-gray-600/30"
+        class="p-2 text-xs bg-gray-800/40 border-gray-600/30"
       >
-        <strong>Not executed</strong> — Claude changed course before running this tool
-      </div>
+        <AlertTitle class="text-gray-400 font-semibold mb-0">Not executed</AlertTitle>
+        <AlertDescription class="text-gray-400">Claude changed course before running this tool</AlertDescription>
+      </Alert>
 
       <!-- Running state progress indicator -->
       <div v-if="isRunning" class="h-0.5 bg-unbound-bg-card rounded overflow-hidden">
         <div class="h-full bg-unbound-cyan-500 animate-progress"></div>
       </div>
-    </div>
-  </div>
+    </CardContent>
+  </Card>
 </template>
 
 <style scoped>

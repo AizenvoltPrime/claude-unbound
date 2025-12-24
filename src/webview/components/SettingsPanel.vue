@@ -2,6 +2,24 @@
 import { ref, watch, computed } from 'vue';
 import type { ExtensionSettings, ModelInfo, PermissionMode } from '@shared/types';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const props = defineProps<{
   settings: ExtensionSettings;
@@ -39,14 +57,21 @@ const is1MContextEnabled = computed(() =>
   props.settings.betasEnabled.includes('context-1m-2025-08-07')
 );
 
-function handleModelChange(event: Event) {
-  const value = (event.target as HTMLSelectElement).value;
+// Computed for Slider (needs array format)
+const thinkingTokensSliderValue = computed({
+  get: () => [localMaxThinkingTokens.value ?? 10000],
+  set: (val: number[]) => {
+    localMaxThinkingTokens.value = val[0];
+    emit('setMaxThinkingTokens', val[0]);
+  }
+});
+
+function handleModelChange(value: string) {
   localModel.value = value;
   emit('setModel', value);
 }
 
-function handleThinkingToggle(event: Event) {
-  const enabled = (event.target as HTMLInputElement).checked;
+function handleThinkingToggle(enabled: boolean) {
   enableExtendedThinking.value = enabled;
   if (!enabled) {
     localMaxThinkingTokens.value = null;
@@ -57,12 +82,6 @@ function handleThinkingToggle(event: Event) {
   }
 }
 
-function handleThinkingTokensChange(event: Event) {
-  const value = parseInt((event.target as HTMLInputElement).value, 10);
-  localMaxThinkingTokens.value = value;
-  emit('setMaxThinkingTokens', value);
-}
-
 function handleBudgetChange(event: Event) {
   const inputValue = (event.target as HTMLInputElement).value;
   const value = inputValue ? parseFloat(inputValue) : null;
@@ -70,15 +89,14 @@ function handleBudgetChange(event: Event) {
   emit('setBudgetLimit', value);
 }
 
-function handleContextBetaToggle(event: Event) {
-  const enabled = (event.target as HTMLInputElement).checked;
+function handleContextBetaToggle(enabled: boolean) {
   emit('toggleBeta', 'context-1m-2025-08-07', enabled);
 }
 
-function handlePermissionModeChange(event: Event) {
-  const value = (event.target as HTMLSelectElement).value as PermissionMode;
-  localPermissionMode.value = value;
-  emit('setPermissionMode', value);
+function handlePermissionModeChange(value: string) {
+  const mode = value as PermissionMode;
+  localPermissionMode.value = mode;
+  emit('setPermissionMode', mode);
 }
 
 const permissionModeOptions: { value: PermissionMode; label: string; description: string }[] = [
@@ -103,183 +121,149 @@ const modelOptions = computed(() => {
   }
   return defaultModels;
 });
+
+// Get current model display name
+const currentModelDisplayName = computed(() => {
+  if (!localModel.value) return 'Default (Opus 4.5)';
+  const model = modelOptions.value.find(m => m.value === localModel.value);
+  return model?.displayName || localModel.value;
+});
+
+// Get current permission mode description
+const currentPermissionDescription = computed(() => {
+  return permissionModeOptions.find(o => o.value === localPermissionMode.value)?.description || '';
+});
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="fade">
-      <div
-        v-if="visible"
-        class="fixed inset-0 bg-black/50 z-40"
-        @click="emit('close')"
-      />
-    </Transition>
-    <Transition name="slide">
-      <div
-        v-if="visible"
-        class="fixed right-0 top-0 bottom-0 w-80 bg-unbound-bg-light border-l border-unbound-cyan-800/50 z-50 overflow-y-auto"
-      >
-        <div class="p-4">
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="text-lg font-semibold">Settings</h2>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              class="opacity-70 hover:opacity-100"
-              @click="emit('close')"
+  <Sheet :open="visible" @update:open="(open: boolean) => !open && emit('close')">
+    <SheetContent side="right" class="w-80 bg-unbound-bg-light border-l border-unbound-cyan-800/50 overflow-y-auto">
+      <SheetHeader class="mb-6">
+        <SheetTitle>Settings</SheetTitle>
+      </SheetHeader>
+
+      <!-- Model Selection -->
+      <div class="mb-5">
+        <Label class="block mb-2 text-unbound-cyan-300">Model</Label>
+        <Select :model-value="localModel || ''" @update:model-value="handleModelChange">
+          <SelectTrigger class="w-full bg-unbound-bg-card border-unbound-cyan-800/50">
+            <SelectValue :placeholder="currentModelDisplayName" />
+          </SelectTrigger>
+          <SelectContent class="bg-unbound-bg-card border-unbound-cyan-800/50">
+            <SelectItem value="">
+              Default (Opus 4.5)
+            </SelectItem>
+            <SelectItem
+              v-for="model in modelOptions"
+              :key="model.value"
+              :value="model.value"
             >
-              &times;
-            </Button>
-          </div>
+              {{ model.displayName }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-          <!-- Model Selection -->
-          <div class="mb-5">
-            <label class="block text-sm font-medium mb-2 text-unbound-cyan-300">Model</label>
-            <select
-              :value="localModel"
-              class="w-full p-2 rounded bg-unbound-bg-card border border-unbound-cyan-800/50 text-sm text-unbound-text"
-              @change="handleModelChange"
+      <!-- Permission Mode -->
+      <div class="mb-5">
+        <Label class="block mb-2 text-unbound-cyan-300">Permission Mode</Label>
+        <Select :model-value="localPermissionMode" @update:model-value="handlePermissionModeChange">
+          <SelectTrigger class="w-full bg-unbound-bg-card border-unbound-cyan-800/50">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent class="bg-unbound-bg-card border-unbound-cyan-800/50">
+            <SelectItem
+              v-for="option in permissionModeOptions"
+              :key="option.value"
+              :value="option.value"
             >
-              <option value="">Default (Opus 4.5)</option>
-              <option
-                v-for="model in modelOptions"
-                :key="model.value"
-                :value="model.value"
-              >
-                {{ model.displayName }}
-              </option>
-            </select>
-          </div>
+              {{ option.label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <p class="text-xs opacity-50 mt-1">
+          {{ currentPermissionDescription }}
+        </p>
+      </div>
 
-          <!-- Permission Mode -->
-          <div class="mb-5">
-            <label class="block text-sm font-medium mb-2 text-unbound-cyan-300">Permission Mode</label>
-            <select
-              :value="localPermissionMode"
-              class="w-full p-2 rounded bg-unbound-bg-card border border-unbound-cyan-800/50 text-sm text-unbound-text"
-              @change="handlePermissionModeChange"
-            >
-              <option
-                v-for="option in permissionModeOptions"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </option>
-            </select>
-            <p class="text-xs opacity-50 mt-1">
-              {{ permissionModeOptions.find(o => o.value === localPermissionMode)?.description }}
-            </p>
-          </div>
+      <!-- Budget Limit -->
+      <div class="mb-5">
+        <Label class="block mb-2 text-unbound-cyan-300">Budget Limit (USD)</Label>
+        <Input
+          type="number"
+          :model-value="localBudgetLimit ?? ''"
+          step="0.1"
+          min="0"
+          placeholder="Unlimited"
+          class="bg-unbound-bg-card border-unbound-cyan-800/50 placeholder:text-unbound-muted"
+          @change="handleBudgetChange"
+        />
+        <p class="text-xs opacity-50 mt-1">
+          Leave empty for no limit. Warning shown at 80%.
+        </p>
+      </div>
 
-          <!-- Budget Limit -->
-          <div class="mb-5">
-            <label class="block text-sm font-medium mb-2 text-unbound-cyan-300">Budget Limit (USD)</label>
-            <input
-              type="number"
-              :value="localBudgetLimit ?? ''"
-              step="0.1"
-              min="0"
-              placeholder="Unlimited"
-              class="w-full p-2 rounded bg-unbound-bg-card border border-unbound-cyan-800/50 text-sm text-unbound-text placeholder:text-unbound-muted"
-              @change="handleBudgetChange"
-            />
-            <p class="text-xs opacity-50 mt-1">
-              Leave empty for no limit. Warning shown at 80%.
-            </p>
-          </div>
-
-          <!-- Extended Thinking -->
-          <div class="mb-5">
-            <div class="flex items-center gap-2 mb-2">
-              <input
-                type="checkbox"
-                id="extended-thinking"
-                :checked="enableExtendedThinking"
-                class="rounded accent-unbound-cyan-500"
-                @change="handleThinkingToggle"
-              />
-              <label for="extended-thinking" class="text-sm font-medium text-unbound-cyan-300">
-                Extended Thinking
-              </label>
-            </div>
-            <div v-if="enableExtendedThinking" class="mt-2">
-              <input
-                type="range"
-                :value="localMaxThinkingTokens ?? 10000"
-                min="1000"
-                max="100000"
-                step="1000"
-                class="w-full"
-                @input="handleThinkingTokensChange"
-              />
-              <div class="flex justify-between text-xs opacity-50">
-                <span>1K</span>
-                <span class="font-medium">{{ ((localMaxThinkingTokens ?? 10000) / 1000).toFixed(0) }}K tokens</span>
-                <span>100K</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Beta Features -->
-          <div class="mb-5">
-            <label class="block text-sm font-medium mb-2">Beta Features</label>
-            <div class="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="context-1m"
-                :checked="is1MContextEnabled"
-                class="rounded"
-                @change="handleContextBetaToggle"
-              />
-              <label for="context-1m" class="text-sm">
-                1M Context Window
-              </label>
-            </div>
-            <p class="text-xs opacity-50 mt-1">
-              Enable 1M token context for Sonnet 4/4.5 models
-            </p>
-          </div>
-
-          <!-- Divider -->
-          <hr class="border-vscode-border my-4" />
-
-          <!-- VS Code Settings Link -->
-          <Button
+      <!-- Extended Thinking -->
+      <div class="mb-5">
+        <div class="flex items-center justify-between mb-2">
+          <Label for="extended-thinking" class="text-unbound-cyan-300">
+            Extended Thinking
+          </Label>
+          <Switch
+            id="extended-thinking"
+            :checked="enableExtendedThinking"
+            @update:checked="handleThinkingToggle"
+          />
+        </div>
+        <div v-if="enableExtendedThinking" class="mt-3">
+          <Slider
+            v-model="thinkingTokensSliderValue"
+            :min="1000"
+            :max="100000"
+            :step="1000"
             class="w-full"
-            @click="emit('openVSCodeSettings')"
-          >
-            Open VS Code Settings
-          </Button>
-
-          <!-- Info -->
-          <p class="text-xs opacity-50 mt-4 text-center">
-            Changes apply to the current session and persist in workspace settings.
-          </p>
+          />
+          <div class="flex justify-between text-xs opacity-50 mt-1">
+            <span>1K</span>
+            <span class="font-medium">{{ ((localMaxThinkingTokens ?? 10000) / 1000).toFixed(0) }}K tokens</span>
+            <span>100K</span>
+          </div>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+
+      <!-- Beta Features -->
+      <div class="mb-5">
+        <Label class="block mb-2">Beta Features</Label>
+        <div class="flex items-center justify-between">
+          <Label for="context-1m" class="text-sm font-normal">
+            1M Context Window
+          </Label>
+          <Switch
+            id="context-1m"
+            :checked="is1MContextEnabled"
+            @update:checked="handleContextBetaToggle"
+          />
+        </div>
+        <p class="text-xs opacity-50 mt-1">
+          Enable 1M token context for Sonnet 4/4.5 models
+        </p>
+      </div>
+
+      <!-- Divider -->
+      <Separator class="my-4" />
+
+      <!-- VS Code Settings Link -->
+      <Button
+        class="w-full"
+        @click="emit('openVSCodeSettings')"
+      >
+        Open VS Code Settings
+      </Button>
+
+      <!-- Info -->
+      <p class="text-xs opacity-50 mt-4 text-center">
+        Changes apply to the current session and persist in workspace settings.
+      </p>
+    </SheetContent>
+  </Sheet>
 </template>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.slide-enter-active,
-.slide-leave-active {
-  transition: transform 0.2s ease;
-}
-
-.slide-enter-from,
-.slide-leave-to {
-  transform: translateX(100%);
-}
-</style>

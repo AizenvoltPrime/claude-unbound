@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 const props = defineProps<{
   visible: boolean;
@@ -62,6 +72,12 @@ function handleCancel() {
   resetState();
 }
 
+function handleOpenChange(open: boolean) {
+  if (!open) {
+    handleCancel();
+  }
+}
+
 function resetState() {
   showCustomInput.value = false;
   customMessage.value = '';
@@ -69,105 +85,85 @@ function resetState() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="fade">
-      <div
-        v-if="visible"
-        class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-        @click.self="handleCancel"
-      >
-        <div class="bg-unbound-bg-card border border-unbound-cyan-800/50 rounded-lg shadow-xl max-w-lg w-full">
-          <!-- Header -->
-          <div class="p-4 border-b border-unbound-cyan-900/50">
-            <h2 class="font-semibold text-unbound-text flex items-center gap-2">
-              <span class="text-lg">{{ toolName === 'Write' ? '📝' : '✏️' }}</span>
-              <span>Allow {{ toolName?.toLowerCase() }} to {{ fileName }}?</span>
-            </h2>
-            <div class="text-xs text-unbound-muted mt-1 truncate">{{ filePath }}</div>
-          </div>
+  <Dialog :open="visible" @update:open="handleOpenChange">
+    <DialogContent class="bg-unbound-bg-card border-unbound-cyan-800/50 max-w-lg">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2 text-unbound-text">
+          <span class="text-lg">{{ toolName === 'Write' ? '📝' : '✏️' }}</span>
+          <span>Allow {{ toolName?.toLowerCase() }} to {{ fileName }}?</span>
+        </DialogTitle>
+        <DialogDescription class="text-unbound-muted truncate">
+          {{ filePath }}
+        </DialogDescription>
+      </DialogHeader>
 
-          <!-- Content preview -->
-          <div class="p-4">
-            <div class="flex items-center gap-3 mb-4">
-              <div class="flex-1">
-                <div
-                  class="px-3 py-2 rounded text-sm"
-                  :class="isNewFile ? 'bg-green-900/20 border border-green-600/30 text-green-300' : 'bg-unbound-cyan-900/20 border border-unbound-cyan-700/30 text-unbound-cyan-300'"
-                >
-                  <span v-if="isNewFile">New file: </span>
-                  <span v-else>Modifying: </span>
-                  <span class="font-medium">{{ lineCountChange }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Custom message input (shown when "Tell Claude" is clicked) -->
-            <div v-if="showCustomInput" class="mb-4">
-              <label class="block text-sm text-unbound-muted mb-2">Tell Claude what to do instead:</label>
-              <textarea
-                v-model="customMessage"
-                class="w-full px-3 py-2 rounded bg-unbound-bg border border-unbound-cyan-800/50 text-unbound-text text-sm resize-none focus:outline-none focus:border-unbound-cyan-500"
-                rows="3"
-                placeholder="e.g., Use a different approach, rename the file, add error handling..."
-                @keydown.enter.ctrl="handleCustom"
-              />
-            </div>
-          </div>
-
-          <!-- Action buttons -->
-          <div class="flex flex-col gap-2 p-4 border-t border-unbound-cyan-900/50">
-            <div v-if="!showCustomInput" class="grid grid-cols-2 gap-2">
-              <!-- Yes button -->
-              <Button @click="handleYes">
-                <span class="mr-1">1</span> Yes
-              </Button>
-
-              <!-- Yes, don't ask again -->
-              <Button variant="outline" @click="handleYesNeverAsk">
-                <span class="mr-1">2</span> Yes, and don't ask again
-              </Button>
-
-              <!-- No -->
-              <Button variant="outline" @click="handleNo">
-                <span class="mr-1">3</span> No
-              </Button>
-
-              <!-- Tell Claude -->
-              <Button variant="secondary" @click="handleCustom">
-                Tell Claude what to do instead
-              </Button>
-            </div>
-
-            <!-- Custom input action buttons -->
-            <div v-else class="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                @click="showCustomInput = false; customMessage = ''"
-              >
-                Back
-              </Button>
-              <Button
-                :disabled="!customMessage.trim()"
-                @click="handleCustom"
-              >
-                Send to Claude
-              </Button>
+      <!-- Content preview -->
+      <div class="py-2">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="flex-1">
+            <div
+              class="px-3 py-2 rounded text-sm"
+              :class="isNewFile ? 'bg-green-900/20 border border-green-600/30 text-green-300' : 'bg-unbound-cyan-900/20 border border-unbound-cyan-700/30 text-unbound-cyan-300'"
+            >
+              <span v-if="isNewFile">New file: </span>
+              <span v-else>Modifying: </span>
+              <span class="font-medium">{{ lineCountChange }}</span>
             </div>
           </div>
         </div>
+
+        <!-- Custom message input (shown when "Tell Claude" is clicked) -->
+        <div v-if="showCustomInput" class="mb-4">
+          <Label class="block mb-2 text-unbound-muted">Tell Claude what to do instead:</Label>
+          <Textarea
+            v-model="customMessage"
+            class="min-h-20 bg-unbound-bg border-unbound-cyan-800/50 resize-none focus:border-unbound-cyan-500"
+            placeholder="e.g., Use a different approach, rename the file, add error handling..."
+            @keydown.enter.ctrl="handleCustom"
+          />
+        </div>
       </div>
-    </Transition>
-  </Teleport>
+
+      <!-- Action buttons -->
+      <DialogFooter class="flex-col gap-2 sm:flex-col">
+        <div v-if="!showCustomInput" class="grid grid-cols-2 gap-2 w-full">
+          <!-- Yes button -->
+          <Button @click="handleYes">
+            <span class="mr-1">1</span> Yes
+          </Button>
+
+          <!-- Yes, don't ask again -->
+          <Button variant="outline" @click="handleYesNeverAsk">
+            <span class="mr-1">2</span> Yes, and don't ask again
+          </Button>
+
+          <!-- No -->
+          <Button variant="outline" @click="handleNo">
+            <span class="mr-1">3</span> No
+          </Button>
+
+          <!-- Tell Claude -->
+          <Button variant="secondary" @click="handleCustom">
+            Tell Claude what to do instead
+          </Button>
+        </div>
+
+        <!-- Custom input action buttons -->
+        <div v-else class="flex justify-end gap-2 w-full">
+          <Button
+            variant="ghost"
+            @click="showCustomInput = false; customMessage = ''"
+          >
+            Back
+          </Button>
+          <Button
+            :disabled="!customMessage.trim()"
+            @click="handleCustom"
+          >
+            Send to Claude
+          </Button>
+        </div>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

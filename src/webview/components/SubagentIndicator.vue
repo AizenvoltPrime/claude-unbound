@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { ActiveSubagent } from '@shared/types';
+import { Badge } from '@/components/ui/badge';
 
 const props = defineProps<{
   subagents: Map<string, ActiveSubagent>;
@@ -37,15 +38,16 @@ function formatDuration(startTime: number): string {
   >
     <span class="opacity-70">Active agents:</span>
     <div class="flex items-center gap-2">
-      <div
+      <Badge
         v-for="agent in subagentList"
         :key="agent.id"
-        class="flex items-center gap-1 px-2 py-0.5 rounded bg-blue-600/30 text-blue-300"
+        variant="secondary"
+        class="bg-blue-600/30 text-blue-300 border-blue-500/30"
       >
         <span class="animate-pulse">{{ getAgentIcon(agent.type) }}</span>
         <span class="capitalize">{{ agent.type.replace('-', ' ') }}</span>
         <span class="opacity-50 font-mono text-[10px]">{{ formatDuration(agent.startTime) }}</span>
-      </div>
+      </Badge>
     </div>
   </div>
 </template>

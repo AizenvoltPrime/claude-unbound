@@ -4,8 +4,9 @@ import MessageList from './components/MessageList.vue';
 import ChatInput from './components/ChatInput.vue';
 import SessionStats from './components/SessionStats.vue';
 import FileTree from './components/FileTree.vue';
-import ToastNotification from './components/ToastNotification.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
+import { Toaster } from '@/components/ui/sonner';
+import { toast } from 'vue-sonner';
 import McpStatusIndicator from './components/McpStatusIndicator.vue';
 import McpStatusPanel from './components/McpStatusPanel.vue';
 import SubagentIndicator from './components/SubagentIndicator.vue';
@@ -67,8 +68,6 @@ const hasMoreHistory = ref(false);
 const nextHistoryOffset = ref(0);
 const loadingMoreHistory = ref(false);
 const currentResumedSessionId = ref<string | null>(null);
-const currentNotification = ref<{ id: number; message: string; type: string } | null>(null);
-let notificationId = 0;
 const pendingTool = ref<{ name: string; input: unknown } | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
 
@@ -804,12 +803,20 @@ onMounted(() => {
       }
 
       case 'notification':
-        // Use unique ID so watch detects each notification as different
-        currentNotification.value = {
-          id: ++notificationId,
-          message: message.message,
-          type: message.notificationType,
-        };
+        // Show toast notification using Sonner
+        switch (message.notificationType) {
+          case 'success':
+            toast.success(message.message);
+            break;
+          case 'error':
+            toast.error(message.message);
+            break;
+          case 'warning':
+            toast.warning(message.message);
+            break;
+          default:
+            toast.info(message.message);
+        }
         break;
 
       case 'accountInfo':
@@ -893,19 +900,11 @@ onMounted(() => {
         break;
 
       case 'rewindComplete':
-        currentNotification.value = {
-          id: ++notificationId,
-          message: 'Files rewound successfully',
-          type: 'success',
-        };
+        toast.success('Files rewound successfully');
         break;
 
       case 'rewindError':
-        currentNotification.value = {
-          id: ++notificationId,
-          message: `Rewind failed: ${message.message}`,
-          type: 'error',
-        };
+        toast.error(`Rewind failed: ${message.message}`);
         break;
 
       // New: User message replay (for resumed sessions)
@@ -1189,8 +1188,8 @@ onMounted(() => {
       @change-mode="handleModeChange"
     />
 
-    <!-- Toast notifications -->
-    <ToastNotification :notification="currentNotification" />
+    <!-- Toast notifications (Sonner) -->
+    <Toaster position="top-right" :duration="4000" />
 
     <!-- Settings Panel (overlay) -->
     <SettingsPanel
