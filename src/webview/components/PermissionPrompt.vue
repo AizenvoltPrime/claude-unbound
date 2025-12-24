@@ -10,6 +10,7 @@ const props = defineProps<{
   filePath?: string;
   originalContent?: string;
   proposedContent?: string;
+  command?: string;
 }>();
 
 const emit = defineEmits<{
@@ -22,9 +23,11 @@ const selectedValue = ref<string>('yes');
 const listboxRef = ref<HTMLElement | null>(null);
 const textareaRef = ref<{ $el?: HTMLElement } | null>(null);
 
+const isBash = computed(() => props.toolName === 'Bash');
 const isNewFile = computed(() => !props.originalContent);
 
 const actionLabel = computed(() => {
+  if (isBash.value) return 'Run this command?';
   if (isNewFile.value) return 'Create this file';
   return 'Make this edit to';
 });
@@ -116,8 +119,14 @@ watch(() => props.visible, (visible) => {
   >
     <!-- Header question -->
     <div class="px-4 py-3 text-sm text-unbound-text">
-      {{ actionLabel }}
-      <span class="text-unbound-muted break-all">{{ filePath }}</span>?
+      <template v-if="isBash">
+        <div>{{ actionLabel }}</div>
+        <div class="mt-2 p-2 bg-unbound-bg-light rounded font-mono text-xs text-unbound-cyan-300 break-all whitespace-pre-wrap">{{ command }}</div>
+      </template>
+      <template v-else>
+        {{ actionLabel }}
+        <span class="text-unbound-muted break-all">{{ filePath }}</span>?
+      </template>
     </div>
 
     <!-- Options list using Reka UI Listbox -->

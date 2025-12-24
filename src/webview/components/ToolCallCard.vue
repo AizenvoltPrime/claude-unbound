@@ -435,7 +435,7 @@ function formatInput(input: Record<string, unknown>): string {
       <!-- Normal result display -->
       <div
         v-else-if="toolCall.result"
-        class="text-xs"
+        class="text-xs border-t border-unbound-cyan-900/30 pt-2"
       >
         <div class="flex items-start gap-2">
           <span class="text-unbound-cyan-500 font-medium shrink-0">OUT</span>

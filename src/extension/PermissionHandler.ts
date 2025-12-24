@@ -51,7 +51,7 @@ export class PermissionHandler {
 
     if (toolName === 'Edit' || toolName === 'Write') {
       const typedInput = input as unknown as FileEditInput | FileWriteInput;
-      const result = await this.requestPermissionFromWebview(toolName, typedInput, context);
+      const result = await this.requestFilePermissionFromWebview(toolName, typedInput, context);
 
       if (result.neverAskAgain) {
         await config.update('permissionMode', 'acceptEdits', vscode.ConfigurationTarget.Workspace);
@@ -61,6 +61,23 @@ export class PermissionHandler {
         return {
           behavior: 'deny',
           message: result.customMessage || 'User rejected the file modification',
+        };
+      }
+
+      return { behavior: 'allow', updatedInput: input };
+    }
+
+    if (toolName === 'Bash') {
+      const result = await this.requestBashPermissionFromWebview(input, context);
+
+      if (result.neverAskAgain) {
+        await config.update('permissionMode', 'auto', vscode.ConfigurationTarget.Workspace);
+      }
+
+      if (!result.approved) {
+        return {
+          behavior: 'deny',
+          message: result.customMessage || 'User rejected the bash command',
         };
       }
 
@@ -91,7 +108,7 @@ export class PermissionHandler {
     };
   }
 
-  private async requestPermissionFromWebview(
+  private async requestFilePermissionFromWebview(
     toolName: string,
     input: FileEditInput | FileWriteInput,
     context: CanUseToolContext
@@ -143,6 +160,44 @@ export class PermissionHandler {
         filePath,
         originalContent,
         proposedContent,
+      });
+    });
+  }
+
+  private async requestBashPermissionFromWebview(
+    input: Record<string, unknown>,
+    context: CanUseToolContext
+  ): Promise<ApprovalResult> {
+    if (!this.postMessageToWebview) {
+      return { approved: true };
+    }
+
+    const command = input.command as string;
+
+    return new Promise<ApprovalResult>((resolve) => {
+      const abortHandler = () => {
+        this.pendingApproval = null;
+        resolve({ approved: false });
+      };
+
+      const cleanup = () => {
+        context.signal.removeEventListener('abort', abortHandler);
+      };
+
+      this.pendingApproval = {
+        resolve,
+        reject: () => resolve({ approved: false }),
+        cleanup,
+      };
+
+      context.signal.addEventListener('abort', abortHandler, { once: true });
+
+      this.postMessageToWebview!({
+        type: 'requestPermission',
+        toolUseId: context.toolUseID,
+        toolName: 'Bash',
+        toolInput: input,
+        command,
       });
     });
   }

@@ -323,15 +323,16 @@ export type ExtensionToWebviewMessage =
   | { type: 'assistantReplay'; content: string; thinking?: string; tools?: HistoryToolCall[] }
   // History pagination (includes tool calls for Edit/Write/etc.)
   | { type: 'historyChunk'; messages: HistoryMessage[]; hasMore: boolean; nextOffset: number }
-  // New: Permission request for file operations
+  // Permission request for file operations and bash commands
   | {
       type: 'requestPermission';
       toolUseId: string;
-      toolName: 'Write' | 'Edit';
+      toolName: 'Write' | 'Edit' | 'Bash';
       toolInput: Record<string, unknown>;
-      filePath: string;
-      originalContent: string;
-      proposedContent: string;
+      filePath?: string;
+      originalContent?: string;
+      proposedContent?: string;
+      command?: string;
     };
 
 // Chat message for UI rendering

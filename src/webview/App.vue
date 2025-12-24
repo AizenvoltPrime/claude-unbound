@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, nextTick, computed } from 'vue';
+import { onKeyStroke } from '@vueuse/core';
 import MessageList from './components/MessageList.vue';
 import ChatInput from './components/ChatInput.vue';
 import SessionStats from './components/SessionStats.vue';
@@ -110,9 +111,10 @@ const pendingRewindMessageId = ref<string | null>(null);
 const pendingPermission = ref<{
   toolUseId: string;
   toolName: string;
-  filePath: string;
-  originalContent: string;
-  proposedContent: string;
+  filePath?: string;
+  originalContent?: string;
+  proposedContent?: string;
+  command?: string;
 } | null>(null);
 
 const filesArray = computed(() => Array.from(accessedFiles.value.values()));
@@ -211,12 +213,18 @@ function handleResumeSession(sessionId: string) {
   nextHistoryOffset.value = 0;
   loadingMoreHistory.value = false;
   postMessage({ type: 'resumeSession', sessionId });
-  // Don't close the picker - let user see the selection like a select box
+  showSessionPicker.value = false;
 }
 
 function toggleSessionPicker() {
   showSessionPicker.value = !showSessionPicker.value;
 }
+
+onKeyStroke('Escape', () => {
+  if (showSessionPicker.value && !renamingSessionId.value) {
+    showSessionPicker.value = false;
+  }
+});
 
 function startRenameSession(sessionId: string, currentName: string) {
   renamingSessionId.value = sessionId;
@@ -593,6 +601,7 @@ const rewindMessagePreview = computed(() => {
       :file-path="pendingPermission?.filePath"
       :original-content="pendingPermission?.originalContent"
       :proposed-content="pendingPermission?.proposedContent"
+      :command="pendingPermission?.command"
       @approve="handlePermissionApproval"
     />
 

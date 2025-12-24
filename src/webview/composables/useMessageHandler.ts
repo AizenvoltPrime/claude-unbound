@@ -53,9 +53,10 @@ export interface MessageHandlerOptions {
   pendingPermission: Ref<{
     toolUseId: string;
     toolName: string;
-    filePath: string;
-    originalContent: string;
-    proposedContent: string;
+    filePath?: string;
+    originalContent?: string;
+    proposedContent?: string;
+    command?: string;
   } | null>;
 
   // DOM refs for scroll management
@@ -287,7 +288,6 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         }
 
         case 'requestPermission': {
-          // Add tool to streamingMessage ref
           const toolCall: ToolCall = {
             id: message.toolUseId,
             name: message.toolName,
@@ -313,7 +313,9 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             };
           }
 
-          trackFileAccess(message.toolName, message.toolInput);
+          if (message.toolName === 'Edit' || message.toolName === 'Write') {
+            trackFileAccess(message.toolName, message.toolInput);
+          }
 
           pendingPermission.value = {
             toolUseId: message.toolUseId,
@@ -321,6 +323,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             filePath: message.filePath,
             originalContent: message.originalContent,
             proposedContent: message.proposedContent,
+            command: message.command,
           };
           break;
         }
