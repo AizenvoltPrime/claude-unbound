@@ -97,6 +97,7 @@ The SDK is dynamically imported (ESM) since the extension uses CommonJS.
 
 The codebase uses path aliases configured in both tsconfig.json and vite.config.ts:
 - `@shared/*` → `src/shared/*`
+- `@/*` → `src/webview/*` (webview only)
 
 ## Permission Modes
 
@@ -110,3 +111,11 @@ The codebase uses path aliases configured in both tsconfig.json and vite.config.
 ## MCP Server Configuration
 
 MCP servers are loaded from `.mcp.json` in the workspace root and passed to the SDK at session start.
+
+## Session Storage
+
+Sessions are stored in `~/.claude/projects/<encoded-workspace-path>/` as JSONL files. The `SessionStorage.ts` module handles:
+- Path encoding for cross-platform compatibility
+- Session listing with pagination
+- Session renaming (custom-title entries)
+- JSONL parsing for history replay
