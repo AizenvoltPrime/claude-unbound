@@ -1,33 +1,41 @@
 <script setup lang="ts">
-import type { SwitchRootEmits, SwitchRootProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
-import { reactiveOmit } from "@vueuse/core"
-import {
-  SwitchRoot,
-  SwitchThumb,
-  useForwardPropsEmits,
-} from "reka-ui"
+import { SwitchRoot, SwitchThumb } from "reka-ui"
 import { cn } from "@/lib/utils"
 
-const props = defineProps<SwitchRootProps & { class?: HTMLAttributes["class"] }>()
+// Reka UI v2 uses modelValue for v-model, not checked
+// Our wrapper accepts 'checked' for backwards compatibility with v-model:checked
+const props = defineProps<{
+  checked?: boolean
+  defaultChecked?: boolean
+  disabled?: boolean
+  required?: boolean
+  name?: string
+  value?: string
+  class?: HTMLAttributes["class"]
+}>()
 
-const emits = defineEmits<SwitchRootEmits>()
-
-const delegatedProps = reactiveOmit(props, "class")
-
-const forwarded = useForwardPropsEmits(delegatedProps, emits)
+const emits = defineEmits<{
+  'update:checked': [value: boolean]
+}>()
 </script>
 
 <template>
   <SwitchRoot
-    v-bind="forwarded"
+    :model-value="checked"
+    :default-value="defaultChecked"
+    :disabled="disabled"
+    :required="required"
+    :name="name"
+    :value="value"
+    @update:model-value="(val: boolean) => emits('update:checked', val)"
     :class="cn(
       'peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input',
       props.class,
     )"
   >
     <SwitchThumb
-      :class="cn('pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-5')"
+      :class="cn('pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=unchecked]:translate-x-0 data-[state=checked]:translate-x-5')"
     >
       <slot name="thumb" />
     </SwitchThumb>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import type { ExtensionSettings, ModelInfo, PermissionMode } from '@shared/types';
+import type { ExtensionSettings, ModelInfo } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,7 +33,6 @@ const emit = defineEmits<{
   (e: 'setMaxThinkingTokens', tokens: number | null): void;
   (e: 'setBudgetLimit', budgetUsd: number | null): void;
   (e: 'toggleBeta', beta: string, enabled: boolean): void;
-  (e: 'setPermissionMode', mode: PermissionMode): void;
   (e: 'openVSCodeSettings'): void;
 }>();
 
@@ -41,21 +40,33 @@ const emit = defineEmits<{
 const localModel = ref(props.settings.model);
 const localMaxThinkingTokens = ref(props.settings.maxThinkingTokens);
 const localBudgetLimit = ref(props.settings.maxBudgetUsd);
-const localPermissionMode = ref(props.settings.permissionMode);
-const enableExtendedThinking = ref(props.settings.maxThinkingTokens !== null);
 
-// Sync with incoming settings
+// Computed with getter/setter for derived boolean state
+// This ensures the toggle is always in sync with localMaxThinkingTokens
+const enableExtendedThinking = computed({
+  get: () => localMaxThinkingTokens.value !== null,
+  set: (enabled: boolean) => {
+    if (!enabled) {
+      localMaxThinkingTokens.value = null;
+      emit('setMaxThinkingTokens', null);
+    } else {
+      localMaxThinkingTokens.value = 10000;
+      emit('setMaxThinkingTokens', 10000);
+    }
+  }
+});
+
+// Sync with incoming settings (immediate: true ensures sync on mount)
 watch(() => props.settings, (newSettings) => {
   localModel.value = newSettings.model;
   localMaxThinkingTokens.value = newSettings.maxThinkingTokens;
   localBudgetLimit.value = newSettings.maxBudgetUsd;
-  localPermissionMode.value = newSettings.permissionMode;
-  enableExtendedThinking.value = newSettings.maxThinkingTokens !== null;
-}, { deep: true });
+}, { deep: true, immediate: true });
 
-const is1MContextEnabled = computed(() =>
-  props.settings.betasEnabled.includes('context-1m-2025-08-07')
-);
+const is1MContextEnabled = computed({
+  get: () => props.settings.betasEnabled.includes('context-1m-2025-08-07'),
+  set: (enabled: boolean) => emit('toggleBeta', 'context-1m-2025-08-07', enabled)
+});
 
 // Computed for Slider (needs array format)
 const thinkingTokensSliderValue = computed({
@@ -71,17 +82,6 @@ function handleModelChange(value: string) {
   emit('setModel', value);
 }
 
-function handleThinkingToggle(enabled: boolean) {
-  enableExtendedThinking.value = enabled;
-  if (!enabled) {
-    localMaxThinkingTokens.value = null;
-    emit('setMaxThinkingTokens', null);
-  } else {
-    localMaxThinkingTokens.value = 10000;
-    emit('setMaxThinkingTokens', 10000);
-  }
-}
-
 function handleBudgetChange(event: Event) {
   const inputValue = (event.target as HTMLInputElement).value;
   const value = inputValue ? parseFloat(inputValue) : null;
@@ -89,28 +89,11 @@ function handleBudgetChange(event: Event) {
   emit('setBudgetLimit', value);
 }
 
-function handleContextBetaToggle(enabled: boolean) {
-  emit('toggleBeta', 'context-1m-2025-08-07', enabled);
-}
-
-function handlePermissionModeChange(value: string) {
-  const mode = value as PermissionMode;
-  localPermissionMode.value = mode;
-  emit('setPermissionMode', mode);
-}
-
-const permissionModeOptions: { value: PermissionMode; label: string; description: string }[] = [
-  { value: 'default', label: 'Default', description: 'Prompts for dangerous operations' },
-  { value: 'acceptEdits', label: 'Accept Edits', description: 'Auto-accept file edit operations' },
-  { value: 'bypassPermissions', label: 'Bypass All', description: 'Skip all permission checks (use with caution)' },
-  { value: 'plan', label: 'Plan Only', description: 'Read-only mode, no execution' },
-];
-
 // Default model options (always available)
 const defaultModels: ModelInfo[] = [
-  { value: 'claude-opus-4-5-20251101', displayName: 'Claude Opus 4.5', description: 'Most capable model' },
-  { value: 'claude-sonnet-4-5-20250929', displayName: 'Claude Sonnet 4.5', description: 'Best balance of speed and capability' },
-  { value: 'claude-haiku-4-5-20251001', displayName: 'Claude Haiku 4.5', description: 'Fastest model' },
+  { value: 'claude-opus-4-5-20251101', displayName: 'Opus 4.5', description: 'Most capable model' },
+  { value: 'claude-sonnet-4-5-20250929', displayName: 'Sonnet 4.5', description: 'Best balance of speed and capability' },
+  { value: 'claude-haiku-4-5-20251001', displayName: 'Haiku 4.5', description: 'Fastest model' },
 ];
 
 // Merge default models with any dynamically loaded ones
@@ -124,14 +107,9 @@ const modelOptions = computed(() => {
 
 // Get current model display name
 const currentModelDisplayName = computed(() => {
-  if (!localModel.value) return 'Default (Opus 4.5)';
+  if (!localModel.value) return 'Opus 4.5';
   const model = modelOptions.value.find(m => m.value === localModel.value);
   return model?.displayName || localModel.value;
-});
-
-// Get current permission mode description
-const currentPermissionDescription = computed(() => {
-  return permissionModeOptions.find(o => o.value === localPermissionMode.value)?.description || '';
 });
 </script>
 
@@ -145,14 +123,11 @@ const currentPermissionDescription = computed(() => {
       <!-- Model Selection -->
       <div class="mb-5">
         <Label class="block mb-2 text-unbound-cyan-300">Model</Label>
-        <Select :model-value="localModel || ''" @update:model-value="handleModelChange">
+        <Select :model-value="localModel || 'claude-opus-4-5-20251101'" @update:model-value="handleModelChange">
           <SelectTrigger class="w-full bg-unbound-bg-card border-unbound-cyan-800/50">
             <SelectValue :placeholder="currentModelDisplayName" />
           </SelectTrigger>
           <SelectContent class="bg-unbound-bg-card border-unbound-cyan-800/50">
-            <SelectItem value="">
-              Default (Opus 4.5)
-            </SelectItem>
             <SelectItem
               v-for="model in modelOptions"
               :key="model.value"
@@ -162,28 +137,6 @@ const currentPermissionDescription = computed(() => {
             </SelectItem>
           </SelectContent>
         </Select>
-      </div>
-
-      <!-- Permission Mode -->
-      <div class="mb-5">
-        <Label class="block mb-2 text-unbound-cyan-300">Permission Mode</Label>
-        <Select :model-value="localPermissionMode" @update:model-value="handlePermissionModeChange">
-          <SelectTrigger class="w-full bg-unbound-bg-card border-unbound-cyan-800/50">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent class="bg-unbound-bg-card border-unbound-cyan-800/50">
-            <SelectItem
-              v-for="option in permissionModeOptions"
-              :key="option.value"
-              :value="option.value"
-            >
-              {{ option.label }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <p class="text-xs opacity-50 mt-1">
-          {{ currentPermissionDescription }}
-        </p>
       </div>
 
       <!-- Budget Limit -->
@@ -211,22 +164,21 @@ const currentPermissionDescription = computed(() => {
           </Label>
           <Switch
             id="extended-thinking"
-            :checked="enableExtendedThinking"
-            @update:checked="handleThinkingToggle"
+            v-model:checked="enableExtendedThinking"
           />
         </div>
         <div v-if="enableExtendedThinking" class="mt-3">
           <Slider
             v-model="thinkingTokensSliderValue"
             :min="1000"
-            :max="100000"
+            :max="63999"
             :step="1000"
             class="w-full"
           />
           <div class="flex justify-between text-xs opacity-50 mt-1">
             <span>1K</span>
             <span class="font-medium">{{ ((localMaxThinkingTokens ?? 10000) / 1000).toFixed(0) }}K tokens</span>
-            <span>100K</span>
+            <span>~64K</span>
           </div>
         </div>
       </div>
@@ -240,8 +192,7 @@ const currentPermissionDescription = computed(() => {
           </Label>
           <Switch
             id="context-1m"
-            :checked="is1MContextEnabled"
-            @update:checked="handleContextBetaToggle"
+            v-model:checked="is1MContextEnabled"
           />
         </div>
         <p class="text-xs opacity-50 mt-1">

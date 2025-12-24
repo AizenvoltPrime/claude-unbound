@@ -447,6 +447,15 @@ export class ClaudeSession {
       // Store query reference for control methods
       this.currentQuery = result;
 
+      // Explicitly set thinking tokens on the query
+      // When null: disable thinking mode
+      // When number: enable with that limit
+      try {
+        await result.setMaxThinkingTokens(maxThinkingTokens);
+      } catch {
+        // May fail if SDK doesn't support this method
+      }
+
       // Fetch account info (includes subscription type)
       try {
         const account = await result.accountInfo();

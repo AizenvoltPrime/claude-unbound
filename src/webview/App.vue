@@ -315,20 +315,28 @@ function formatSessionTime(timestamp: number): string {
   return date.toLocaleDateString();
 }
 
-// New handlers for settings panel
+// New handlers for settings panel (optimistic updates to prevent feedback loops)
 function handleSetModel(model: string) {
+  currentSettings.value.model = model;
   postMessage({ type: 'setModel', model });
 }
 
 function handleSetMaxThinkingTokens(tokens: number | null) {
+  currentSettings.value.maxThinkingTokens = tokens;
   postMessage({ type: 'setMaxThinkingTokens', tokens });
 }
 
 function handleSetBudgetLimit(budgetUsd: number | null) {
+  currentSettings.value.maxBudgetUsd = budgetUsd;
   postMessage({ type: 'setBudgetLimit', budgetUsd });
 }
 
 function handleToggleBeta(beta: string, enabled: boolean) {
+  if (enabled) {
+    currentSettings.value.betasEnabled = [...currentSettings.value.betasEnabled, beta];
+  } else {
+    currentSettings.value.betasEnabled = currentSettings.value.betasEnabled.filter(b => b !== beta);
+  }
   postMessage({ type: 'toggleBeta', beta, enabled });
 }
 
