@@ -40,14 +40,15 @@ watch(() => props.thinking, () => {
       <Button
         variant="ghost"
         size="sm"
-        class="h-auto p-0 text-unbound-cyan-300 hover:text-unbound-cyan-200 hover:bg-transparent"
+        class="h-auto p-0 gap-2 text-unbound-cyan-300 hover:text-unbound-cyan-200 hover:bg-transparent"
         :disabled="!hasContent"
       >
-        <span class="text-unbound-cyan-400">•</span>
-        <span class="italic">
-          <span v-if="isStreaming" class="thinking-dots">Thinking</span>
-          <span v-else>Thinking</span>
-        </span>
+        <!-- Pulsing indicator: pulses while streaming, static when complete -->
+        <span
+          class="w-2 h-2 rounded-full bg-unbound-cyan-400 shrink-0"
+          :class="{ 'animate-pulse': isStreaming }"
+        />
+        <span class="italic">Thinking</span>
         <span v-if="hasContent" class="text-xs transition-transform duration-200" :class="{ 'rotate-90': isExpanded }">
           ▶
         </span>
@@ -64,17 +65,3 @@ watch(() => props.thinking, () => {
     </CollapsibleContent>
   </Collapsible>
 </template>
-
-<style scoped>
-.thinking-dots::after {
-  content: '';
-  animation: dots 1.5s steps(4, end) infinite;
-}
-
-@keyframes dots {
-  0%, 20% { content: ''; }
-  40% { content: '.'; }
-  60% { content: '..'; }
-  80%, 100% { content: '...'; }
-}
-</style>
