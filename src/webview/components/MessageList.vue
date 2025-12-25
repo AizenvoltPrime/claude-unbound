@@ -116,6 +116,14 @@ function formatMarkdown(text: string): string {
         </div>
       </div>
 
+      <!-- Error message (interrupts, failures) -->
+      <div
+        v-else-if="message.role === 'error'"
+        class="pl-4 text-red-400"
+      >
+        Error: {{ message.content }}
+      </div>
+
       <!-- Assistant message -->
       <div
         v-else

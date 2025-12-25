@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, type Component } from 'vue';
+import { ref, computed, onMounted, onUnmounted, type Component } from 'vue';
 import type { PermissionMode } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,14 +7,14 @@ import {
   IconCheck,
   IconBolt,
   IconClipboard,
-  IconHourglass,
-  IconArrowUp,
+  IconPlay,
 } from '@/components/icons';
 
 const props = defineProps<{
   isProcessing: boolean;
   permissionMode: PermissionMode;
   currentFile?: string;
+  settingsOpen?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -33,7 +33,7 @@ function focus() {
 
 defineExpose({ focus });
 
-const canSend = computed(() => inputText.value.trim().length > 0 && !props.isProcessing);
+const canSend = computed(() => inputText.value.trim().length > 0);
 
 // Permission mode configuration
 const modeConfig: Record<PermissionMode, { icon: Component; label: string; shortLabel: string }> = {
@@ -69,6 +69,21 @@ function handleKeydown(event: KeyboardEvent) {
 function handleCancel() {
   emit('cancel');
 }
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && props.isProcessing && !props.settingsOpen) {
+    event.preventDefault();
+    handleCancel();
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleGlobalKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown);
+});
 
 // Extract filename from path
 const displayFile = computed(() => {
@@ -123,26 +138,16 @@ const displayFile = computed(() => {
             <span class="text-xs text-unbound-muted">+</span>
             <span class="text-xs text-unbound-muted">/</span>
 
-            <!-- Cancel button -->
+            <!-- Send/Stop button -->
             <Button
-              v-if="isProcessing"
-              variant="destructive"
-              size="sm"
-              class="h-7 px-2 text-xs bg-red-600/20 text-red-400 hover:bg-red-600/40"
-              @click="handleCancel"
-            >
-              Cancel
-            </Button>
-
-            <!-- Send button -->
-            <Button
-              :disabled="!canSend"
+              :disabled="!canSend && !isProcessing"
               size="icon"
-              class="w-8 h-8"
-              @click="handleSend"
+              class="w-8 h-8 rounded-lg"
+              :class="isProcessing ? 'bg-red-500 hover:bg-red-600 border-red-500' : ''"
+              @click="isProcessing ? handleCancel() : handleSend()"
             >
-              <IconHourglass v-if="isProcessing" :size="14" />
-              <IconArrowUp v-else :size="16" />
+              <span v-if="isProcessing" class="w-3.5 h-3.5 bg-white rounded" />
+              <IconPlay v-else :size="14" />
             </Button>
           </div>
         </div>

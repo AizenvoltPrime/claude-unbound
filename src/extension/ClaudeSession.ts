@@ -5,8 +5,8 @@ import {
   persistInterruptMarker,
   persistUserMessage,
   persistPartialAssistant,
-  findRecentUserMessage,
   findUserMessageInCurrentTurn,
+  findLastMessageInCurrentTurn,
   getLastMessageUuid,
   initializeSession,
 } from './SessionStorage';
@@ -114,9 +114,6 @@ export class ClaudeSession {
   private currentPrompt: string | null = null;
   private currentModel: string | null = null;
   private wasInterrupted = false;
-  // Track whether SDK started processing this turn (wrote queue-op + user message)
-  // This is set when we receive session_id from the SDK
-  private sdkStartedProcessing = false;
 
   constructor(private options: SessionOptions) {}
 
@@ -217,7 +214,6 @@ export class ClaudeSession {
     this.toolsUsedThisTurn = false;
     this.currentPrompt = prompt;
     this.wasInterrupted = false;
-    this.sdkStartedProcessing = false;
     this.options.onMessage({ type: 'processing', isProcessing: true });
 
     try {
@@ -521,8 +517,6 @@ export class ClaudeSession {
           case 'assistant':
             if (this.sessionId !== message.session_id) {
               this.sessionId = message.session_id;
-              // SDK provided session_id means it created the turn (wrote queue-op + user message)
-              this.sdkStartedProcessing = true;
               this.options.onSessionIdChange?.(this.sessionId);
             }
 
@@ -809,63 +803,71 @@ export class ClaudeSession {
             this.options.onSessionIdChange?.(this.sessionId);
           }
 
-          let userMessageUuid: string;
+          // Use FILE STATE as source of truth - SDK may write to file before we receive stream messages
+          // Wait for SDK file writes to settle with exponential backoff
+          let sdkUserMessage: { uuid: string; content: string } | null = null;
 
-          if (this.sdkStartedProcessing) {
-            // SDK started processing = it wrote queue-op + user message for this turn
-            // Use findUserMessageInCurrentTurn which looks for user message after last queue-op
-            const turnUserMsg = await findUserMessageInCurrentTurn(this.options.cwd, this.sessionId);
+          for (let attempt = 0; attempt < 5; attempt++) {
+            sdkUserMessage = await findUserMessageInCurrentTurn(this.options.cwd, this.sessionId);
+            if (sdkUserMessage && sdkUserMessage.content.trim() === this.currentPrompt.trim()) break;
 
-            if (turnUserMsg && turnUserMsg.content === this.currentPrompt) {
-              userMessageUuid = turnUserMsg.uuid;
-            } else {
-              // Shouldn't happen if sdkStartedProcessing is true, but fallback to persist
-              userMessageUuid = await persistUserMessage({
-                workspacePath: this.options.cwd,
-                sessionId: this.sessionId,
-                content: this.currentPrompt,
-                parentUuid: this.lastUserMessageId ?? undefined,
-              });
-            }
-          } else {
-            // SDK didn't start processing - interrupted very early before SDK wrote anything
-            // Use findRecentUserMessage which handles the "completed + same prompt" case
-            const recentUserMsg = await findRecentUserMessage(this.options.cwd, this.sessionId);
-
-            // Only use the found message if its content matches the current prompt
-            // Otherwise it's from a previous prompt (SDK didn't write one for this prompt yet)
-            if (recentUserMsg && recentUserMsg.content === this.currentPrompt) {
-              userMessageUuid = recentUserMsg.uuid;
-            } else {
-              userMessageUuid = await persistUserMessage({
-                workspacePath: this.options.cwd,
-                sessionId: this.sessionId,
-                content: this.currentPrompt,
-                parentUuid: this.lastUserMessageId ?? undefined,
-              });
-            }
+            // Exponential backoff: 20ms, 40ms, 80ms, 160ms, 320ms
+            await new Promise(resolve => setTimeout(resolve, 20 * Math.pow(2, attempt)));
           }
 
-          // If we have partial TEXT content that was streaming, persist it
-          // Note: Thinking is already saved by SDK with required signature - we only save text
-          let lastUuidForChain = userMessageUuid;
-          if (this.streamingContent.text) {
-            const partialUuid = await persistPartialAssistant({
+          const sdkWroteUserMessage = sdkUserMessage && sdkUserMessage.content.trim() === this.currentPrompt.trim();
+
+          if (sdkWroteUserMessage && sdkUserMessage) {
+            // SDK wrote user message for this turn - find last message to chain interrupt to
+            const lastMsgUuid = await findLastMessageInCurrentTurn(this.options.cwd, this.sessionId);
+
+            // Chain partial text (if any) and interrupt to the last SDK message
+            let lastUuidForChain = lastMsgUuid ?? sdkUserMessage.uuid;
+
+            if (this.streamingContent.text && lastUuidForChain) {
+              const partialUuid = await persistPartialAssistant({
+                workspacePath: this.options.cwd,
+                sessionId: this.sessionId,
+                parentUuid: lastUuidForChain,
+                text: this.streamingContent.text,
+                model: this.currentModel ?? undefined,
+              });
+              lastUuidForChain = partialUuid;
+            }
+
+            if (lastUuidForChain) {
+              const interruptUuid = await persistInterruptMarker({
+                workspacePath: this.options.cwd,
+                sessionId: this.sessionId,
+                parentUuid: lastUuidForChain,
+              });
+              this.lastUserMessageId = interruptUuid;
+            } else {
+              log('[ClaudeSession] Warning: Could not determine parent UUID for interrupt marker - SDK message chain may be corrupted');
+            }
+
+          } else {
+            // SDK didn't write user message for this turn - write one ourselves
+            let parentUuid = this.lastUserMessageId;
+            if (!parentUuid) {
+              parentUuid = await getLastMessageUuid(this.options.cwd, this.sessionId);
+            }
+
+            const userMessageUuid = await persistUserMessage({
+              workspacePath: this.options.cwd,
+              sessionId: this.sessionId,
+              content: this.currentPrompt,
+              parentUuid: parentUuid ?? undefined,
+            });
+
+            // Chain interrupt to user message (no partial since SDK never started)
+            const interruptUuid = await persistInterruptMarker({
               workspacePath: this.options.cwd,
               sessionId: this.sessionId,
               parentUuid: userMessageUuid,
-              text: this.streamingContent.text,
-              model: this.currentModel ?? undefined,
             });
-            lastUuidForChain = partialUuid;
+            this.lastUserMessageId = interruptUuid;
           }
-
-          const interruptUuid = await persistInterruptMarker({
-            workspacePath: this.options.cwd,
-            sessionId: this.sessionId,
-            parentUuid: lastUuidForChain,
-          });
-          this.lastUserMessageId = interruptUuid;
         } catch (err) {
           log('[ClaudeSession] Error persisting interrupt:', err);
         }

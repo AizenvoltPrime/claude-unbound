@@ -444,6 +444,17 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
+        case 'errorReplay': {
+          messages.value.push({
+            id: generateId(),
+            role: 'error',
+            content: message.content,
+            timestamp: Date.now(),
+            isReplay: true,
+          });
+          break;
+        }
+
         case 'historyChunk': {
           loadingMoreHistory.value = false;
           hasMoreHistory.value = message.hasMore;

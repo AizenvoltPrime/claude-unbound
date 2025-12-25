@@ -476,6 +476,11 @@ export class ChatPanelProvider {
           content: msg.content,
           isSynthetic: false,
         });
+      } else if (msg.type === "error") {
+        this.postMessageToPanel(panel, {
+          type: "errorReplay",
+          content: msg.content,
+        });
       } else {
         this.postMessageToPanel(panel, {
           type: "assistantReplay",
@@ -580,6 +585,12 @@ export class ChatPanelProvider {
           content.startsWith("Unknown slash command:") ||
           content.startsWith("Caveat:")
         ) {
+          continue;
+        }
+
+        // Convert interrupt markers to error messages
+        if (entry.isInterrupt || content === "[Request interrupted by user]") {
+          messages.push({ type: "error", content: "Claude Code process aborted by user" });
           continue;
         }
 

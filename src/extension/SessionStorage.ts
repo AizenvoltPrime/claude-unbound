@@ -28,6 +28,7 @@ export interface ClaudeSessionEntry {
   gitBranch?: string;
   slug?: string;
   customTitle?: string;  // User-set name via /rename
+  isInterrupt?: boolean;  // Marks user entries that are interrupt markers
   message?: {
     role: string;
     content: string | JsonlContentBlock[];
@@ -770,6 +771,7 @@ export async function persistInterruptMarker(options: PersistInterruptOptions): 
     version: EXTENSION_VERSION,
     gitBranch: gitBranch ?? 'main',
     type: 'user',
+    isInterrupt: true,
     message: {
       role: 'user',
       content: [{ type: 'text', text: '[Request interrupted by user]' }],
@@ -803,72 +805,6 @@ export async function getLastMessageUuid(workspacePath: string, sessionId: strin
         continue;
       }
     }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-export async function findRecentUserMessage(
-  workspacePath: string,
-  sessionId: string
-): Promise<{ uuid: string; content: string } | null> {
-  const sessionDir = await getSessionDir(workspacePath);
-  const filePath = path.join(sessionDir, `${sessionId}.jsonl`);
-
-  try {
-    const fileContent = await fs.promises.readFile(filePath, 'utf-8');
-    const lines = fileContent.trim().split('\n');
-
-    // Track if we've seen any message after scanning backwards.
-    // If we find a user message that has ANY message after it (assistant or interrupt),
-    // that user message is "consumed" - it's from a previous turn, not the current one.
-    let seenMessageAfter = false;
-
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i];
-      if (!line.trim()) continue;
-      try {
-        const entry = JSON.parse(line) as ClaudeSessionEntry;
-
-        // Track assistant messages - they indicate a turn was started/completed
-        if (entry.type === 'assistant') {
-          seenMessageAfter = true;
-          continue;
-        }
-
-        if (entry.type === 'user' && entry.uuid) {
-          const messageContent = Array.isArray(entry.message?.content)
-            ? entry.message.content
-                .filter((c): c is { type: 'text'; text: string } =>
-                  typeof c === 'object' && c !== null && 'type' in c && c.type === 'text')
-                .map(c => c.text)
-                .join('')
-            : '';
-
-          // Skip interrupt markers - they have type 'user' but are not actual prompts
-          if (messageContent === '[Request interrupted by user]') {
-            seenMessageAfter = true;
-            continue;
-          }
-
-          // If we've seen any message (assistant or interrupt) after this user message,
-          // this user message is from a previous turn, not the current one
-          if (seenMessageAfter) {
-            return null;
-          }
-
-          return { uuid: entry.uuid, content: messageContent };
-        }
-
-        if (entry.type === 'queue-operation' && (entry as { operation?: string }).operation === 'dequeue') {
-          return null;
-        }
-      } catch {
-        continue;
-      }
-    }
-
     return null;
   } catch {
     return null;
@@ -924,6 +860,53 @@ export async function findUserMessageInCurrentTurn(
           }
 
           return { uuid: entry.uuid, content: messageContent };
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function findLastMessageInCurrentTurn(
+  workspacePath: string,
+  sessionId: string
+): Promise<string | null> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = path.join(sessionDir, `${sessionId}.jsonl`);
+
+  try {
+    const fileContent = await fs.promises.readFile(filePath, 'utf-8');
+    const lines = fileContent.trim().split('\n');
+
+    // Find the last queue-operation dequeue (marks start of current turn)
+    let lastQueueOpIndex = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line) as ClaudeSessionEntry;
+        if (entry.type === 'queue-operation' && (entry as { operation?: string }).operation === 'dequeue') {
+          lastQueueOpIndex = i;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    // Find the LAST user/assistant message in the current turn (scanning backwards from end)
+    for (let i = lines.length - 1; i > lastQueueOpIndex; i--) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line) as ClaudeSessionEntry;
+        if ((entry.type === 'user' || entry.type === 'assistant') && entry.uuid) {
+          return entry.uuid;
         }
       } catch {
         continue;

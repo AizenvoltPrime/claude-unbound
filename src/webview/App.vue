@@ -614,6 +614,7 @@ const rewindMessagePreview = computed(() => {
       :is-processing="isProcessing"
       :permission-mode="currentSettings.permissionMode"
       :current-file="lastAccessedFile"
+      :settings-open="showSettingsPanel"
       @send="handleSendMessage"
       @cancel="handleCancel"
       @change-mode="handleModeChange"

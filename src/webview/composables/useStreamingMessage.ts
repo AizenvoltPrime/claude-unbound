@@ -254,8 +254,8 @@ export function useStreamingMessage() {
   function addErrorMessage(error: string): ChatMessage {
     const msg: ChatMessage = {
       id: generateId(),
-      role: 'assistant',
-      content: `**Error:** ${error}`,
+      role: 'error',
+      content: error,
       timestamp: Date.now(),
     };
     messages.value.push(msg);

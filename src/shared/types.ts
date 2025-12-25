@@ -198,7 +198,7 @@ export interface HistoryToolCall {
  * Includes tool calls which are parsed from content blocks.
  */
 export interface HistoryMessage {
-  type: 'user' | 'assistant';
+  type: 'user' | 'assistant' | 'error';
   content: string;
   thinking?: string;
   tools?: HistoryToolCall[];  // Tool calls for this message
@@ -322,6 +322,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'userReplay'; content: string; isSynthetic?: boolean }
   // New: Assistant message replay (for resumed sessions)
   | { type: 'assistantReplay'; content: string; thinking?: string; tools?: HistoryToolCall[] }
+  // New: Error message replay (for interrupted sessions loaded from history)
+  | { type: 'errorReplay'; content: string }
   // History pagination (includes tool calls for Edit/Write/etc.)
   | { type: 'historyChunk'; messages: HistoryMessage[]; hasMore: boolean; nextOffset: number }
   // Permission request for file operations and bash commands
@@ -340,7 +342,7 @@ export type ExtensionToWebviewMessage =
 export interface ChatMessage {
   id: string;  // Unique ID for Vue rendering (stable for message lifetime)
   sdkMessageId?: string;  // SDK message ID for identity matching (null until known)
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'error';
   content: string;
   toolCalls?: ToolCall[];
   timestamp: number;
