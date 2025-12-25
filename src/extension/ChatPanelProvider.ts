@@ -7,6 +7,7 @@ import { log } from "./logger";
 import {
   listSessions,
   getSessionDir,
+  getSessionFilePath,
   ensureSessionDir,
   readSessionEntries,
   readSessionEntriesPaginated,
@@ -349,6 +350,19 @@ export class ChatPanelProvider {
       case "openSettings":
         vscode.commands.executeCommand("workbench.action.openSettings", "claude-unbound");
         break;
+
+      case "openSessionLog": {
+        const sessionId = session.currentSessionId;
+        if (sessionId) {
+          const filePath = await getSessionFilePath(this.workspacePath, sessionId);
+          const fileUri = vscode.Uri.file(filePath);
+          const doc = await vscode.workspace.openTextDocument(fileUri);
+          await vscode.window.showTextDocument(doc, { preview: false });
+        } else {
+          vscode.window.showInformationMessage("No active session to view");
+        }
+        break;
+      }
 
       case "renameSession":
         try {

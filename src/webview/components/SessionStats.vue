@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { SessionStats } from '@shared/types';
-import { IconArrowDown, IconArrowUp, IconChartBar, IconDatabase } from '@/components/icons';
+import { IconArrowDown, IconArrowUp, IconChartBar, IconDatabase, IconFile } from '@/components/icons';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   stats: SessionStats;
+}>();
+
+const emit = defineEmits<{
+  openLog: [];
 }>();
 
 const totalContext = computed(() => {
@@ -87,6 +92,14 @@ function formatNumber(num: number): string {
       <span class="font-medium text-unbound-cyan-400" title="Session cost">
         {{ formatCost(stats.totalCostUsd) }}
       </span>
+      <Button
+        variant="ghost"
+        class="h-6 w-6 p-0 text-unbound-muted hover:text-unbound-text"
+        title="Open session log file"
+        @click="emit('openLog')"
+      >
+        <IconFile :size="14" />
+      </Button>
     </div>
   </div>
 </template>

@@ -356,6 +356,10 @@ function handleOpenVSCodeSettings() {
   postMessage({ type: 'openSettings' });
 }
 
+function handleOpenSessionLog() {
+  postMessage({ type: 'openSessionLog' });
+}
+
 // MCP handlers
 function handleRefreshMcpStatus() {
   postMessage({ type: 'requestMcpStatus' });
@@ -592,7 +596,7 @@ const rewindMessagePreview = computed(() => {
       :current-tool-name="currentRunningTool ?? undefined"
     />
 
-    <SessionStats :stats="sessionStats" />
+    <SessionStats :stats="sessionStats" @open-log="handleOpenSessionLog" />
 
     <!-- Permission Prompt (inline bottom bar) -->
     <PermissionPrompt

@@ -269,6 +269,7 @@ export type WebviewToExtensionMessage =
   | { type: 'openSettings' }
   // Session management
   | { type: 'renameSession'; sessionId: string; newName: string }
+  | { type: 'openSessionLog' }
   // History pagination
   | { type: 'requestMoreHistory'; sessionId: string; offset: number }
   // Session list pagination

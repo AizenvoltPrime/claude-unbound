@@ -1,5 +1,15 @@
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
 import { log } from './logger';
+import {
+  persistInterruptMarker,
+  persistUserMessage,
+  persistPartialAssistant,
+  findRecentUserMessage,
+  findUserMessageInCurrentTurn,
+  getLastMessageUuid,
+  initializeSession,
+} from './SessionStorage';
 import type { PermissionHandler } from './PermissionHandler';
 import type {
   ExtensionToWebviewMessage,
@@ -100,6 +110,13 @@ export class ClaudeSession {
   private streamedToolIds: Map<string, StreamedToolInfo> = new Map();
   // Turn-level tracking: persists across messages within a single turn (reset in sendMessage)
   private toolsUsedThisTurn = false;
+  // Track current prompt and model for interrupt handling
+  private currentPrompt: string | null = null;
+  private currentModel: string | null = null;
+  private wasInterrupted = false;
+  // Track whether SDK started processing this turn (wrote queue-op + user message)
+  // This is set when we receive session_id from the SDK
+  private sdkStartedProcessing = false;
 
   constructor(private options: SessionOptions) {}
 
@@ -137,7 +154,22 @@ export class ClaudeSession {
       }
     }
 
-    log('[ClaudeSession] Flushing consolidated assistant message:', pending.content);
+    // Merge any accumulated streaming content into the pending message
+    // This handles the case where we're interrupted mid-stream:
+    // The SDK sends assistant messages incrementally (first thinking, then text),
+    // but if interrupted before the final message, streamingContent has content
+    // that pendingAssistant doesn't. We need to merge them.
+    if (this.streamingContent.messageId === pending.id) {
+      const hasThinkingInPending = pending.content.some(b => b.type === 'thinking');
+      const hasTextInPending = pending.content.some(b => b.type === 'text');
+
+      if (!hasThinkingInPending && this.streamingContent.thinking) {
+        pending.content.unshift({ type: 'thinking', thinking: this.streamingContent.thinking });
+      }
+      if (!hasTextInPending && this.streamingContent.text) {
+        pending.content.push({ type: 'text', text: this.streamingContent.text });
+      }
+    }
 
     this.options.onMessage({
       type: 'assistant',
@@ -182,7 +214,10 @@ export class ClaudeSession {
     this.abortController = new AbortController();
     this.pendingAssistant = null;
     this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false };
-    this.toolsUsedThisTurn = false;  // Reset at start of each turn
+    this.toolsUsedThisTurn = false;
+    this.currentPrompt = prompt;
+    this.wasInterrupted = false;
+    this.sdkStartedProcessing = false;
     this.options.onMessage({ type: 'processing', isProcessing: true });
 
     try {
@@ -191,6 +226,7 @@ export class ClaudeSession {
       // Default to Opus 4.5 if no model is specified
       const configuredModel = config.get<string>('model', '');
       const model = configuredModel || 'claude-opus-4-5-20251101';
+      this.currentModel = model;
       const maxBudgetUsd = config.get<number | null>('maxBudgetUsd', null);
       const maxThinkingTokens = config.get<number | null>('maxThinkingTokens', null);
       const betasEnabledRaw = config.get<string[]>('betasEnabled', []);
@@ -304,13 +340,11 @@ export class ClaudeSession {
           PostToolUse: [{
             hooks: [
               async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-                log('[ClaudeSession] PostToolUse hook fired:', params, 'toolUseId:', toolUseId);
                 const p = params as { tool_name?: string; tool_use_id?: string; tool_response?: unknown };
                 const id = toolUseId ?? p.tool_use_id;
                 if (p.tool_name && id) {
                   // Remove from orphan tracking (just in case PreToolUse didn't fire)
                   this.streamedToolIds.delete(id);
-                  log('[ClaudeSession] Sending toolCompleted:', p.tool_name, id);
                   this.options.onMessage({
                     type: 'toolCompleted',
                     toolUseId: id,
@@ -326,13 +360,11 @@ export class ClaudeSession {
           PostToolUseFailure: [{
             hooks: [
               async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-                log('[ClaudeSession] PostToolUseFailure hook fired:', params, 'toolUseId:', toolUseId);
                 const p = params as { tool_name?: string; tool_use_id?: string; error?: string; is_interrupt?: boolean };
                 const id = toolUseId ?? p.tool_use_id;
                 if (p.tool_name && id) {
                   // Remove from orphan tracking
                   this.streamedToolIds.delete(id);
-                  log('[ClaudeSession] Sending toolFailed:', p.tool_name, id);
                   this.options.onMessage({
                     type: 'toolFailed',
                     toolUseId: id,
@@ -434,13 +466,16 @@ export class ClaudeSession {
         },
       };
 
-      // Add resume option to continue conversation
-      // Use resumeSessionId (from explicit resume) or existing sessionId (for continuation)
-      const sessionToResume = this.resumeSessionId || this.sessionId;
-      if (sessionToResume) {
-        (queryOptions as Record<string, unknown>).resume = sessionToResume;
-        if (this.resumeSessionId) {
-          this.resumeSessionId = null;
+      // Handle session ID for new vs existing sessions
+      const isNewSession = !this.sessionId && !this.resumeSessionId;
+      if (!isNewSession) {
+        // For explicit resumes or continuations, pass the resume option
+        const sessionToResume = this.resumeSessionId || this.sessionId;
+        if (sessionToResume) {
+          (queryOptions as Record<string, unknown>).resume = sessionToResume;
+          if (this.resumeSessionId) {
+            this.resumeSessionId = null;
+          }
         }
       }
 
@@ -452,29 +487,27 @@ export class ClaudeSession {
       // Store query reference for control methods
       this.currentQuery = result;
 
-      // Explicitly set thinking tokens on the query
-      // When null: disable thinking mode
-      // When number: enable with that limit
-      try {
-        await result.setMaxThinkingTokens(maxThinkingTokens);
-      } catch {
-        // May fail if SDK doesn't support this method
-      }
+      // SDK "streaming input mode" methods must be called AFTER the stream starts.
+      // We fire these off without awaiting - they'll execute once streaming begins.
+      result.setMaxThinkingTokens(maxThinkingTokens).catch((err) => {
+        log('[ClaudeSession] Failed to set thinking tokens:', err);
+      });
 
-      // Fetch account info (includes subscription type)
-      try {
-        const account = await result.accountInfo();
-        this.options.onMessage({
-          type: 'accountInfo',
-          data: {
-            email: account.email,
-            subscriptionType: account.subscriptionType,
-            apiKeySource: account.apiKeySource,
-          } as AccountInfo,
-        });
-      } catch {
-        // Account info not available
-      }
+      result.accountInfo().then(
+        (account) => {
+          this.options.onMessage({
+            type: 'accountInfo',
+            data: {
+              email: account.email,
+              subscriptionType: account.subscriptionType,
+              apiKeySource: account.apiKeySource,
+            } as AccountInfo,
+          });
+        },
+        (err) => {
+          log('[ClaudeSession] Failed to get account info:', err);
+        }
+      );
 
       // Get budget settings for warning/exceeded checks
       const budgetLimit = maxBudgetUsd;
@@ -488,11 +521,10 @@ export class ClaudeSession {
           case 'assistant':
             if (this.sessionId !== message.session_id) {
               this.sessionId = message.session_id;
+              // SDK provided session_id means it created the turn (wrote queue-op + user message)
+              this.sdkStartedProcessing = true;
               this.options.onSessionIdChange?.(this.sessionId);
             }
-
-            log('[ClaudeSession] Assistant message id:', message.message.id);
-            log('[ClaudeSession] Raw content:', message.message.content);
 
             // If we have pending content from a DIFFERENT message, flush it first
             // This ensures each distinct assistant message appears in UI as it completes
@@ -501,12 +533,10 @@ export class ClaudeSession {
               // Only reset streamingContent if not already set by message_start
               if (this.streamingContent.messageId !== message.message.id) {
                 this.streamingContent = { messageId: message.message.id, thinking: '', text: '', isThinking: false, hasStreamedTools: false };
-                log('[ClaudeSession] Started new streamingContent for message:', message.message.id);
               }
             } else if (!this.streamingContent.messageId) {
               // Fallback: associate streaming content if message_start wasn't received
               this.streamingContent.messageId = message.message.id;
-              log('[ClaudeSession] Associated streamingContent with message (fallback):', message.message.id);
             }
 
             const serializedContent = this.serializeContent(message.message.content);
@@ -516,7 +546,6 @@ export class ClaudeSession {
             // CRITICAL: Include messageId so webview associates tool with correct message
             for (const block of serializedContent) {
               if (block.type === 'tool_use') {
-                log('[ClaudeSession] Sending toolStreaming:', block.name, block.id, 'for msg:', message.message.id);
                 // Mark that we've streamed tools - after this, thinking updates should NOT be sent
                 // This prevents the visual glitch of thinking text updating above tool cards
                 this.streamingContent.hasStreamedTools = true;
@@ -562,7 +591,6 @@ export class ClaudeSession {
             if (event.type === 'message_start' && event.message?.id) {
               if (this.streamingContent.messageId && this.streamingContent.messageId !== event.message.id) {
                 // New message starting - flush any pending content from previous message
-                log('[ClaudeSession] message_start: New message ID, flushing previous:', this.streamingContent.messageId);
                 this.flushPendingAssistant();
               }
               this.streamingContent = {
@@ -572,7 +600,6 @@ export class ClaudeSession {
                 isThinking: false,
                 hasStreamedTools: false
               };
-              log('[ClaudeSession] message_start: Initialized streamingContent with ID:', event.message.id);
             }
 
             if (event.type === 'content_block_delta') {
@@ -599,7 +626,6 @@ export class ClaudeSession {
                 // Always accumulate text content (for final message)
                 this.streamingContent.text += event.delta.text;
                 this.streamingContent.isThinking = false;
-                log('[ClaudeSession] TEXT_DELTA sent, length:', this.streamingContent.text.length);
                 // ALWAYS stream text deltas - this is the final response and should appear in real-time
                 // (unlike thinking which is frozen once tools appear to avoid visual glitches above tool cards)
                 this.options.onMessage({
@@ -761,12 +787,105 @@ export class ClaudeSession {
         }
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.options.onMessage({
-        type: 'error',
-        message: errorMessage,
-      });
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage) {
+        this.options.onMessage({
+          type: 'error',
+          message: errorMessage,
+        });
+      }
     } finally {
+      // Flush any pending assistant content so partial responses are shown
+      this.flushPendingAssistant();
+
+      // Handle interrupt persistence - ensure user message and interrupt marker are written
+      if (this.wasInterrupted && this.currentPrompt) {
+        try {
+          // If we don't have a session ID yet (interrupted before SDK sent one),
+          // generate one now and create the session file
+          if (!this.sessionId) {
+            this.sessionId = crypto.randomUUID();
+            await initializeSession(this.options.cwd, this.sessionId);
+            this.options.onSessionIdChange?.(this.sessionId);
+          }
+
+          let userMessageUuid: string;
+
+          if (this.sdkStartedProcessing) {
+            // SDK started processing = it wrote queue-op + user message for this turn
+            // Use findUserMessageInCurrentTurn which looks for user message after last queue-op
+            const turnUserMsg = await findUserMessageInCurrentTurn(this.options.cwd, this.sessionId);
+
+            if (turnUserMsg && turnUserMsg.content === this.currentPrompt) {
+              userMessageUuid = turnUserMsg.uuid;
+            } else {
+              // Shouldn't happen if sdkStartedProcessing is true, but fallback to persist
+              userMessageUuid = await persistUserMessage({
+                workspacePath: this.options.cwd,
+                sessionId: this.sessionId,
+                content: this.currentPrompt,
+                parentUuid: this.lastUserMessageId ?? undefined,
+              });
+            }
+          } else {
+            // SDK didn't start processing - interrupted very early before SDK wrote anything
+            // Use findRecentUserMessage which handles the "completed + same prompt" case
+            const recentUserMsg = await findRecentUserMessage(this.options.cwd, this.sessionId);
+
+            // Only use the found message if its content matches the current prompt
+            // Otherwise it's from a previous prompt (SDK didn't write one for this prompt yet)
+            if (recentUserMsg && recentUserMsg.content === this.currentPrompt) {
+              userMessageUuid = recentUserMsg.uuid;
+            } else {
+              userMessageUuid = await persistUserMessage({
+                workspacePath: this.options.cwd,
+                sessionId: this.sessionId,
+                content: this.currentPrompt,
+                parentUuid: this.lastUserMessageId ?? undefined,
+              });
+            }
+          }
+
+          // If we have partial TEXT content that was streaming, persist it
+          // Note: Thinking is already saved by SDK with required signature - we only save text
+          let lastUuidForChain = userMessageUuid;
+          if (this.streamingContent.text) {
+            const partialUuid = await persistPartialAssistant({
+              workspacePath: this.options.cwd,
+              sessionId: this.sessionId,
+              parentUuid: userMessageUuid,
+              text: this.streamingContent.text,
+              model: this.currentModel ?? undefined,
+            });
+            lastUuidForChain = partialUuid;
+          }
+
+          const interruptUuid = await persistInterruptMarker({
+            workspacePath: this.options.cwd,
+            sessionId: this.sessionId,
+            parentUuid: lastUuidForChain,
+          });
+          this.lastUserMessageId = interruptUuid;
+        } catch (err) {
+          log('[ClaudeSession] Error persisting interrupt:', err);
+        }
+      } else if (this.sessionId) {
+        // Normal completion - sync our parent tracking with the SDK's chain
+        try {
+          const lastUuid = await getLastMessageUuid(this.options.cwd, this.sessionId);
+          if (lastUuid) {
+            this.lastUserMessageId = lastUuid;
+          }
+        } catch {
+          // Ignore read errors
+        }
+      }
+
+      // Clear streaming state
+      this.currentPrompt = null;
+      this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false };
+      this.streamedToolIds.clear();
+
       this.isProcessing = false;
       this.abortController = null;
       this.options.onMessage({ type: 'processing', isProcessing: false });
@@ -775,6 +894,7 @@ export class ClaudeSession {
 
   cancel(): void {
     if (this.abortController) {
+      this.wasInterrupted = true;
       this.abortController.abort();
       this.abortController = null;
     }
@@ -793,6 +913,12 @@ export class ClaudeSession {
   // === Control Methods ===
 
   async interrupt(): Promise<void> {
+    this.wasInterrupted = true;
+
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+
     if (this.currentQuery) {
       try {
         await this.currentQuery.interrupt();

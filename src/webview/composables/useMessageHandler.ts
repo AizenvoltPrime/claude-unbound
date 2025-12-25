@@ -233,6 +233,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
         case 'processing':
           isProcessing.value = message.isProcessing;
+          // When processing stops, finalize any partial streaming content
+          if (!message.isProcessing && streamingMessage.value) {
+            finalizeStreamingMessage();
+          }
           break;
 
         case 'error':

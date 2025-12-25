@@ -1,8 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as crypto from 'crypto';
 import type { StoredSession } from '../shared/types';
 import { log } from './logger';
+
+const EXTENSION_VERSION = '2.0.76';
 
 /**
  * Content block types as stored in JSONL by Claude Code CLI.
@@ -135,7 +138,6 @@ export async function getSessionDir(workspacePath: string): Promise<string> {
     const variantPath = path.join(projectsDir, variant);
     try {
       await fs.promises.access(variantPath, fs.constants.R_OK);
-      log('[SessionStorage] Found session dir via variation:', variantPath);
       return variantPath;
     } catch {
       // This variation doesn't exist either
@@ -169,13 +171,9 @@ export async function ensureSessionDir(workspacePath: string): Promise<string> {
  */
 export async function listSessions(workspacePath: string): Promise<StoredSession[]> {
   const sessionDir = await getSessionDir(workspacePath);
-  log('[SessionStorage] listSessions called');
-  log('[SessionStorage] workspacePath:', workspacePath);
-  log('[SessionStorage] sessionDir:', sessionDir);
 
   try {
     const files = await fs.promises.readdir(sessionDir);
-    log('[SessionStorage] Found files:', files.length, 'files in directory');
     const sessions: StoredSession[] = [];
 
     for (const file of files) {
@@ -219,11 +217,9 @@ export async function listSessions(workspacePath: string): Promise<StoredSession
     // Sort by timestamp descending (most recent first)
     sessions.sort((a, b) => b.timestamp - a.timestamp);
 
-    log('[SessionStorage] Returning', sessions.length, 'sessions');
     return sessions;
-  } catch (err) {
+  } catch {
     // Directory doesn't exist yet
-    log('[SessionStorage] Error reading sessions:', err);
     return [];
   }
 }
@@ -613,7 +609,6 @@ export async function renameSession(workspacePath: string, sessionId: string, ne
   try {
     await fs.promises.writeFile(tempPath, newContent);
     await fs.promises.rename(tempPath, filePath);
-    log('[SessionStorage] Renamed session', sessionId, 'to:', sanitizedName);
   } catch (err) {
     // Clean up temp file if rename failed
     try {
@@ -622,5 +617,321 @@ export async function renameSession(workspacePath: string, sessionId: string, ne
       // Ignore cleanup errors
     }
     throw err;
+  }
+}
+
+export interface PersistUserMessageOptions {
+  workspacePath: string;
+  sessionId: string;
+  content: string | Array<{ type: string; text: string }>;
+  parentUuid?: string | null;
+  gitBranch?: string;
+}
+
+export async function persistUserMessage(options: PersistUserMessageOptions): Promise<string> {
+  const { workspacePath, sessionId, content, parentUuid, gitBranch } = options;
+  const messageUuid = crypto.randomUUID();
+  const normalizedContent = typeof content === 'string'
+    ? [{ type: 'text', text: content }]
+    : content;
+  const timestamp = new Date().toISOString();
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = path.join(sessionDir, `${sessionId}.jsonl`);
+
+  await fs.promises.mkdir(sessionDir, { recursive: true });
+
+  const snapshotEntry = {
+    type: 'file-history-snapshot',
+    messageId: messageUuid,
+    snapshot: {
+      messageId: messageUuid,
+      trackedFileBackups: {},
+      timestamp,
+    },
+    isSnapshotUpdate: false,
+  };
+
+  const userEntry = {
+    parentUuid: parentUuid ?? null,
+    isSidechain: false,
+    userType: 'external',
+    cwd: workspacePath,
+    sessionId,
+    version: EXTENSION_VERSION,
+    gitBranch: gitBranch ?? 'main',
+    type: 'user',
+    message: {
+      role: 'user',
+      content: normalizedContent,
+    },
+    uuid: messageUuid,
+    timestamp,
+    thinkingMetadata: { level: 'high', disabled: false, triggers: [] },
+    todos: [],
+  };
+
+  const lines = [JSON.stringify(snapshotEntry), JSON.stringify(userEntry)].join('\n') + '\n';
+  await fs.promises.appendFile(filePath, lines);
+
+  return messageUuid;
+}
+
+export async function initializeSession(workspacePath: string, sessionId: string): Promise<void> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = path.join(sessionDir, `${sessionId}.jsonl`);
+
+  await fs.promises.mkdir(sessionDir, { recursive: true });
+
+  const queueEntry = {
+    type: 'queue-operation',
+    operation: 'dequeue',
+    timestamp: new Date().toISOString(),
+    sessionId,
+  };
+
+  await fs.promises.writeFile(filePath, JSON.stringify(queueEntry) + '\n');
+}
+
+export interface PersistPartialAssistantOptions {
+  workspacePath: string;
+  sessionId: string;
+  parentUuid: string;
+  thinking?: string;
+  text?: string;
+  model?: string;
+  gitBranch?: string;
+}
+
+export async function persistPartialAssistant(options: PersistPartialAssistantOptions): Promise<string> {
+  const { workspacePath, sessionId, parentUuid, text, model, gitBranch } = options;
+  // NOTE: We intentionally don't persist thinking here because:
+  // 1. The SDK already writes thinking with the required `signature` field
+  // 2. Thinking blocks without signature cause API errors ("Field required")
+  // We only persist TEXT that the SDK didn't get a chance to write
+
+  if (!text) {
+    return parentUuid;
+  }
+
+  const messageUuid = crypto.randomUUID();
+  const timestamp = new Date().toISOString();
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = path.join(sessionDir, `${sessionId}.jsonl`);
+
+  const content: Array<{ type: string; text?: string }> = [];
+  content.push({ type: 'text', text });
+
+  const assistantEntry = {
+    parentUuid,
+    isSidechain: false,
+    userType: 'external',
+    cwd: workspacePath,
+    sessionId,
+    version: EXTENSION_VERSION,
+    gitBranch: gitBranch ?? 'main',
+    type: 'assistant',
+    message: {
+      id: `partial-${messageUuid}`,
+      model: model ?? 'claude-opus-4-5-20251101',
+      type: 'message',
+      role: 'assistant',
+      content,
+      stop_reason: 'interrupted',
+    },
+    uuid: messageUuid,
+    timestamp,
+  };
+
+  await fs.promises.appendFile(filePath, JSON.stringify(assistantEntry) + '\n');
+
+  return messageUuid;
+}
+
+export interface PersistInterruptOptions {
+  workspacePath: string;
+  sessionId: string;
+  parentUuid: string;
+  gitBranch?: string;
+}
+
+export async function persistInterruptMarker(options: PersistInterruptOptions): Promise<string> {
+  const { workspacePath, sessionId, parentUuid, gitBranch } = options;
+  const messageUuid = crypto.randomUUID();
+  const timestamp = new Date().toISOString();
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = path.join(sessionDir, `${sessionId}.jsonl`);
+
+  const interruptEntry = {
+    parentUuid,
+    isSidechain: false,
+    userType: 'external',
+    cwd: workspacePath,
+    sessionId,
+    version: EXTENSION_VERSION,
+    gitBranch: gitBranch ?? 'main',
+    type: 'user',
+    message: {
+      role: 'user',
+      content: [{ type: 'text', text: '[Request interrupted by user]' }],
+    },
+    uuid: messageUuid,
+    timestamp,
+  };
+
+  await fs.promises.appendFile(filePath, JSON.stringify(interruptEntry) + '\n');
+
+  return messageUuid;
+}
+
+export async function getLastMessageUuid(workspacePath: string, sessionId: string): Promise<string | null> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = path.join(sessionDir, `${sessionId}.jsonl`);
+
+  try {
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    const lines = content.trim().split('\n');
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line) as ClaudeSessionEntry;
+        if ((entry.type === 'user' || entry.type === 'assistant') && entry.uuid) {
+          return entry.uuid;
+        }
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function findRecentUserMessage(
+  workspacePath: string,
+  sessionId: string
+): Promise<{ uuid: string; content: string } | null> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = path.join(sessionDir, `${sessionId}.jsonl`);
+
+  try {
+    const fileContent = await fs.promises.readFile(filePath, 'utf-8');
+    const lines = fileContent.trim().split('\n');
+
+    // Track if we've seen any message after scanning backwards.
+    // If we find a user message that has ANY message after it (assistant or interrupt),
+    // that user message is "consumed" - it's from a previous turn, not the current one.
+    let seenMessageAfter = false;
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line) as ClaudeSessionEntry;
+
+        // Track assistant messages - they indicate a turn was started/completed
+        if (entry.type === 'assistant') {
+          seenMessageAfter = true;
+          continue;
+        }
+
+        if (entry.type === 'user' && entry.uuid) {
+          const messageContent = Array.isArray(entry.message?.content)
+            ? entry.message.content
+                .filter((c): c is { type: 'text'; text: string } =>
+                  typeof c === 'object' && c !== null && 'type' in c && c.type === 'text')
+                .map(c => c.text)
+                .join('')
+            : '';
+
+          // Skip interrupt markers - they have type 'user' but are not actual prompts
+          if (messageContent === '[Request interrupted by user]') {
+            seenMessageAfter = true;
+            continue;
+          }
+
+          // If we've seen any message (assistant or interrupt) after this user message,
+          // this user message is from a previous turn, not the current one
+          if (seenMessageAfter) {
+            return null;
+          }
+
+          return { uuid: entry.uuid, content: messageContent };
+        }
+
+        if (entry.type === 'queue-operation' && (entry as { operation?: string }).operation === 'dequeue') {
+          return null;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function findUserMessageInCurrentTurn(
+  workspacePath: string,
+  sessionId: string
+): Promise<{ uuid: string; content: string } | null> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = path.join(sessionDir, `${sessionId}.jsonl`);
+
+  try {
+    const fileContent = await fs.promises.readFile(filePath, 'utf-8');
+    const lines = fileContent.trim().split('\n');
+
+    // Find the last queue-operation dequeue (marks start of current turn)
+    let lastQueueOpIndex = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line) as ClaudeSessionEntry;
+        if (entry.type === 'queue-operation' && (entry as { operation?: string }).operation === 'dequeue') {
+          lastQueueOpIndex = i;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    // Look for user message AFTER the queue-operation (in current turn)
+    for (let i = lastQueueOpIndex + 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line) as ClaudeSessionEntry;
+
+        if (entry.type === 'user' && entry.uuid) {
+          const messageContent = Array.isArray(entry.message?.content)
+            ? entry.message.content
+                .filter((c): c is { type: 'text'; text: string } =>
+                  typeof c === 'object' && c !== null && 'type' in c && c.type === 'text')
+                .map(c => c.text)
+                .join('')
+            : '';
+
+          // Skip interrupt markers
+          if (messageContent === '[Request interrupted by user]') {
+            continue;
+          }
+
+          return { uuid: entry.uuid, content: messageContent };
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
   }
 }
