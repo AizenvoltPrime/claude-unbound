@@ -63,7 +63,3 @@ npm run typecheck
 - **Extension Host** (Node.js): Handles Claude Agent SDK integration
 - **Webview** (Vue 3 + Tailwind): Chat interface
 - **postMessage Bridge**: Communication between extension and webview
-
-## License
-
-MIT
