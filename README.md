@@ -21,7 +21,7 @@
 
 ## Usage
 
-- Open the Claude Unbound panel from the activity bar (⚡ icon)
+- Click the Claude Unbound icon in the editor title bar (top right)
 - Type your question or request in the chat input
 - Press Enter to send (Shift+Enter for new line)
 - Review any file changes in the diff view before approving

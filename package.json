@@ -1,7 +1,7 @@
 {
   "name": "claude-unbound",
   "displayName": "Claude Unbound",
-  "description": "Unleash the full power of Claude AI as your coding assistant",
+  "description": "A VS Code extension that integrates Claude AI as your coding assistant using the Agent SDK.",
   "version": "0.1.0",
   "publisher": "AizenvoltPrime",
   "license": "MIT",
