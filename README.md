@@ -1,6 +1,8 @@
-# Claude Unbound ⚡
-
-Unleash the full power of Claude AI as your VS Code coding assistant.
+<div align="center">
+  <img src="resources/icon.png" alt="Claude Unbound" width="128">
+  <h1>Claude Unbound</h1>
+  <p>Unleash the full power of Claude AI as your VS Code coding assistant.</p>
+</div>
 
 ## Features
 
