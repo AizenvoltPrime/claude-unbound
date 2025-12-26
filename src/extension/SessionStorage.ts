@@ -671,6 +671,23 @@ export async function renameSession(workspacePath: string, sessionId: string, ne
   }
 }
 
+export async function deleteSession(workspacePath: string, sessionId: string): Promise<void> {
+  if (!isValidSessionId(sessionId)) {
+    throw new Error('Invalid session ID format');
+  }
+
+  const filePath = await getSessionFilePath(workspacePath, sessionId);
+
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return;
+    }
+    throw err;
+  }
+}
+
 export interface PersistUserMessageOptions {
   workspacePath: string;
   sessionId: string;

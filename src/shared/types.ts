@@ -269,13 +269,16 @@ export type WebviewToExtensionMessage =
   | { type: 'openSettings' }
   // Session management
   | { type: 'renameSession'; sessionId: string; newName: string }
+  | { type: 'deleteSession'; sessionId: string }
   | { type: 'openSessionLog' }
   // History pagination
   | { type: 'requestMoreHistory'; sessionId: string; offset: number }
   // Session list pagination
   | { type: 'requestMoreSessions'; offset: number }
   // Command history navigation (arrow up/down)
-  | { type: 'requestCommandHistory'; offset?: number };
+  | { type: 'requestCommandHistory'; offset?: number }
+  // Workspace file listing for @ mentions
+  | { type: 'requestWorkspaceFiles' };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
@@ -290,6 +293,7 @@ export type ExtensionToWebviewMessage =
   | { type: 'storedSessions'; sessions: StoredSession[]; hasMore?: boolean; nextOffset?: number; isFirstPage?: boolean }
   | { type: 'sessionCleared' }
   | { type: 'sessionRenamed'; sessionId: string; newName: string }
+  | { type: 'sessionDeleted'; sessionId: string }
   | { type: 'notification'; message: string; notificationType: string }
   | { type: 'accountInfo'; data: AccountInfo }
   // New: Model and settings
@@ -334,6 +338,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'commandHistoryPush'; entry: string }
   // Panel visibility changed (for auto-focus)
   | { type: 'panelFocused' }
+  // Workspace file listing response for @ mentions
+  | { type: 'workspaceFiles'; files: WorkspaceFileInfo[] }
   // Permission request for file operations and bash commands
   | {
       type: 'requestPermission';
@@ -384,6 +390,11 @@ export interface SessionStats {
 export interface FileEntry {
   path: string;
   operation: 'read' | 'edit' | 'write' | 'create';
+}
+
+export interface WorkspaceFileInfo {
+  relativePath: string;
+  isDirectory: boolean;
 }
 
 export interface StoredSession {

@@ -12,6 +12,7 @@ import SubagentIndicator from './components/SubagentIndicator.vue';
 import StatusBar from './components/StatusBar.vue';
 import BudgetWarning from './components/BudgetWarning.vue';
 import RewindConfirmModal from './components/RewindConfirmModal.vue';
+import DeleteSessionModal from './components/DeleteSessionModal.vue';
 import PermissionPrompt from './components/PermissionPrompt.vue';
 import { useVSCode } from './composables/useVSCode';
 import { useStreamingMessage } from './composables/useStreamingMessage';
@@ -23,6 +24,7 @@ import {
   IconCheck,
   IconXMark,
   IconPencil,
+  IconTrash,
   IconChevronUp,
   IconChevronDown,
 } from '@/components/icons';
@@ -70,6 +72,8 @@ const selectedSessionId = ref<string | null>(null);  // Currently selected/resum
 const renamingSessionId = ref<string | null>(null);
 const renameInputValue = ref('');
 const renameInputRef = ref<HTMLInputElement | null>(null);
+const deletingSessionId = ref<string | null>(null);
+const showDeleteModal = ref(false);
 // Session list pagination state
 const sessionPickerRef = ref<HTMLElement | null>(null);
 const hasMoreSessions = ref(false);
@@ -82,6 +86,7 @@ const nextHistoryOffset = ref(0);
 const loadingMoreHistory = ref(false);
 const currentResumedSessionId = ref<string | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
+const isAtBottom = ref(true);
 
 // New state for SDK features
 const availableModels = ref<ModelInfo[]>([]);
@@ -252,6 +257,26 @@ function submitRenameSession() {
   }
 }
 
+function startDeleteSession(sessionId: string) {
+  deletingSessionId.value = sessionId;
+  showDeleteModal.value = true;
+}
+
+function cancelDeleteSession() {
+  deletingSessionId.value = null;
+  showDeleteModal.value = false;
+}
+
+function confirmDeleteSession() {
+  if (deletingSessionId.value) {
+    postMessage({
+      type: 'deleteSession',
+      sessionId: deletingSessionId.value,
+    });
+    cancelDeleteSession();
+  }
+}
+
 // Load more history when scrolling to top
 function loadMoreHistory() {
   if (!hasMoreHistory.value || loadingMoreHistory.value || !currentResumedSessionId.value) {
@@ -266,7 +291,7 @@ function loadMoreHistory() {
   });
 }
 
-// Handle scroll to detect when user is near the top
+// Handle scroll to detect when user is near the top or bottom
 function handleMessageScroll(event: Event) {
   const container = event.target as HTMLElement;
   if (!container) return;
@@ -274,6 +299,17 @@ function handleMessageScroll(event: Event) {
   // Load more when scrolled within 100px of the top
   if (container.scrollTop < 100 && hasMoreHistory.value && !loadingMoreHistory.value) {
     loadMoreHistory();
+  }
+
+  // Track if user is at bottom (within 20px threshold)
+  const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+  isAtBottom.value = scrollBottom < 20;
+}
+
+function scrollToBottom() {
+  const container = messageContainerRef.value;
+  if (container) {
+    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
   }
 }
 
@@ -533,6 +569,13 @@ const rewindMessagePreview = computed(() => {
               title="Rename session"
               @click.stop="startRenameSession(session.id, getSessionDisplayName(session))"
             ><IconPencil :size="12" /></Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              class="opacity-0 group-hover:opacity-100 text-unbound-muted hover:text-red-400"
+              title="Delete session"
+              @click.stop="startDeleteSession(session.id)"
+            ><IconTrash :size="12" /></Button>
           </div>
         </div>
         <!-- Load more indicator -->
@@ -553,41 +596,58 @@ const rewindMessagePreview = computed(() => {
       </div>
     </div>
 
-    <div
-      ref="messageContainerRef"
-      class="flex-1 min-h-0 overflow-y-auto message-container"
-      @scroll="handleMessageScroll"
-    >
-      <!-- Load more history indicator -->
+    <!-- Message area wrapper (relative positioning for scroll-to-bottom button) -->
+    <div class="relative flex-1 min-h-0">
       <div
-        v-if="hasMoreHistory || loadingMoreHistory"
-        class="text-center py-3"
+        ref="messageContainerRef"
+        class="h-full overflow-y-auto message-container"
+        @scroll="handleMessageScroll"
       >
-        <Button
-          v-if="!loadingMoreHistory"
-          variant="outline"
-          size="sm"
-          class="text-xs text-unbound-cyan-400 hover:text-unbound-glow rounded-full flex items-center gap-1"
-          @click="loadMoreHistory"
-        >
-          <IconChevronUp :size="12" /> Load earlier messages
-        </Button>
+        <!-- Load more history indicator -->
         <div
-          v-else
-          class="text-xs text-unbound-muted animate-pulse"
+          v-if="hasMoreHistory || loadingMoreHistory"
+          class="text-center py-3"
         >
-          Loading history...
+          <Button
+            v-if="!loadingMoreHistory"
+            variant="outline"
+            size="sm"
+            class="text-xs text-unbound-cyan-400 hover:text-unbound-glow rounded-full flex items-center gap-1"
+            @click="loadMoreHistory"
+          >
+            <IconChevronUp :size="12" /> Load earlier messages
+          </Button>
+          <div
+            v-else
+            class="text-xs text-unbound-muted animate-pulse"
+          >
+            Loading history...
+          </div>
         </div>
+
+        <MessageList
+          :messages="messages"
+          :streaming-message="streamingMessage"
+          :compact-markers="compactMarkersList"
+          :checkpoint-messages="checkpointMessages"
+          @rewind="handleRequestRewind"
+          @interrupt="handleInterrupt"
+        />
       </div>
 
-      <MessageList
-        :messages="messages"
-        :streaming-message="streamingMessage"
-        :compact-markers="compactMarkersList"
-        :checkpoint-messages="checkpointMessages"
-        @rewind="handleRequestRewind"
-        @interrupt="handleInterrupt"
-      />
+      <!-- Scroll to bottom button (appears when scrolled up from bottom) -->
+      <Transition name="fade">
+        <Button
+          v-if="!isAtBottom"
+          variant="default"
+          size="icon"
+          class="absolute bottom-4 right-8 rounded-full bg-unbound-cyan-600 hover:bg-unbound-cyan-500 shadow-lg shadow-unbound-cyan-900/50 z-10"
+          title="Scroll to bottom"
+          @click="scrollToBottom"
+        >
+          <IconChevronDown :size="16" />
+        </Button>
+      </Transition>
     </div>
 
     <!-- Status Bar with witty phrases (above input) -->
@@ -653,5 +713,25 @@ const rewindMessagePreview = computed(() => {
       @cancel="handleCancelRewind"
     />
 
+    <!-- Delete Session Confirmation Modal -->
+    <DeleteSessionModal
+      :visible="showDeleteModal"
+      :session-name="deletingSessionId ? getSessionDisplayName(storedSessions.find(s => s.id === deletingSessionId) || { id: '', timestamp: 0, preview: '' }) : ''"
+      @confirm="confirmDeleteSession"
+      @cancel="cancelDeleteSession"
+    />
+
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease-out;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

@@ -11,8 +11,9 @@
 - **Diff Approval**: Review and approve file changes before they're applied
 - **Tool Visualization**: See what tools Claude is using in real-time
 - **Streaming Responses**: Watch Claude's responses as they're generated
+- **@ Mentions**: Type `@` to reference workspace files with fuzzy search autocomplete
 - **Command History**: Navigate previous prompts with arrow keys (shell-style)
-- **Session History**: Real-time updates to the session history dropdown when new sessions are created
+- **Session Management**: Create, rename, resume, and delete sessions with confirmation
 - **Multi-Panel Sync**: Command history syncs across all open panels instantly
 - **Context Stats**: Live tracking of token usage, cache activity, context window %, and session cost
 - **Session Logs**: Quick access button to open the raw JSONL session file
@@ -39,12 +40,19 @@
 - `↑` / `↓`: Navigate through command history (like terminal shell)
 - `Escape`: Cancel current request (when processing)
 
+#### @ Mention Autocomplete
+- `@`: Trigger file autocomplete popup
+- `↑` / `↓`: Navigate suggestions
+- `Tab` / `Enter`: Insert selected file
+- `Escape`: Close popup
+
 ## Configuration
 
 | Setting                         | Description                                                                            | Default   |
 | ------------------------------- | -------------------------------------------------------------------------------------- | --------- |
 | `claude-unbound.permissionMode` | How to handle tool permissions (`default`, `acceptEdits`, `bypassPermissions`, `plan`) | `default` |
 | `claude-unbound.maxTurns`       | Maximum conversation turns per session                                                 | `50`      |
+| `claude-unbound.maxIndexedFiles`| Maximum files to index for @ mention autocomplete                                      | `5000`    |
 
 ## Requirements
 

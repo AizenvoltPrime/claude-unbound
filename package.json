@@ -134,6 +134,13 @@
           "default": true,
           "description": "Enable file checkpointing for undo/rewind functionality"
         },
+        "claude-unbound.maxIndexedFiles": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 100,
+          "maximum": 50000,
+          "description": "Maximum number of files to index for @ mention autocomplete"
+        },
         "claude-unbound.sandbox": {
           "type": "object",
           "default": {
@@ -192,6 +199,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dompurify": "^3.3.1",
+    "fzf": "^0.5.2",
     "lucide-vue-next": "^0.562.0",
     "radix-vue": "^1.9.17",
     "reka-ui": "^2.7.0",

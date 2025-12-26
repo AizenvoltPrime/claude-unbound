@@ -100,7 +100,7 @@ function formatMarkdown(text: string): string {
       <!-- User message -->
       <div
         v-if="message.role === 'user'"
-        class="group relative"
+        class="group relative animate-message-enter"
       >
         <!-- Rewind button -->
         <Button
@@ -124,7 +124,7 @@ function formatMarkdown(text: string): string {
       <!-- Error message (interrupts, failures) -->
       <div
         v-else-if="message.role === 'error'"
-        class="pl-4 text-red-400"
+        class="pl-4 text-red-400 animate-message-enter"
       >
         Error: {{ message.content }}
       </div>
@@ -132,7 +132,7 @@ function formatMarkdown(text: string): string {
       <!-- Assistant message -->
       <div
         v-else
-        class="group relative space-y-3"
+        class="group relative space-y-3 animate-message-enter"
       >
         <ThinkingIndicator
           v-if="message.thinking || message.isPartial"
@@ -163,7 +163,7 @@ function formatMarkdown(text: string): string {
     <!-- Streaming message (isolated from messages array to prevent flashing) -->
     <div
       v-if="streamingMessage"
-      class="group relative space-y-3"
+      class="group relative space-y-3 animate-fade-in"
     >
       <ThinkingIndicator
         v-if="streamingMessage.thinking || streamingMessage.isPartial"

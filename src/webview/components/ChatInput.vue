@@ -10,6 +10,8 @@ import {
   IconPlay,
 } from '@/components/icons';
 import { useCommandHistory } from '@/composables/useCommandHistory';
+import { useAtMentionAutocomplete } from '@/composables/useAtMentionAutocomplete';
+import AtMentionPopup from './AtMentionPopup.vue';
 
 const MAX_TEXTAREA_HEIGHT = 200;
 
@@ -28,6 +30,19 @@ const emit = defineEmits<{
 
 const inputText = ref('');
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
+const cardRef = ref<HTMLDivElement | null>(null);
+
+const {
+  isOpen: atMentionOpen,
+  query: atMentionQuery,
+  selectedIndex: atMentionSelectedIndex,
+  filteredFiles: atMentionFiles,
+  isLoading: atMentionLoading,
+  checkAndUpdateMention,
+  handleKeyDown: handleAtMentionKeyDown,
+  selectItem: selectAtMentionItem,
+  close: closeAtMention,
+} = useAtMentionAutocomplete(inputText, textareaRef);
 
 function adjustTextareaHeight() {
   const textarea = textareaRef.value;
@@ -97,6 +112,16 @@ function handleSend() {
 }
 
 function handleKeydown(event: KeyboardEvent) {
+  if (atMentionOpen.value) {
+    if (['ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Escape'].includes(event.key)) {
+      const handled = handleAtMentionKeyDown(event);
+      if (handled) {
+        event.preventDefault();
+        return;
+      }
+    }
+  }
+
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
     handleSend();
@@ -134,6 +159,7 @@ function handleInput() {
   if (isNavigating.value) {
     resetHistory();
   }
+  checkAndUpdateMention();
 }
 
 function handleCancel() {
@@ -166,9 +192,21 @@ const displayFile = computed(() => {
 
 <template>
   <div class="flex-shrink-0 bg-unbound-bg-light">
+    <!-- @ Mention Autocomplete Popup -->
+    <AtMentionPopup
+      :is-open="atMentionOpen"
+      :files="atMentionFiles"
+      v-model:selected-index="atMentionSelectedIndex"
+      :anchor-element="cardRef"
+      :query="atMentionQuery"
+      :is-loading="atMentionLoading"
+      @select="selectAtMentionItem(atMentionFiles.indexOf($event))"
+      @close="closeAtMention"
+    />
+
     <!-- Input area -->
     <div class="p-3">
-      <div class="bg-unbound-bg-card rounded-lg border border-unbound-cyan-800/50 overflow-hidden">
+      <div ref="cardRef" class="bg-unbound-bg-card rounded-lg border border-unbound-cyan-800/50 overflow-hidden">
         <textarea
           ref="textareaRef"
           v-model="inputText"

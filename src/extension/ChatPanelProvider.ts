@@ -4,6 +4,7 @@ import * as fs from "fs";
 import { ClaudeSession } from "./ClaudeSession";
 import { PermissionHandler } from "./PermissionHandler";
 import { log } from "./logger";
+import { listWorkspaceFiles } from "./ripgrep";
 import {
   listSessions,
   getSessionDir,
@@ -14,6 +15,7 @@ import {
   readSessionEntries,
   readSessionEntriesPaginated,
   renameSession,
+  deleteSession,
   extractSessionStats,
   extractCommandHistory,
   findUserTextBlock,
@@ -487,6 +489,31 @@ export class ChatPanelProvider {
         }
         break;
 
+      case "deleteSession": {
+        try {
+          const isActiveSession = session.currentSessionId === message.sessionId;
+          await deleteSession(this.workspacePath, message.sessionId);
+
+          if (isActiveSession) {
+            session.reset();
+            this.postMessageToPanel(panel, { type: "sessionCleared" });
+          }
+
+          this.postMessageToPanel(panel, { type: "sessionDeleted", sessionId: message.sessionId });
+          this.invalidateSessionsCache();
+          const { sessions, hasMore, nextOffset } = await this.getStoredSessions();
+          this.postMessageToPanel(panel, { type: "storedSessions", sessions, hasMore, nextOffset, isFirstPage: true });
+        } catch (err) {
+          log("[ChatPanelProvider] Error deleting session:", err);
+          this.postMessageToPanel(panel, {
+            type: "notification",
+            message: `Failed to delete session: ${err instanceof Error ? err.message : "Unknown error"}`,
+            notificationType: "error",
+          });
+        }
+        break;
+      }
+
       case "requestMoreHistory":
         await this.loadMoreHistory(message.sessionId, message.offset, panel);
         break;
@@ -505,6 +532,23 @@ export class ChatPanelProvider {
         } catch (err) {
           log("Failed to extract command history:", err);
           this.postMessageToPanel(panel, { type: "commandHistory", history: [], hasMore: false });
+        }
+        break;
+      }
+
+      case "requestWorkspaceFiles": {
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) {
+            this.postMessageToPanel(panel, { type: "workspaceFiles", files: [] });
+            break;
+          }
+
+          const files = await listWorkspaceFiles(workspaceFolder.uri.fsPath);
+          this.postMessageToPanel(panel, { type: "workspaceFiles", files });
+        } catch (err) {
+          log("[ChatPanelProvider] Error fetching workspace files:", err);
+          this.postMessageToPanel(panel, { type: "workspaceFiles", files: [] });
         }
         break;
       }
