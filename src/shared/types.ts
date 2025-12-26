@@ -332,6 +332,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'commandHistory'; history: string[]; hasMore: boolean }
   // Broadcast new command to all panels
   | { type: 'commandHistoryPush'; entry: string }
+  // Panel visibility changed (for auto-focus)
+  | { type: 'panelFocused' }
   // Permission request for file operations and bash commands
   | {
       type: 'requestPermission';

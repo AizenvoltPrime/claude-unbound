@@ -3,6 +3,7 @@ import { useVSCode } from './useVSCode';
 import type { ExtensionToWebviewMessage } from '@shared/types';
 
 const MAX_LOCAL_HISTORY_SIZE = 500;
+const PREFETCH_THRESHOLD = 25;
 
 export function useCommandHistory() {
   const { postMessage, onMessage } = useVSCode();
@@ -13,6 +14,7 @@ export function useCommandHistory() {
   const isLoading = ref(false);
   const isLoaded = ref(false);
   const hasMore = ref(false);
+  const prefetchedUpTo = ref(0);
 
   const isNavigating = computed(() => historyIndex.value >= 0);
   const currentEntry = computed(() =>
@@ -37,6 +39,7 @@ export function useCommandHistory() {
         history.value = [...pushedEntries, ...message.history];
       }
 
+      prefetchedUpTo.value = history.value.length;
       pendingLoadMore = false;
       hasMore.value = message.hasMore;
       isLoading.value = false;
@@ -48,8 +51,18 @@ export function useCommandHistory() {
       }
     } else if (message.type === 'commandHistoryPush') {
       const entry = message.entry;
+      const currentEntry = historyIndex.value >= 0 ? history.value[historyIndex.value] : null;
+      const previousLength = history.value.length;
       const filtered = history.value.filter(h => h !== entry);
       history.value = [entry, ...filtered].slice(0, MAX_LOCAL_HISTORY_SIZE);
+
+      if (history.value.length > previousLength) {
+        prefetchedUpTo.value++;
+      }
+
+      if (historyIndex.value >= 0 && currentEntry && currentEntry !== entry) {
+        historyIndex.value++;
+      }
     }
   }
 
@@ -77,6 +90,13 @@ export function useCommandHistory() {
       historyIndex.value = 0;
     } else if (historyIndex.value < history.value.length - 1) {
       historyIndex.value++;
+
+      const distanceFromEnd = prefetchedUpTo.value - historyIndex.value;
+      if (distanceFromEnd <= PREFETCH_THRESHOLD && hasMore.value && !isLoading.value) {
+        isLoading.value = true;
+        pendingLoadMore = true;
+        postMessage({ type: 'requestCommandHistory', offset: history.value.length });
+      }
     } else if (hasMore.value && !isLoading.value) {
       isLoading.value = true;
       pendingLoadMore = true;

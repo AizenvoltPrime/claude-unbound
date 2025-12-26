@@ -969,7 +969,7 @@ export async function findLastMessageInCurrentTurn(
   }
 }
 
-const COMMAND_HISTORY_PAGE_SIZE = 20;
+const COMMAND_HISTORY_PAGE_SIZE = 50;
 const MAX_COMMAND_HISTORY = 500;
 
 export async function extractCommandHistory(

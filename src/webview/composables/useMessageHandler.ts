@@ -258,7 +258,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           }
           hasMoreSessions.value = message.hasMore ?? false;
           nextSessionsOffset.value = message.nextOffset ?? message.sessions.length;
-          break;
+          return;
         }
 
         case 'sessionCleared':
@@ -493,6 +493,12 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         case 'sessionEnd':
           isProcessing.value = false;
           break;
+
+        case 'panelFocused':
+          nextTick(() => {
+            chatInputRef.value?.focus();
+          });
+          return;
       }
 
       // Scroll to bottom on new messages

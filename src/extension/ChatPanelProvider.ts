@@ -263,6 +263,7 @@ export class ChatPanelProvider {
     panelDisposables.push(
       panel.onDidChangeViewState((e) => {
         if (e.webviewPanel.visible) {
+          this.postMessageToPanel(panel, { type: "panelFocused" });
           this.invalidateSessionsCache();
           this.getStoredSessions()
             .then(({ sessions, hasMore, nextOffset }) => {
@@ -387,6 +388,13 @@ export class ChatPanelProvider {
           });
         this.sendCurrentSettings(panel);
         this.sendAvailableModels(session, panel);
+        extractCommandHistory(this.workspacePath, 0)
+          .then(({ history, hasMore }) => {
+            this.postMessageToPanel(panel, { type: "commandHistory", history, hasMore });
+          })
+          .catch((err) => {
+            log("[ChatPanelProvider] Error pre-loading command history:", err);
+          });
         break;
       }
 
