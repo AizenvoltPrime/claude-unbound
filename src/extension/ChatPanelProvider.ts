@@ -13,6 +13,7 @@ import {
   readSessionEntriesPaginated,
   renameSession,
   extractSessionStats,
+  extractCommandHistory,
   type StoredSession,
 } from "./SessionStorage";
 import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, McpServerConfig, ExtensionSettings, PermissionMode, HistoryMessage, HistoryToolCall } from "../shared/types";
@@ -141,7 +142,10 @@ export class ChatPanelProvider {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist", "webview")],
+        localResourceRoots: [
+          vscode.Uri.joinPath(this.extensionUri, "dist", "webview"),
+          vscode.Uri.joinPath(this.extensionUri, "resources"),
+        ],
       }
     );
 
@@ -390,6 +394,18 @@ export class ChatPanelProvider {
         this.postMessageToPanel(panel, { type: "storedSessions", sessions, hasMore, nextOffset, isFirstPage: false });
         break;
       }
+
+      case "requestCommandHistory": {
+        try {
+          const offset = message.offset ?? 0;
+          const { history, hasMore } = await extractCommandHistory(this.workspacePath, offset);
+          this.postMessageToPanel(panel, { type: "commandHistory", history, hasMore });
+        } catch (err) {
+          log("Failed to extract command history:", err);
+          this.postMessageToPanel(panel, { type: "commandHistory", history: [], hasMore: false });
+        }
+        break;
+      }
     }
   }
 
@@ -436,6 +452,7 @@ export class ChatPanelProvider {
   private getHtmlContent(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "assets", "index.js"));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "assets", "index.css"));
+    const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "resources", "icon.png"));
 
     const nonce = this.getNonce();
 
@@ -444,12 +461,12 @@ export class ChatPanelProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${webview.cspSource};">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${webview.cspSource}; img-src ${webview.cspSource};">
   <link href="${styleUri}" rel="stylesheet">
   <title>Claude Unbound</title>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app" data-logo-uri="${logoUri}"></div>
   <script nonce="${nonce}" type="module" src="${scriptUri}"></script>
 </body>
 </html>`;

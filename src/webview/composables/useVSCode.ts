@@ -13,10 +13,12 @@ export function useVSCode() {
     vscode.postMessage(message);
   }
 
-  function onMessage(handler: (message: ExtensionToWebviewMessage) => void): void {
-    window.addEventListener('message', (event) => {
+  function onMessage(handler: (message: ExtensionToWebviewMessage) => void): () => void {
+    const wrappedHandler = (event: MessageEvent) => {
       handler(event.data as ExtensionToWebviewMessage);
-    });
+    };
+    window.addEventListener('message', wrappedHandler);
+    return () => window.removeEventListener('message', wrappedHandler);
   }
 
   function getState<T>(): T | undefined {

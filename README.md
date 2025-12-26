@@ -11,6 +11,7 @@
 - **Diff Approval**: Review and approve file changes before they're applied
 - **Tool Visualization**: See what tools Claude is using in real-time
 - **Streaming Responses**: Watch Claude's responses as they're generated
+- **Command History**: Navigate previous prompts with arrow keys (shell-style)
 
 ## Installation
 
@@ -29,6 +30,8 @@
 ### Keyboard Shortcuts
 
 - `Ctrl+Shift+U` / `Cmd+Shift+U`: Focus the chat panel
+- `↑` / `↓`: Navigate through command history (like terminal shell)
+- `Escape`: Cancel current request (when processing)
 
 ## Configuration
 

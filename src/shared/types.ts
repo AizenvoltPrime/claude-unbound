@@ -273,7 +273,9 @@ export type WebviewToExtensionMessage =
   // History pagination
   | { type: 'requestMoreHistory'; sessionId: string; offset: number }
   // Session list pagination
-  | { type: 'requestMoreSessions'; offset: number };
+  | { type: 'requestMoreSessions'; offset: number }
+  // Command history navigation (arrow up/down)
+  | { type: 'requestCommandHistory'; offset?: number };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
@@ -326,6 +328,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'errorReplay'; content: string }
   // History pagination (includes tool calls for Edit/Write/etc.)
   | { type: 'historyChunk'; messages: HistoryMessage[]; hasMore: boolean; nextOffset: number }
+  // Command history (for arrow up/down navigation)
+  | { type: 'commandHistory'; history: string[]; hasMore: boolean }
   // Permission request for file operations and bash commands
   | {
       type: 'requestPermission';

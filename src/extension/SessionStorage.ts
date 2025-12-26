@@ -7,6 +7,16 @@ import { log } from './logger';
 
 const EXTENSION_VERSION = '2.0.76';
 
+const INTERRUPT_MARKER = '[Request interrupted by user]';
+
+const SDK_GENERATED_PREFIXES = [
+  '[Request interrupted by user',
+  '<ide_opened_file>',
+  '<ide_selection>',
+  '<ide_',
+  'This session is being continued from a previous conversation',
+];
+
 /**
  * Content block types as stored in JSONL by Claude Code CLI.
  * These match the SDK's content block structure.
@@ -774,7 +784,7 @@ export async function persistInterruptMarker(options: PersistInterruptOptions): 
     isInterrupt: true,
     message: {
       role: 'user',
-      content: [{ type: 'text', text: '[Request interrupted by user]' }],
+      content: [{ type: 'text', text: INTERRUPT_MARKER }],
     },
     uuid: messageUuid,
     timestamp,
@@ -855,7 +865,7 @@ export async function findUserMessageInCurrentTurn(
             : '';
 
           // Skip interrupt markers
-          if (messageContent === '[Request interrupted by user]') {
+          if (messageContent === INTERRUPT_MARKER) {
             continue;
           }
 
@@ -917,4 +927,85 @@ export async function findLastMessageInCurrentTurn(
   } catch {
     return null;
   }
+}
+
+const COMMAND_HISTORY_PAGE_SIZE = 20;
+const MAX_COMMAND_HISTORY = 500;
+
+export async function extractCommandHistory(
+  workspacePath: string,
+  offset: number = 0
+): Promise<{ history: string[]; hasMore: boolean }> {
+  const sessions = await listSessions(workspacePath);
+  const seen = new Set<string>();
+  const allHistory: string[] = [];
+  const targetEnd = offset + COMMAND_HISTORY_PAGE_SIZE + 1;
+
+  for (const session of sessions) {
+    if (allHistory.length >= Math.min(targetEnd, MAX_COMMAND_HISTORY)) break;
+
+    const entries = await readSessionEntries(workspacePath, session.id);
+
+    const userPrompts: { text: string; timestamp: string }[] = [];
+    for (const entry of entries) {
+      if (entry.type !== 'user') continue;
+      if (entry.userType !== 'external') continue;
+      if (entry.isMeta || entry.isInterrupt) continue;
+      if (entry.toolUseResult) continue;
+      if (!entry.message?.content) continue;
+
+      const text = extractUserMessageText(entry.message.content);
+      if (!text || text.trim().length === 0) continue;
+      if (isSdkGeneratedMessage(text)) continue;
+
+      userPrompts.push({ text: text.trim(), timestamp: entry.timestamp || '' });
+    }
+
+    userPrompts.reverse();
+
+    for (const { text } of userPrompts) {
+      if (allHistory.length >= Math.min(targetEnd, MAX_COMMAND_HISTORY)) break;
+      if (seen.has(text)) continue;
+
+      seen.add(text);
+      allHistory.push(text);
+    }
+  }
+
+  const pageItems = allHistory.slice(offset, offset + COMMAND_HISTORY_PAGE_SIZE);
+  const hasMore = allHistory.length > offset + COMMAND_HISTORY_PAGE_SIZE;
+
+  return { history: pageItems, hasMore };
+}
+
+function extractUserMessageText(content: string | JsonlContentBlock[]): string {
+  if (typeof content === 'string') {
+    return cleanCommandWrapper(content);
+  }
+
+  if (Array.isArray(content)) {
+    const textBlock = content.find(
+      (b): b is { type: 'text'; text: string } => b.type === 'text' && 'text' in b
+    );
+    if (textBlock) {
+      return cleanCommandWrapper(textBlock.text);
+    }
+  }
+
+  return '';
+}
+
+function cleanCommandWrapper(text: string): string {
+  if (text.startsWith('<command-') || text.startsWith('<local-command-')) {
+    const argsMatch = text.match(/<command-args>([\s\S]*?)<\/command-args>/);
+    if (argsMatch) {
+      return argsMatch[1].trim();
+    }
+    return '';
+  }
+  return text;
+}
+
+function isSdkGeneratedMessage(text: string): boolean {
+  return SDK_GENERATED_PREFIXES.some(prefix => text.startsWith(prefix));
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import DOMPurify from 'dompurify';
@@ -7,6 +8,12 @@ import ToolCallCard from './ToolCallCard.vue';
 import CompactMarker from './CompactMarker.vue';
 import ThinkingIndicator from './ThinkingIndicator.vue';
 import { Button } from '@/components/ui/button';
+
+const logoUri = ref('');
+
+onMounted(() => {
+  logoUri.value = document.getElementById('app')?.dataset.logoUri ?? '';
+});
 
 const props = defineProps<{
   messages: ChatMessage[];
@@ -76,10 +83,10 @@ function formatMarkdown(text: string): string {
 </script>
 
 <template>
-  <div class="p-4 space-y-4 bg-unbound-bg" :class="messages.length === 0 && !streamingMessage ? 'flex flex-col justify-center items-center' : ''">
+  <div class="p-4 space-y-4 bg-unbound-bg" :class="messages.length === 0 && !streamingMessage ? 'flex flex-col justify-center' : ''">
     <!-- Welcome message -->
-    <div v-if="messages.length === 0 && !streamingMessage" class="text-center">
-      <div class="mb-4 text-5xl">⚡</div>
+    <div v-if="messages.length === 0 && !streamingMessage" class="text-center w-full px-4">
+      <img :src="logoUri" alt="Claude Unbound" class="w-16 h-16 mx-auto mb-4" />
       <p class="text-xl mb-2 text-unbound-glow font-medium">Welcome to Claude Unbound</p>
       <p class="text-sm text-unbound-muted">Unleash the full power of Claude AI. Ask anything about your code or let me help you build something new.</p>
     </div>

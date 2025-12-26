@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, type Component } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, type Component } from 'vue';
 import type { PermissionMode } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,6 +9,9 @@ import {
   IconClipboard,
   IconPlay,
 } from '@/components/icons';
+import { useCommandHistory } from '@/composables/useCommandHistory';
+
+const MAX_TEXTAREA_HEIGHT = 200;
 
 const props = defineProps<{
   isProcessing: boolean;
@@ -26,7 +29,38 @@ const emit = defineEmits<{
 const inputText = ref('');
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
 
-// Expose focus method for parent components
+function adjustTextareaHeight() {
+  const textarea = textareaRef.value;
+  if (!textarea) return;
+
+  textarea.style.height = 'auto';
+  textarea.style.height = `${Math.min(textarea.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
+  textarea.style.overflowY = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
+}
+
+const {
+  isNavigating,
+  currentEntry,
+  navigateUp,
+  navigateDown,
+  reset: resetHistory,
+  captureOriginal,
+  getOriginalInput,
+  addEntry,
+} = useCommandHistory();
+
+watch(currentEntry, (entry) => {
+  if (entry !== null) {
+    inputText.value = entry;
+  } else if (isNavigating.value === false) {
+    inputText.value = getOriginalInput();
+  }
+});
+
+watch(inputText, () => {
+  nextTick(adjustTextareaHeight);
+});
+
 function focus() {
   textareaRef.value?.focus();
 }
@@ -55,14 +89,50 @@ function cycleMode() {
 
 function handleSend() {
   if (!canSend.value) return;
-  emit('send', inputText.value.trim());
+  const message = inputText.value.trim();
+  addEntry(message);
+  emit('send', message);
   inputText.value = '';
+  resetHistory();
 }
 
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
     handleSend();
+    return;
+  }
+
+  if (event.key === 'ArrowUp') {
+    const textarea = textareaRef.value;
+    if (textarea) {
+      const textBeforeCursor = inputText.value.slice(0, textarea.selectionStart);
+      const isOnFirstLine = !textBeforeCursor.includes('\n');
+      if (inputText.value === '' || isOnFirstLine) {
+        event.preventDefault();
+        captureOriginal(inputText.value);
+        navigateUp();
+      }
+    }
+    return;
+  }
+
+  if (event.key === 'ArrowDown') {
+    const textarea = textareaRef.value;
+    if (isNavigating.value && textarea) {
+      const textAfterCursor = inputText.value.slice(textarea.selectionStart);
+      const isOnLastLine = !textAfterCursor.includes('\n');
+      if (isOnLastLine) {
+        event.preventDefault();
+        navigateDown();
+      }
+    }
+  }
+}
+
+function handleInput() {
+  if (isNavigating.value) {
+    resetHistory();
   }
 }
 
@@ -79,6 +149,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown);
+  adjustTextareaHeight();
 });
 
 onUnmounted(() => {
@@ -94,7 +165,7 @@ const displayFile = computed(() => {
 </script>
 
 <template>
-  <div class="flex-shrink-0 bg-unbound-bg-light" style="min-height: 80px;">
+  <div class="flex-shrink-0 bg-unbound-bg-light">
     <!-- Input area -->
     <div class="p-3">
       <div class="bg-unbound-bg-card rounded-lg border border-unbound-cyan-800/50 overflow-hidden">
@@ -104,10 +175,12 @@ const displayFile = computed(() => {
           :disabled="isProcessing"
           placeholder="ctrl+esc to focus or unfocus Claude"
           rows="1"
-          class="w-full p-3 bg-transparent text-unbound-text resize-none
+          class="w-full p-3 bg-transparent text-unbound-text resize-none overflow-hidden
                  focus:outline-none placeholder:text-unbound-muted
                  disabled:opacity-50"
+          :style="{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }"
           @keydown="handleKeydown"
+          @input="handleInput"
         />
 
         <!-- Bottom bar inside input -->
