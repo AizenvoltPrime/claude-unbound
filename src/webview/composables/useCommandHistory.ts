@@ -26,15 +26,18 @@ export function useCommandHistory() {
 
   function handleMessage(message: ExtensionToWebviewMessage) {
     if (message.type === 'commandHistory') {
+      const loadedSet = new Set(message.history);
+      const pushedEntries = history.value.filter(item => !loadedSet.has(item));
+
       if (pendingLoadMore) {
         const existingSet = new Set(history.value);
         const newItems = message.history.filter(item => !existingSet.has(item));
         history.value = [...history.value, ...newItems];
-        pendingLoadMore = false;
       } else {
-        history.value = message.history;
+        history.value = [...pushedEntries, ...message.history];
       }
 
+      pendingLoadMore = false;
       hasMore.value = message.hasMore;
       isLoading.value = false;
       isLoaded.value = true;
@@ -43,6 +46,10 @@ export function useCommandHistory() {
         historyIndex.value = 0;
         pendingNavigate = false;
       }
+    } else if (message.type === 'commandHistoryPush') {
+      const entry = message.entry;
+      const filtered = history.value.filter(h => h !== entry);
+      history.value = [entry, ...filtered].slice(0, MAX_LOCAL_HISTORY_SIZE);
     }
   }
 

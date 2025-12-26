@@ -11,9 +11,6 @@ const INTERRUPT_MARKER = '[Request interrupted by user]';
 
 const SDK_GENERATED_PREFIXES = [
   '[Request interrupted by user',
-  '<ide_opened_file>',
-  '<ide_selection>',
-  '<ide_',
   'This session is being continued from a previous conversation',
 ];
 
@@ -26,6 +23,15 @@ export type JsonlContentBlock =
   | { type: 'thinking'; thinking: string }
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
   | { type: 'tool_result'; tool_use_id: string; content: string };
+
+export function findUserTextBlock(
+  content: JsonlContentBlock[]
+): { type: 'text'; text: string } | undefined {
+  return content.find(
+    (b): b is { type: 'text'; text: string } =>
+      b.type === 'text' && typeof b.text === 'string' && !b.text.startsWith('<ide_')
+  );
+}
 
 export interface ClaudeSessionEntry {
   type: string;
@@ -236,6 +242,42 @@ export async function listSessions(workspacePath: string): Promise<StoredSession
 }
 
 /**
+ * Gets metadata for a single session file.
+ * Returns null if the session doesn't exist or is invalid.
+ */
+export async function getSessionMetadata(workspacePath: string, sessionId: string): Promise<StoredSession | null> {
+  if (!isValidSessionId(sessionId)) {
+    return null;
+  }
+
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = path.join(sessionDir, `${sessionId}.jsonl`);
+
+  try {
+    const stat = await fs.promises.stat(filePath);
+    if (stat.size === 0) {
+      return null;
+    }
+
+    const sessionData = await parseSessionFile(filePath);
+    if (sessionData.messageCount === 0) {
+      return null;
+    }
+
+    return {
+      id: sessionId,
+      timestamp: stat.mtime.getTime(),
+      preview: sessionData.preview || 'Session started...',
+      slug: sessionData.slug,
+      customTitle: sessionData.customTitle,
+      messageCount: sessionData.messageCount,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Parses a session JSONL file to extract metadata.
  */
 async function parseSessionFile(filePath: string): Promise<{
@@ -294,9 +336,7 @@ async function parseSessionFile(filePath: string): Promise<{
 
             preview = extractPreviewText(textToPreview);
           } else if (Array.isArray(msgContent)) {
-            const textBlock = (msgContent as JsonlContentBlock[]).find(
-              (b): b is { type: 'text'; text: string } => b.type === 'text' && 'text' in b
-            );
+            const textBlock = findUserTextBlock(msgContent as JsonlContentBlock[]);
             if (textBlock) {
               let textToPreview = textBlock.text;
 
@@ -984,9 +1024,7 @@ function extractUserMessageText(content: string | JsonlContentBlock[]): string {
   }
 
   if (Array.isArray(content)) {
-    const textBlock = content.find(
-      (b): b is { type: 'text'; text: string } => b.type === 'text' && 'text' in b
-    );
+    const textBlock = findUserTextBlock(content);
     if (textBlock) {
       return cleanCommandWrapper(textBlock.text);
     }

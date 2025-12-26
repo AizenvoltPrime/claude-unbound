@@ -7,13 +7,16 @@ import { log } from "./logger";
 import {
   listSessions,
   getSessionDir,
+  getSessionDirSync,
   getSessionFilePath,
+  getSessionMetadata,
   ensureSessionDir,
   readSessionEntries,
   readSessionEntriesPaginated,
   renameSession,
   extractSessionStats,
   extractCommandHistory,
+  findUserTextBlock,
   type StoredSession,
 } from "./SessionStorage";
 import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, McpServerConfig, ExtensionSettings, PermissionMode, HistoryMessage, HistoryToolCall } from "../shared/types";
@@ -37,6 +40,7 @@ export class ChatPanelProvider {
   private workspacePath: string = "";
   private allSessionsCache: StoredSession[] | null = null;
   private mcpConfigLoaded: boolean = false;
+  private sessionWatcher: vscode.FileSystemWatcher | null = null;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -44,7 +48,7 @@ export class ChatPanelProvider {
   ) {
     const homeDir = process.env.HOME || process.env.USERPROFILE || "";
     this.workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || homeDir;
-    // Pre-load MCP config but don't block constructor
+    this.setupSessionWatcher();
     this.loadMcpConfig().catch((err) => {
       log("[ChatPanelProvider] Error pre-loading MCP config:", err);
     });
@@ -87,6 +91,94 @@ export class ChatPanelProvider {
 
   private invalidateSessionsCache(): void {
     this.allSessionsCache = null;
+  }
+
+  private setupSessionWatcher(): void {
+    if (this.sessionWatcher) return;
+
+    const sessionDir = getSessionDirSync(this.workspacePath);
+
+    if (!fs.existsSync(sessionDir)) {
+      return;
+    }
+
+    const pattern = new vscode.RelativePattern(vscode.Uri.file(sessionDir), "*.jsonl");
+
+    this.sessionWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+    this.sessionWatcher.onDidCreate((uri) => this.handleSessionFileCreated(uri));
+    this.sessionWatcher.onDidDelete((uri) => this.handleSessionFileDeleted(uri));
+  }
+
+  private async handleSessionFileCreated(uri: vscode.Uri): Promise<void> {
+    const filename = path.basename(uri.fsPath);
+    if (!filename.endsWith(".jsonl") || filename.startsWith("agent-")) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    const sessionId = filename.replace(".jsonl", "");
+    const metadata = await getSessionMetadata(this.workspacePath, sessionId);
+
+    if (!metadata) {
+      return;
+    }
+
+    if (!this.allSessionsCache) {
+      this.allSessionsCache = await listSessions(this.workspacePath);
+    } else {
+      const existingIndex = this.allSessionsCache.findIndex((s) => s.id === sessionId);
+      if (existingIndex >= 0) {
+        this.allSessionsCache[existingIndex] = metadata;
+      } else {
+        this.allSessionsCache.push(metadata);
+      }
+      this.allSessionsCache.sort((a, b) => b.timestamp - a.timestamp);
+    }
+
+    this.pushSessionsToAllPanels();
+  }
+
+  private handleSessionFileDeleted(uri: vscode.Uri): void {
+    const filename = path.basename(uri.fsPath);
+    if (!filename.endsWith(".jsonl") || filename.startsWith("agent-")) {
+      return;
+    }
+
+    const sessionId = filename.replace(".jsonl", "");
+
+    if (this.allSessionsCache) {
+      this.allSessionsCache = this.allSessionsCache.filter((s) => s.id !== sessionId);
+    }
+
+    this.pushSessionsToAllPanels();
+  }
+
+  private pushSessionsToAllPanels(): void {
+    if (!this.allSessionsCache) return;
+
+    const sessions = this.allSessionsCache.slice(0, SESSIONS_PAGE_SIZE);
+    const hasMore = this.allSessionsCache.length > SESSIONS_PAGE_SIZE;
+    const nextOffset = sessions.length;
+
+    for (const [, instance] of this.panels) {
+      this.postMessageToPanel(instance.panel, {
+        type: "storedSessions",
+        sessions,
+        hasMore,
+        nextOffset,
+        isFirstPage: true,
+      });
+    }
+  }
+
+  private broadcastCommandHistoryEntry(entry: string): void {
+    for (const [, instance] of this.panels) {
+      this.postMessageToPanel(instance.panel, {
+        type: "commandHistoryPush",
+        entry,
+      });
+    }
   }
 
   private findExistingPanelColumn(): vscode.ViewColumn | undefined {
@@ -226,6 +318,7 @@ export class ChatPanelProvider {
       onMessage: (message) => this.postMessageToPanel(panel, message),
       onSessionIdChange: (sessionId) => {
         this.postMessageToPanel(panel, { type: "sessionStarted", sessionId: sessionId || "" });
+        this.setupSessionWatcher();
       },
       mcpServers: this.mcpServers,
     });
@@ -254,6 +347,7 @@ export class ChatPanelProvider {
             content: message.content,
           });
           session.sendMessage(message.content, message.agentId);
+          this.broadcastCommandHistoryEntry(message.content.trim());
         }
         break;
 
@@ -587,11 +681,8 @@ export class ChatPanelProvider {
         if (typeof msgContent === "string") {
           content = msgContent;
         } else if (Array.isArray(msgContent)) {
-          // Extract text blocks (skip tool_result blocks - those are tool responses)
-          content = (msgContent as JsonlContentBlock[])
-            .filter((b): b is { type: 'text'; text: string } => b.type === "text" && typeof b.text === "string")
-            .map((b) => b.text)
-            .join("");
+          const textBlock = findUserTextBlock(msgContent as JsonlContentBlock[]);
+          content = textBlock?.text ?? "";
         }
 
         // Skip system messages and command wrappers
@@ -690,6 +781,7 @@ export class ChatPanelProvider {
   }
 
   dispose(): void {
+    this.sessionWatcher?.dispose();
     for (const [, instance] of this.panels) {
       instance.session.cancel();
       instance.permissionHandler.dispose();

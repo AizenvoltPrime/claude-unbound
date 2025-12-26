@@ -330,6 +330,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'historyChunk'; messages: HistoryMessage[]; hasMore: boolean; nextOffset: number }
   // Command history (for arrow up/down navigation)
   | { type: 'commandHistory'; history: string[]; hasMore: boolean }
+  // Broadcast new command to all panels
+  | { type: 'commandHistoryPush'; entry: string }
   // Permission request for file operations and bash commands
   | {
       type: 'requestPermission';

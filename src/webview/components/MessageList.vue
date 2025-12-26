@@ -71,12 +71,10 @@ marked.use({ renderer });
 function formatMarkdown(text: string): string {
   try {
     const html = marked.parse(text) as string;
-    // Sanitize HTML to prevent XSS attacks
     return DOMPurify.sanitize(html, {
-      ADD_ATTR: ['target', 'rel'], // Allow target="_blank" on links
+      ADD_ATTR: ['target', 'rel'],
     });
   } catch {
-    // Fallback to escaped text if parsing fails
     return text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
   }
 }
