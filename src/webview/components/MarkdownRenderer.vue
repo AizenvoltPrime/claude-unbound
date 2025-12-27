@@ -1,0 +1,338 @@
+<script setup lang="ts">
+import { computed, h, type VNode } from 'vue';
+import { marked, type Token, type Tokens } from 'marked';
+import DOMPurify from 'dompurify';
+import CodeBlock from './CodeBlock.vue';
+import { useVSCode } from '@/composables/useVSCode';
+
+const props = defineProps<{
+  content: string;
+}>();
+
+const { postMessage } = useVSCode();
+
+const tokens = computed(() => {
+  try {
+    return marked.lexer(props.content);
+  } catch {
+    return [];
+  }
+});
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function isLocalPath(href: string): boolean {
+  return href.startsWith('file://') || href.startsWith('/') || !href.includes('://');
+}
+
+function handleLinkClick(e: MouseEvent, href: string) {
+  if (!isLocalPath(href)) return;
+
+  e.preventDefault();
+
+  let filePath = href.replace('file://', '');
+
+  const match = filePath.match(/(.*):(\d+)(-\d+)?$/);
+  let values: { line: number } | undefined;
+  if (match) {
+    filePath = match[1];
+    values = { line: parseInt(match[2]) };
+  }
+
+  if (!filePath.startsWith('/') && !filePath.startsWith('./')) {
+    filePath = './' + filePath;
+  }
+
+  postMessage({
+    type: 'openFile',
+    filePath,
+    line: values?.line,
+  });
+}
+
+function renderInlineTokens(tokens: Token[] | undefined): VNode[] {
+  if (!tokens) return [];
+  return tokens.map(renderToken).filter((v): v is VNode => v !== null);
+}
+
+function renderToken(token: Token): VNode | null {
+  switch (token.type) {
+    case 'heading':
+      return h(
+        `h${(token as Tokens.Heading).depth}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6',
+        { class: 'markdown-heading' },
+        renderInlineTokens((token as Tokens.Heading).tokens)
+      );
+
+    case 'paragraph':
+      return h('p', { class: 'markdown-p' }, renderInlineTokens((token as Tokens.Paragraph).tokens));
+
+    case 'text': {
+      const textToken = token as Tokens.Text;
+      if ('tokens' in textToken && textToken.tokens) {
+        return h('span', {}, renderInlineTokens(textToken.tokens));
+      }
+      return h('span', { innerHTML: escapeHtml(textToken.text || (textToken as any).raw || '') });
+    }
+
+    case 'strong':
+      return h('strong', {}, renderInlineTokens((token as Tokens.Strong).tokens));
+
+    case 'em':
+      return h('em', {}, renderInlineTokens((token as Tokens.Em).tokens));
+
+    case 'del':
+      return h('del', {}, renderInlineTokens((token as Tokens.Del).tokens));
+
+    case 'codespan':
+      return h('code', { class: 'inline-code' }, (token as Tokens.Codespan).text);
+
+    case 'code': {
+      const codeToken = token as Tokens.Code;
+      return h(CodeBlock, {
+        code: codeToken.text,
+        language: codeToken.lang || 'text',
+      });
+    }
+
+    case 'link': {
+      const linkToken = token as Tokens.Link;
+      return h(
+        'a',
+        {
+          href: linkToken.href,
+          title: linkToken.title || undefined,
+          target: isLocalPath(linkToken.href) ? undefined : '_blank',
+          rel: isLocalPath(linkToken.href) ? undefined : 'noopener noreferrer',
+          onClick: (e: MouseEvent) => handleLinkClick(e, linkToken.href),
+        },
+        renderInlineTokens(linkToken.tokens)
+      );
+    }
+
+    case 'image': {
+      const imgToken = token as Tokens.Image;
+      return h('img', {
+        src: imgToken.href,
+        alt: imgToken.text,
+        title: imgToken.title || undefined,
+        class: 'markdown-image',
+      });
+    }
+
+    case 'list': {
+      const listToken = token as Tokens.List;
+      const Tag = listToken.ordered ? 'ol' : 'ul';
+      return h(
+        Tag,
+        { start: listToken.start || undefined },
+        listToken.items.map((item: Tokens.ListItem) =>
+          h('li', {}, renderInlineTokens(item.tokens))
+        )
+      );
+    }
+
+    case 'blockquote':
+      return h(
+        'blockquote',
+        { class: 'markdown-blockquote' },
+        renderInlineTokens((token as Tokens.Blockquote).tokens)
+      );
+
+    case 'table': {
+      const tableToken = token as Tokens.Table;
+      return h('div', { class: 'table-wrapper' }, [
+        h('table', { class: 'markdown-table' }, [
+          h(
+            'thead',
+            {},
+            h(
+              'tr',
+              {},
+              tableToken.header.map((cell, i) =>
+                h(
+                  'th',
+                  { style: { textAlign: tableToken.align[i] || undefined } },
+                  renderInlineTokens(cell.tokens)
+                )
+              )
+            )
+          ),
+          h(
+            'tbody',
+            {},
+            tableToken.rows.map((row) =>
+              h(
+                'tr',
+                {},
+                row.map((cell, i) =>
+                  h(
+                    'td',
+                    { style: { textAlign: tableToken.align[i] || undefined } },
+                    renderInlineTokens(cell.tokens)
+                  )
+                )
+              )
+            )
+          ),
+        ]),
+      ]);
+    }
+
+    case 'hr':
+      return h('hr', { class: 'markdown-hr' });
+
+    case 'br':
+      return h('br');
+
+    case 'html': {
+      const htmlToken = token as Tokens.HTML;
+      const sanitized = DOMPurify.sanitize(htmlToken.text, { ADD_ATTR: ['target', 'rel'] });
+      return h('span', { innerHTML: sanitized });
+    }
+
+    case 'space':
+      return null;
+
+    default:
+      if ('raw' in token && typeof token.raw === 'string') {
+        return h('span', { innerHTML: escapeHtml(token.raw) });
+      }
+      return null;
+  }
+}
+
+function renderTokens(tokens: Token[]): VNode[] {
+  return tokens.map(renderToken).filter((v): v is VNode => v !== null);
+}
+</script>
+
+<template>
+  <div class="markdown-renderer">
+    <component :is="() => renderTokens(tokens)" />
+  </div>
+</template>
+
+<style scoped>
+.markdown-renderer {
+  color: #e0f7fa;
+}
+
+.markdown-renderer :deep(.markdown-heading) {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #4fc3f7;
+}
+
+.markdown-renderer :deep(h1) {
+  font-size: 1.5em;
+}
+
+.markdown-renderer :deep(h2) {
+  font-size: 1.3em;
+}
+
+.markdown-renderer :deep(h3) {
+  font-size: 1.1em;
+}
+
+.markdown-renderer :deep(.markdown-p) {
+  margin: 8px 0;
+}
+
+.markdown-renderer :deep(.inline-code) {
+  background-color: rgba(79, 195, 247, 0.15);
+  color: #4fc3f7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--vscode-editor-font-family, 'Consolas', 'Monaco', monospace);
+  font-size: 0.85em;
+}
+
+.markdown-renderer :deep(a) {
+  color: #4fc3f7;
+  text-decoration: none;
+}
+
+.markdown-renderer :deep(a:hover) {
+  text-decoration: underline;
+  color: #81d4fa;
+}
+
+.markdown-renderer :deep(ul),
+.markdown-renderer :deep(ol) {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.markdown-renderer :deep(li) {
+  margin: 4px 0;
+}
+
+.markdown-renderer :deep(.markdown-blockquote) {
+  border-left: 3px solid #00bcd4;
+  margin: 8px 0;
+  padding: 8px 12px;
+  color: #81d4fa;
+  background: rgba(0, 188, 212, 0.1);
+  border-radius: 0 4px 4px 0;
+}
+
+.markdown-renderer :deep(.table-wrapper) {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.markdown-renderer :deep(.markdown-table) {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.markdown-renderer :deep(th),
+.markdown-renderer :deep(td) {
+  border: 1px solid rgba(79, 195, 247, 0.3);
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.markdown-renderer :deep(th) {
+  background-color: rgba(0, 188, 212, 0.15);
+  color: #4fc3f7;
+}
+
+.markdown-renderer :deep(tr:nth-child(even)) {
+  background-color: var(--vscode-editor-inactiveSelectionBackground, rgba(79, 195, 247, 0.05));
+}
+
+.markdown-renderer :deep(tr:hover) {
+  background-color: var(--vscode-list-hoverBackground, rgba(79, 195, 247, 0.1));
+  transition: background-color 0.15s ease;
+}
+
+.markdown-renderer :deep(strong) {
+  color: #81d4fa;
+  font-weight: 600;
+}
+
+.markdown-renderer :deep(em) {
+  color: #b2ebf2;
+}
+
+.markdown-renderer :deep(.markdown-hr) {
+  border: none;
+  border-top: 1px solid rgba(79, 195, 247, 0.3);
+  margin: 16px 0;
+}
+
+.markdown-renderer :deep(.markdown-image) {
+  max-width: 100%;
+  border-radius: 4px;
+}
+</style>

@@ -67,8 +67,8 @@ const lines = computed(() => {
 ><div
   :class="[
     'px-3 py-0.5',
-    line.type === 'removed' ? 'bg-red-900/30 text-red-300' : '',
-    line.type === 'added' ? 'bg-green-900/30 text-green-300' : '',
+    line.type === 'removed' ? 'diff-removed' : '',
+    line.type === 'added' ? 'diff-added' : '',
   ]"
 ><span class="opacity-50 mr-3 select-none w-8 inline-block text-right">{{ line.lineNum }}</span><span
   :class="line.type === 'removed' ? 'line-through' : ''"
@@ -76,3 +76,15 @@ const lines = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.diff-added {
+  background-color: var(--vscode-diffEditor-insertedTextBackground, rgba(34, 197, 94, 0.2));
+  color: var(--vscode-diffEditor-insertedTextForeground, #86efac);
+}
+
+.diff-removed {
+  background-color: var(--vscode-diffEditor-removedTextBackground, rgba(239, 68, 68, 0.2));
+  color: var(--vscode-diffEditor-removedTextForeground, #fca5a5);
+}
+</style>

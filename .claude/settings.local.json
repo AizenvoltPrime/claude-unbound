@@ -145,7 +145,8 @@
       "WebFetch(domain:marketplace.visualstudio.com)",
       "WebFetch(domain:www.shadcn-vue.com)",
       "Bash(npx --yes shadcn-vue@latest add button:*)",
-      "Bash(npx --yes shadcn-vue@latest add:*)"
+      "Bash(npx --yes shadcn-vue@latest add:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

@@ -8,6 +8,7 @@
 
 - **Chat Interface**: Integrated sidebar chat panel for conversing with Claude
 - **Code Assistance**: Get help with coding, debugging, refactoring, and more
+- **Syntax Highlighting**: Shiki-powered code blocks with VS Code-quality highlighting and one-click copy
 - **Diff Approval**: Review and approve file changes before they're applied
 - **Tool Visualization**: See what tools Claude is using in real-time
 - **Streaming Responses**: Watch Claude's responses as they're generated

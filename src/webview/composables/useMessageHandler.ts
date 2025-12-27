@@ -196,6 +196,9 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           if (partialData.streamingText !== undefined) {
             msg.content = partialData.streamingText;
           }
+          if (partialData.thinkingDuration !== undefined) {
+            msg.thinkingDuration = partialData.thinkingDuration;
+          }
           // Track thinking phase (but not once tools are present)
           if (!msg.toolCalls || msg.toolCalls.length === 0) {
             msg.isThinkingPhase = partialData.isThinking ?? false;

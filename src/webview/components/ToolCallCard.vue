@@ -350,8 +350,8 @@ function formatInput(input: Record<string, unknown>): string {
           <pre class="text-xs font-mono leading-relaxed m-0 p-0"><code><div
   v-for="(line, idx) in previewLines"
   :key="idx"
-  class="px-2 py-0.5 bg-green-900/40 text-green-300"
-><span class="text-green-400 mr-1 select-none">+</span>{{ line }}</div></code></pre>
+  class="px-2 py-0.5 diff-added"
+><span class="diff-added-indicator mr-1 select-none">+</span>{{ line }}</div></code></pre>
         </div>
 
         <!-- Click to expand overlay -->
@@ -404,11 +404,11 @@ function formatInput(input: Record<string, unknown>): string {
   :key="idx"
   :class="[
     'px-4 py-0.5',
-    line.type === 'added' ? 'bg-green-900/40 text-green-300' : '',
-    line.type === 'removed' ? 'bg-red-900/40 text-red-300' : '',
+    line.type === 'added' ? 'diff-added' : '',
+    line.type === 'removed' ? 'diff-removed' : '',
     line.type === 'unchanged' ? 'text-unbound-text' : '',
   ]"
-><span class="opacity-50 mr-3 select-none w-8 inline-block text-right">{{ line.lineNum }}</span><span class="mr-1 select-none" :class="line.type === 'added' ? 'text-green-400' : line.type === 'removed' ? 'text-red-400' : 'opacity-0'">{{ line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ' }}</span>{{ line.content }}</div></code></pre>
+><span class="opacity-50 mr-3 select-none w-8 inline-block text-right">{{ line.lineNum }}</span><span class="mr-1 select-none" :class="line.type === 'added' ? 'diff-added-indicator' : line.type === 'removed' ? 'diff-removed-indicator' : 'opacity-0'">{{ line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ' }}</span>{{ line.content }}</div></code></pre>
           </div>
         </DialogContent>
       </Dialog>
@@ -504,5 +504,23 @@ function formatInput(input: Record<string, unknown>): string {
   to {
     transform: rotate(360deg);
   }
+}
+
+.diff-added {
+  background-color: var(--vscode-diffEditor-insertedTextBackground, rgba(34, 197, 94, 0.2));
+  color: var(--vscode-diffEditor-insertedTextForeground, #86efac);
+}
+
+.diff-removed {
+  background-color: var(--vscode-diffEditor-removedTextBackground, rgba(239, 68, 68, 0.2));
+  color: var(--vscode-diffEditor-removedTextForeground, #fca5a5);
+}
+
+.diff-added-indicator {
+  color: var(--vscode-gitDecoration-addedResourceForeground, #4ade80);
+}
+
+.diff-removed-indicator {
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #f87171);
 }
 </style>

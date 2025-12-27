@@ -552,6 +552,31 @@ export class ChatPanelProvider {
         }
         break;
       }
+
+      case "openFile": {
+        try {
+          let filePath = message.filePath;
+          if (filePath.startsWith('./') && this.workspacePath) {
+            const resolvedPath = path.resolve(this.workspacePath, filePath.slice(2));
+            if (!resolvedPath.startsWith(this.workspacePath)) {
+              throw new Error('Path traversal attempt detected');
+            }
+            filePath = resolvedPath;
+          }
+          const uri = vscode.Uri.file(filePath);
+          const doc = await vscode.workspace.openTextDocument(uri);
+          const editor = await vscode.window.showTextDocument(doc);
+          if (message.line && message.line > 0) {
+            const position = new vscode.Position(message.line - 1, 0);
+            editor.selection = new vscode.Selection(position, position);
+            editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+          }
+        } catch (err) {
+          log("[ChatPanelProvider] Error opening file:", err);
+          vscode.window.showErrorMessage(`Could not open file: ${message.filePath}`);
+        }
+        break;
+      }
     }
   }
 
@@ -607,7 +632,7 @@ export class ChatPanelProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${webview.cspSource}; img-src ${webview.cspSource};">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' 'wasm-unsafe-eval'; font-src ${webview.cspSource}; img-src ${webview.cspSource};">
   <link href="${styleUri}" rel="stylesheet">
   <title>Claude Unbound</title>
 </head>

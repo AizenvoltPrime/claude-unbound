@@ -86,6 +86,8 @@ interface StreamingContent {
   text: string;
   isThinking: boolean;
   hasStreamedTools: boolean;  // Once true, stop sending partial updates (thinking is "frozen")
+  thinkingStartTime: number | null;  // Timestamp when thinking began
+  thinkingDuration: number | null;  // Seconds spent thinking (set when thinking ends)
 }
 
 // Tracks a tool that was streamed to UI but may or may not execute
@@ -105,7 +107,7 @@ export class ClaudeSession {
   private messageCheckpoints: Map<string, string> = new Map();
   private accumulatedCost = 0;
   private pendingAssistant: PendingAssistantMessage | null = null;
-  private streamingContent: StreamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false };
+  private streamingContent: StreamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null };
   // Tracks tools that were streamed to UI - if they never reach PreToolUse/completion, they're "abandoned"
   private streamedToolIds: Map<string, StreamedToolInfo> = new Map();
   // Turn-level tracking: persists across messages within a single turn (reset in sendMessage)
@@ -184,6 +186,23 @@ export class ClaudeSession {
     });
   }
 
+  /**
+   * Calculate and store thinking duration when transitioning out of thinking phase.
+   * Called when first tool or text arrives after thinking content.
+   * Returns the calculated duration, or null if not applicable.
+   */
+  private calculateThinkingDurationIfNeeded(): number | null {
+    if (this.streamingContent.isThinking &&
+        this.streamingContent.thinkingStartTime &&
+        !this.streamingContent.thinkingDuration) {
+      this.streamingContent.thinkingDuration = Math.max(1,
+        Math.round((Date.now() - this.streamingContent.thinkingStartTime) / 1000));
+      this.streamingContent.isThinking = false;
+      return this.streamingContent.thinkingDuration;
+    }
+    return null;
+  }
+
   setResumeSession(sessionId: string | null): void {
     this.resumeSessionId = sessionId;
     this.sessionId = sessionId;
@@ -210,7 +229,7 @@ export class ClaudeSession {
     this.isProcessing = true;
     this.abortController = new AbortController();
     this.pendingAssistant = null;
-    this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false };
+    this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null };
     this.toolsUsedThisTurn = false;
     this.currentPrompt = prompt;
     this.wasInterrupted = false;
@@ -526,7 +545,7 @@ export class ClaudeSession {
               this.flushPendingAssistant();
               // Only reset streamingContent if not already set by message_start
               if (this.streamingContent.messageId !== message.message.id) {
-                this.streamingContent = { messageId: message.message.id, thinking: '', text: '', isThinking: false, hasStreamedTools: false };
+                this.streamingContent = { messageId: message.message.id, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null };
               }
             } else if (!this.streamingContent.messageId) {
               // Fallback: associate streaming content if message_start wasn't received
@@ -540,6 +559,23 @@ export class ClaudeSession {
             // CRITICAL: Include messageId so webview associates tool with correct message
             for (const block of serializedContent) {
               if (block.type === 'tool_use') {
+                // Calculate thinking duration when transitioning from thinking to tools
+                const duration = this.calculateThinkingDurationIfNeeded();
+                if (duration !== null) {
+                  // Send a partial update with the duration before the first tool
+                  this.options.onMessage({
+                    type: 'partial',
+                    data: {
+                      type: 'partial',
+                      content: [],
+                      session_id: this.sessionId || '',
+                      messageId: this.streamingContent.messageId,
+                      streamingThinking: this.streamingContent.thinking,
+                      isThinking: false,
+                      thinkingDuration: duration,
+                    },
+                  });
+                }
                 // Mark that we've streamed tools - after this, thinking updates should NOT be sent
                 // This prevents the visual glitch of thinking text updating above tool cards
                 this.streamingContent.hasStreamedTools = true;
@@ -592,12 +628,18 @@ export class ClaudeSession {
                 thinking: '',
                 text: '',
                 isThinking: false,
-                hasStreamedTools: false
+                hasStreamedTools: false,
+                thinkingStartTime: null,
+                thinkingDuration: null,
               };
             }
 
             if (event.type === 'content_block_delta') {
               if (event.delta?.type === 'thinking_delta' && event.delta.thinking) {
+                // Start timing when first thinking delta arrives
+                if (!this.streamingContent.thinkingStartTime) {
+                  this.streamingContent.thinkingStartTime = Date.now();
+                }
                 // Always accumulate thinking content (for final message)
                 this.streamingContent.thinking += event.delta.thinking;
                 this.streamingContent.isThinking = true;
@@ -617,9 +659,10 @@ export class ClaudeSession {
                   });
                 }
               } else if (event.delta?.type === 'text_delta' && event.delta.text) {
+                // Calculate thinking duration when transitioning from thinking to text
+                this.calculateThinkingDurationIfNeeded();
                 // Always accumulate text content (for final message)
                 this.streamingContent.text += event.delta.text;
-                this.streamingContent.isThinking = false;
                 // ALWAYS stream text deltas - this is the final response and should appear in real-time
                 // (unlike thinking which is frozen once tools appear to avoid visual glitches above tool cards)
                 this.options.onMessage({
@@ -632,6 +675,7 @@ export class ClaudeSession {
                     streamingThinking: this.streamingContent.thinking,
                     streamingText: this.streamingContent.text,
                     isThinking: false,
+                    thinkingDuration: this.streamingContent.thinkingDuration ?? undefined,
                   },
                 });
               }
@@ -885,7 +929,7 @@ export class ClaudeSession {
 
       // Clear streaming state
       this.currentPrompt = null;
-      this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false };
+      this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null };
       this.streamedToolIds.clear();
 
       this.isProcessing = false;

@@ -35,20 +35,20 @@ export interface SystemInitData {
 
 // MCP Server configuration types (matching SDK)
 export interface McpStdioServerConfig {
-  type?: 'stdio';
+  type?: "stdio";
   command: string;
   args?: string[];
   env?: Record<string, string>;
 }
 
 export interface McpSseServerConfig {
-  type: 'sse';
+  type: "sse";
   url: string;
   headers?: Record<string, string>;
 }
 
 export interface McpHttpServerConfig {
-  type: 'http';
+  type: "http";
   url: string;
   headers?: Record<string, string>;
 }
@@ -58,7 +58,7 @@ export type McpServerConfig = McpStdioServerConfig | McpSseServerConfig | McpHtt
 // MCP Server status for UI display
 export interface McpServerStatusInfo {
   name: string;
-  status: 'connected' | 'failed' | 'needs-auth' | 'pending';
+  status: "connected" | "failed" | "needs-auth" | "pending";
   serverInfo?: {
     name: string;
     version: string;
@@ -75,7 +75,7 @@ export interface SandboxConfig {
 }
 
 // Permission modes from SDK
-export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
+export type PermissionMode = "default" | "acceptEdits" | "bypassPermissions" | "plan";
 
 // Agent definition matching SDK's AgentDefinition type
 export interface AgentDefinition {
@@ -83,7 +83,7 @@ export interface AgentDefinition {
   prompt: string;
   tools?: string[];
   disallowedTools?: string[];
-  model?: 'sonnet' | 'opus' | 'haiku' | 'inherit';
+  model?: "sonnet" | "opus" | "haiku" | "inherit";
 }
 
 // ============================================================================
@@ -128,7 +128,7 @@ export interface ActiveSubagent {
 export interface CompactMarker {
   id: string;
   timestamp: number;
-  trigger: 'manual' | 'auto';
+  trigger: "manual" | "auto";
   preTokens: number;
 }
 
@@ -157,26 +157,26 @@ export interface FileWriteInput {
 
 // Content block types from SDK messages
 export interface TextBlock {
-  type: 'text';
+  type: "text";
   text: string;
 }
 
 export interface ToolUseBlock {
-  type: 'tool_use';
+  type: "tool_use";
   id: string;
   name: string;
   input: Record<string, unknown>;
 }
 
 export interface ToolResultBlock {
-  type: 'tool_result';
+  type: "tool_result";
   tool_use_id: string;
   content: string;
   is_error?: boolean;
 }
 
 export interface ThinkingBlock {
-  type: 'thinking';
+  type: "thinking";
   thinking: string;
 }
 
@@ -190,7 +190,7 @@ export interface HistoryToolCall {
   id: string;
   name: string;
   input: Record<string, unknown>;
-  result?: string;  // Tool result if available
+  result?: string; // Tool result if available
 }
 
 /**
@@ -198,18 +198,18 @@ export interface HistoryToolCall {
  * Includes tool calls which are parsed from content blocks.
  */
 export interface HistoryMessage {
-  type: 'user' | 'assistant' | 'error';
+  type: "user" | "assistant" | "error";
   content: string;
   thinking?: string;
-  tools?: HistoryToolCall[];  // Tool calls for this message
+  tools?: HistoryToolCall[]; // Tool calls for this message
 }
 
 // Serializable message types (subset of SDK types)
 export interface AssistantMessage {
-  type: 'assistant';
+  type: "assistant";
   message: {
     id: string;
-    role: 'assistant';
+    role: "assistant";
     content: ContentBlock[];
     model: string;
     stop_reason: string | null;
@@ -218,17 +218,18 @@ export interface AssistantMessage {
 }
 
 export interface PartialMessage {
-  type: 'partial';
+  type: "partial";
   content: ContentBlock[];
   session_id: string;
-  messageId: string | null;  // SDK message ID for proper association
+  messageId: string | null; // SDK message ID for proper association
   streamingThinking?: string;
   streamingText?: string;
   isThinking?: boolean;
+  thinkingDuration?: number; // Seconds spent in thinking phase
 }
 
 export interface ResultMessage {
-  type: 'result';
+  type: "result";
   session_id: string;
   is_done: boolean;
   total_cost_usd?: number;
@@ -242,109 +243,111 @@ export interface ResultMessage {
 
 // Messages from Webview → Extension
 export type WebviewToExtensionMessage =
-  | { type: 'log'; message: string }
-  | { type: 'sendMessage'; content: string; agentId?: string }
-  | { type: 'cancelSession' }
-  | { type: 'resumeSession'; sessionId: string }
+  | { type: "log"; message: string }
+  | { type: "sendMessage"; content: string; agentId?: string }
+  | { type: "cancelSession" }
+  | { type: "resumeSession"; sessionId: string }
   | {
-      type: 'approveEdit';
+      type: "approveEdit";
       approved: boolean;
       neverAskAgain?: boolean;
       customMessage?: string;
     }
-  | { type: 'ready' }
+  | { type: "ready" }
   // New: Model and settings control
-  | { type: 'requestModels' }
-  | { type: 'setModel'; model: string }
-  | { type: 'setMaxThinkingTokens'; tokens: number | null }
-  | { type: 'setBudgetLimit'; budgetUsd: number | null }
-  | { type: 'toggleBeta'; beta: string; enabled: boolean }
-  | { type: 'setPermissionMode'; mode: PermissionMode }
+  | { type: "requestModels" }
+  | { type: "setModel"; model: string }
+  | { type: "setMaxThinkingTokens"; tokens: number | null }
+  | { type: "setBudgetLimit"; budgetUsd: number | null }
+  | { type: "toggleBeta"; beta: string; enabled: boolean }
+  | { type: "setPermissionMode"; mode: PermissionMode }
   // New: File rewind
-  | { type: 'rewindToMessage'; userMessageId: string }
+  | { type: "rewindToMessage"; userMessageId: string }
   // New: Session control
-  | { type: 'interrupt' }
-  | { type: 'requestMcpStatus' }
-  | { type: 'requestSupportedCommands' }
-  | { type: 'openSettings' }
+  | { type: "interrupt" }
+  | { type: "requestMcpStatus" }
+  | { type: "requestSupportedCommands" }
+  | { type: "openSettings" }
   // Session management
-  | { type: 'renameSession'; sessionId: string; newName: string }
-  | { type: 'deleteSession'; sessionId: string }
-  | { type: 'openSessionLog' }
+  | { type: "renameSession"; sessionId: string; newName: string }
+  | { type: "deleteSession"; sessionId: string }
+  | { type: "openSessionLog" }
   // History pagination
-  | { type: 'requestMoreHistory'; sessionId: string; offset: number }
+  | { type: "requestMoreHistory"; sessionId: string; offset: number }
   // Session list pagination
-  | { type: 'requestMoreSessions'; offset: number }
+  | { type: "requestMoreSessions"; offset: number }
   // Command history navigation (arrow up/down)
-  | { type: 'requestCommandHistory'; offset?: number }
+  | { type: "requestCommandHistory"; offset?: number }
   // Workspace file listing for @ mentions
-  | { type: 'requestWorkspaceFiles' };
+  | { type: "requestWorkspaceFiles" }
+  // Open file in editor (from clickable file paths)
+  | { type: "openFile"; filePath: string; line?: number };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
-  | { type: 'assistant'; data: AssistantMessage }
-  | { type: 'partial'; data: PartialMessage }
-  | { type: 'done'; data: ResultMessage }
-  | { type: 'userMessage'; content: string }
-  | { type: 'toolPending'; toolName: string; input: unknown }
-  | { type: 'error'; message: string }
-  | { type: 'sessionStarted'; sessionId: string }
-  | { type: 'processing'; isProcessing: boolean }
-  | { type: 'storedSessions'; sessions: StoredSession[]; hasMore?: boolean; nextOffset?: number; isFirstPage?: boolean }
-  | { type: 'sessionCleared' }
-  | { type: 'sessionRenamed'; sessionId: string; newName: string }
-  | { type: 'sessionDeleted'; sessionId: string }
-  | { type: 'notification'; message: string; notificationType: string }
-  | { type: 'accountInfo'; data: AccountInfo }
+  | { type: "assistant"; data: AssistantMessage }
+  | { type: "partial"; data: PartialMessage }
+  | { type: "done"; data: ResultMessage }
+  | { type: "userMessage"; content: string }
+  | { type: "toolPending"; toolName: string; input: unknown }
+  | { type: "error"; message: string }
+  | { type: "sessionStarted"; sessionId: string }
+  | { type: "processing"; isProcessing: boolean }
+  | { type: "storedSessions"; sessions: StoredSession[]; hasMore?: boolean; nextOffset?: number; isFirstPage?: boolean }
+  | { type: "sessionCleared" }
+  | { type: "sessionRenamed"; sessionId: string; newName: string }
+  | { type: "sessionDeleted"; sessionId: string }
+  | { type: "notification"; message: string; notificationType: string }
+  | { type: "accountInfo"; data: AccountInfo }
   // New: Model and settings
-  | { type: 'availableModels'; models: ModelInfo[] }
-  | { type: 'systemInit'; data: SystemInitData }
-  | { type: 'settingsUpdate'; settings: ExtensionSettings }
-  | { type: 'supportedCommands'; commands: SlashCommandInfo[] }
+  | { type: "availableModels"; models: ModelInfo[] }
+  | { type: "systemInit"; data: SystemInitData }
+  | { type: "settingsUpdate"; settings: ExtensionSettings }
+  | { type: "supportedCommands"; commands: SlashCommandInfo[] }
   // New: Budget tracking
-  | { type: 'budgetWarning'; currentSpend: number; limit: number; percentUsed: number }
-  | { type: 'budgetExceeded'; finalSpend: number; limit: number }
+  | { type: "budgetWarning"; currentSpend: number; limit: number; percentUsed: number }
+  | { type: "budgetExceeded"; finalSpend: number; limit: number }
   // New: MCP server status
-  | { type: 'mcpServerStatus'; servers: McpServerStatusInfo[] }
+  | { type: "mcpServerStatus"; servers: McpServerStatusInfo[] }
   // New: File checkpointing
-  | { type: 'checkpointInfo'; checkpoints: MessageCheckpoint[] }
-  | { type: 'rewindComplete'; rewindToMessageId: string }
-  | { type: 'rewindError'; message: string }
+  | { type: "checkpointInfo"; checkpoints: MessageCheckpoint[] }
+  | { type: "rewindComplete"; rewindToMessageId: string }
+  | { type: "rewindError"; message: string }
   // New: Tool lifecycle
-  | { type: 'toolStreaming'; messageId: string; tool: { id: string; name: string; input: Record<string, unknown> } }
-  | { type: 'toolCompleted'; toolUseId: string; toolName: string; result: string }
-  | { type: 'toolFailed'; toolUseId: string; toolName: string; error: string; isInterrupt?: boolean }
-  | { type: 'toolAbandoned'; toolUseId: string; toolName: string }  // Tool was streamed but never executed
+  | { type: "toolStreaming"; messageId: string; tool: { id: string; name: string; input: Record<string, unknown> } }
+  | { type: "toolCompleted"; toolUseId: string; toolName: string; result: string }
+  | { type: "toolFailed"; toolUseId: string; toolName: string; error: string; isInterrupt?: boolean }
+  | { type: "toolAbandoned"; toolUseId: string; toolName: string } // Tool was streamed but never executed
   // New: Subagent lifecycle
-  | { type: 'subagentStart'; agentId: string; agentType: string }
-  | { type: 'subagentStop'; agentId: string }
+  | { type: "subagentStart"; agentId: string; agentType: string }
+  | { type: "subagentStop"; agentId: string }
   // New: Session lifecycle
-  | { type: 'sessionStart'; source: 'startup' | 'resume' | 'clear' | 'compact' }
-  | { type: 'sessionEnd'; reason: string }
+  | { type: "sessionStart"; source: "startup" | "resume" | "clear" | "compact" }
+  | { type: "sessionEnd"; reason: string }
   // New: Compaction
-  | { type: 'preCompact'; trigger: 'manual' | 'auto' }
-  | { type: 'compactBoundary'; preTokens: number; trigger: 'manual' | 'auto' }
+  | { type: "preCompact"; trigger: "manual" | "auto" }
+  | { type: "compactBoundary"; preTokens: number; trigger: "manual" | "auto" }
   // New: User message replay (for resumed sessions)
-  | { type: 'userReplay'; content: string; isSynthetic?: boolean }
+  | { type: "userReplay"; content: string; isSynthetic?: boolean }
   // New: Assistant message replay (for resumed sessions)
-  | { type: 'assistantReplay'; content: string; thinking?: string; tools?: HistoryToolCall[] }
+  | { type: "assistantReplay"; content: string; thinking?: string; tools?: HistoryToolCall[] }
   // New: Error message replay (for interrupted sessions loaded from history)
-  | { type: 'errorReplay'; content: string }
+  | { type: "errorReplay"; content: string }
   // History pagination (includes tool calls for Edit/Write/etc.)
-  | { type: 'historyChunk'; messages: HistoryMessage[]; hasMore: boolean; nextOffset: number }
+  | { type: "historyChunk"; messages: HistoryMessage[]; hasMore: boolean; nextOffset: number }
   // Command history (for arrow up/down navigation)
-  | { type: 'commandHistory'; history: string[]; hasMore: boolean }
+  | { type: "commandHistory"; history: string[]; hasMore: boolean }
   // Broadcast new command to all panels
-  | { type: 'commandHistoryPush'; entry: string }
+  | { type: "commandHistoryPush"; entry: string }
   // Panel visibility changed (for auto-focus)
-  | { type: 'panelFocused' }
+  | { type: "panelFocused" }
   // Workspace file listing response for @ mentions
-  | { type: 'workspaceFiles'; files: WorkspaceFileInfo[] }
+  | { type: "workspaceFiles"; files: WorkspaceFileInfo[] }
   // Permission request for file operations and bash commands
   | {
-      type: 'requestPermission';
+      type: "requestPermission";
       toolUseId: string;
-      toolName: 'Write' | 'Edit' | 'Bash';
+      toolName: "Write" | "Edit" | "Bash";
       toolInput: Record<string, unknown>;
       filePath?: string;
       originalContent?: string;
@@ -354,9 +357,9 @@ export type ExtensionToWebviewMessage =
 
 // Chat message for UI rendering
 export interface ChatMessage {
-  id: string;  // Unique ID for Vue rendering (stable for message lifetime)
-  sdkMessageId?: string;  // SDK message ID for identity matching (null until known)
-  role: 'user' | 'assistant' | 'error';
+  id: string; // Unique ID for Vue rendering (stable for message lifetime)
+  sdkMessageId?: string; // SDK message ID for identity matching (null until known)
+  role: "user" | "assistant" | "error";
   content: string;
   toolCalls?: ToolCall[];
   timestamp: number;
@@ -365,13 +368,14 @@ export interface ChatMessage {
   isReplay?: boolean;
   checkpointId?: string;
   thinking?: string;
+  thinkingDuration?: number; // Seconds spent in thinking phase
 }
 
 export interface ToolCall {
   id: string;
   name: string;
   input: Record<string, unknown>;
-  status: 'pending' | 'running' | 'awaiting_approval' | 'approved' | 'denied' | 'completed' | 'failed' | 'abandoned';
+  status: "pending" | "running" | "awaiting_approval" | "approved" | "denied" | "completed" | "failed" | "abandoned";
   result?: string;
   isError?: boolean;
   errorMessage?: string;
@@ -389,7 +393,7 @@ export interface SessionStats {
 
 export interface FileEntry {
   path: string;
-  operation: 'read' | 'edit' | 'write' | 'create';
+  operation: "read" | "edit" | "write" | "create";
 }
 
 export interface WorkspaceFileInfo {
@@ -402,7 +406,7 @@ export interface StoredSession {
   timestamp: number;
   preview: string;
   slug?: string;
-  customTitle?: string;  // User-set name via /rename
+  customTitle?: string; // User-set name via /rename
   messageCount?: number;
 }
 
@@ -422,8 +426,8 @@ export interface AgentConfig {
 }
 
 export const AVAILABLE_AGENTS: AgentConfig[] = [
-  { id: 'default', name: 'Default', description: 'General-purpose coding assistant', icon: '🤖' },
-  { id: 'code-reviewer', name: 'Code Reviewer', description: 'Expert code review and analysis', icon: '🔍' },
-  { id: 'explorer', name: 'Explorer', description: 'Fast codebase exploration', icon: '🗺️' },
-  { id: 'planner', name: 'Planner', description: 'Software architecture planning', icon: '📋' },
+  { id: "default", name: "Default", description: "General-purpose coding assistant", icon: "🤖" },
+  { id: "code-reviewer", name: "Code Reviewer", description: "Expert code review and analysis", icon: "🔍" },
+  { id: "explorer", name: "Explorer", description: "Fast codebase exploration", icon: "🗺️" },
+  { id: "planner", name: "Planner", description: "Software architecture planning", icon: "📋" },
 ];
