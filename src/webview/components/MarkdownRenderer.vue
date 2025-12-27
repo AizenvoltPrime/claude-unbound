@@ -31,6 +31,12 @@ function isLocalPath(href: string): boolean {
   return href.startsWith('file://') || href.startsWith('/') || !href.includes('://');
 }
 
+function isAbsolutePath(filePath: string): boolean {
+  if (filePath.startsWith('/')) return true;
+  if (/^[A-Za-z]:[\\\/]/.test(filePath)) return true;
+  return false;
+}
+
 function handleLinkClick(e: MouseEvent, href: string) {
   if (!isLocalPath(href)) return;
 
@@ -45,7 +51,7 @@ function handleLinkClick(e: MouseEvent, href: string) {
     values = { line: parseInt(match[2]) };
   }
 
-  if (!filePath.startsWith('/') && !filePath.startsWith('./')) {
+  if (!isAbsolutePath(filePath) && !filePath.startsWith('./')) {
     filePath = './' + filePath;
   }
 
