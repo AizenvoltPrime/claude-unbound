@@ -50,6 +50,7 @@ export async function highlightDiffLines(
     });
 
     const highlightedLines = extractLinesFromHtml(html);
+
     let highlightIdx = 0;
 
     return lines.map((line) => {
@@ -69,21 +70,16 @@ export async function highlightDiffLines(
 }
 
 function extractLinesFromHtml(html: string): string[] {
-  const codeMatch = html.match(/<code[^>]*>([\s\S]*?)<\/code>/);
-  if (!codeMatch) return [];
+  const template = document.createElement('template');
+  template.innerHTML = html;
 
-  const codeContent = codeMatch[1];
-  const lines: string[] = [];
-  const lineRegex = /<span class="line">([\s\S]*?)<\/span>(?=<span class="line">|$)/g;
-  let match;
+  const codeElement = template.content.querySelector('code');
+  if (!codeElement) return [];
 
-  while ((match = lineRegex.exec(codeContent)) !== null) {
-    lines.push(match[1]);
+  const lineSpans = codeElement.querySelectorAll(':scope > .line');
+  if (lineSpans.length > 0) {
+    return Array.from(lineSpans).map((span) => span.innerHTML);
   }
 
-  if (lines.length === 0) {
-    return codeContent.split('\n');
-  }
-
-  return lines;
+  return codeElement.innerHTML.split('\n');
 }
