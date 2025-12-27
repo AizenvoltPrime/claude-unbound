@@ -1,8 +1,9 @@
-import { onMounted, nextTick } from 'vue';
-import type { Ref, ComponentPublicInstance } from 'vue';
-import { toast } from 'vue-sonner';
-import { useVSCode } from './useVSCode';
-import type { UseStreamingMessageReturn } from './useStreamingMessage';
+import { onMounted, nextTick } from "vue";
+import type { Ref, ComponentPublicInstance } from "vue";
+import { toast } from "vue-sonner";
+import { useVSCode } from "./useVSCode";
+import type { UseStreamingMessageReturn } from "./useStreamingMessage";
+import type { UseSubagentMessagesReturn } from "./useSubagentMessages";
 import type {
   ChatMessage,
   ToolCall,
@@ -13,11 +14,10 @@ import type {
   ModelInfo,
   ExtensionSettings,
   McpServerStatusInfo,
-  ActiveSubagent,
   CompactMarker,
   HistoryMessage,
   HistoryToolCall,
-} from '@shared/types';
+} from "@shared/types";
 
 /**
  * Options for setting up the message handler.
@@ -26,6 +26,8 @@ import type {
 export interface MessageHandlerOptions {
   // Streaming message composable
   streaming: UseStreamingMessageReturn;
+  // Subagent message composable
+  subagentMessages: UseSubagentMessagesReturn;
 
   // App state refs
   isProcessing: Ref<boolean>;
@@ -45,19 +47,25 @@ export interface MessageHandlerOptions {
   availableModels: Ref<ModelInfo[]>;
   currentSettings: Ref<ExtensionSettings>;
   mcpServers: Ref<McpServerStatusInfo[]>;
-  activeSubagents: Ref<Map<string, ActiveSubagent>>;
   compactMarkers: Ref<CompactMarker[]>;
   budgetWarning: Ref<{ currentSpend: number; limit: number; exceeded: boolean } | null>;
   checkpointMessages: Ref<Set<string>>;
   currentRunningTool: Ref<string | null>;
-  pendingPermission: Ref<{
-    toolUseId: string;
-    toolName: string;
-    filePath?: string;
-    originalContent?: string;
-    proposedContent?: string;
-    command?: string;
-  } | null>;
+  pendingPermissions: Ref<
+    Map<
+      string,
+      {
+        toolUseId: string;
+        toolName: string;
+        filePath?: string;
+        originalContent?: string;
+        proposedContent?: string;
+        command?: string;
+        parentToolUseId?: string | null;
+        agentDescription?: string;
+      }
+    >
+  >;
 
   // DOM refs for scroll management
   messageContainerRef: Ref<HTMLElement | null>;
@@ -75,7 +83,7 @@ function convertHistoryTools(tools: HistoryToolCall[] | undefined): ToolCall[] |
     id: t.id,
     name: t.name,
     input: t.input,
-    status: 'completed' as const,
+    status: "completed" as const,
     result: t.result,
   }));
 }
@@ -88,6 +96,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
   const { postMessage, onMessage } = useVSCode();
   const {
     streaming,
+    subagentMessages,
     isProcessing,
     accountInfo,
     currentSessionId,
@@ -105,12 +114,11 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
     availableModels,
     currentSettings,
     mcpServers,
-    activeSubagents,
     compactMarkers,
     budgetWarning,
     checkpointMessages,
     currentRunningTool,
-    pendingPermission,
+    pendingPermissions,
     messageContainerRef,
     chatInputRef,
     trackFileAccess,
@@ -139,20 +147,42 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
   onMounted(() => {
     onMessage((message) => {
       switch (message.type) {
-        case 'userMessage':
+        case "userMessage":
           addUserMessage(message.content);
           break;
 
-        case 'assistant': {
+        case "assistant": {
           const assistantMsg = message.data;
           const msgId = assistantMsg.message.id;
+          const parentToolUseId = message.parentToolUseId;
           const textContent = extractTextFromContent(assistantMsg.message.content);
           const toolCalls = extractToolCalls(assistantMsg.message.content);
           const thinkingContent = extractThinkingContent(assistantMsg.message.content);
+          const hasSubagent = parentToolUseId ? subagentMessages.hasSubagent(parentToolUseId) : false;
 
           // Track file access from tool calls
           for (const tool of toolCalls) {
             trackFileAccess(tool.name, tool.input);
+          }
+
+          // Route to subagent if this message belongs to one
+          if (parentToolUseId && hasSubagent) {
+            const subagentMsg: ChatMessage = {
+              id: generateId(),
+              sdkMessageId: msgId,
+              role: "assistant",
+              content: textContent,
+              thinking: thinkingContent,
+              toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+              timestamp: Date.now(),
+              parentToolUseId,
+            };
+            subagentMessages.addMessageToSubagent(parentToolUseId, subagentMsg);
+            for (const tool of toolCalls) {
+              subagentMessages.addToolCallToSubagent(parentToolUseId, tool);
+            }
+            currentSessionId.value = assistantMsg.session_id;
+            break;
           }
 
           // Finalize previous message if SDK message ID changed
@@ -179,9 +209,21 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
-        case 'partial': {
+        case "partial": {
           const partialData = message.data;
           const msgId = partialData.messageId ?? undefined;
+          const parentToolUseId = message.parentToolUseId;
+
+          // Route to subagent if this message belongs to one
+          if (parentToolUseId && subagentMessages.hasSubagent(parentToolUseId) && msgId) {
+            subagentMessages.updateSubagentStreaming(parentToolUseId, msgId, {
+              content: partialData.streamingText,
+              thinking: partialData.streamingThinking,
+              thinkingDuration: partialData.thinkingDuration,
+              isThinkingPhase: partialData.isThinking,
+            });
+            break;
+          }
 
           // Finalize previous message if SDK message ID changed (same as assistant/toolStreaming)
           if (msgId) {
@@ -206,7 +248,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
-        case 'done': {
+        case "done": {
           const resultData = message.data;
           finalizeStreamingMessage();
           // Update session stats
@@ -234,7 +276,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
-        case 'processing':
+        case "processing":
           isProcessing.value = message.isProcessing;
           // When processing stops, finalize any partial streaming content
           if (!message.isProcessing && streamingMessage.value) {
@@ -242,15 +284,15 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           }
           break;
 
-        case 'error':
+        case "error":
           addErrorMessage(message.message);
           break;
 
-        case 'sessionStarted':
+        case "sessionStarted":
           currentSessionId.value = message.sessionId;
           break;
 
-        case 'storedSessions': {
+        case "storedSessions": {
           loadingMoreSessions.value = false;
           // First page: replace list. Pagination: append to list.
           const isFirstPage = message.isFirstPage ?? storedSessions.value.length === 0;
@@ -264,10 +306,19 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           return;
         }
 
-        case 'sessionCleared':
+        case "sessionCleared":
           clearMessages();
+          subagentMessages.clearSubagents();
           accessedFiles.value.clear();
-          sessionStats.value = { totalCostUsd: 0, totalInputTokens: 0, totalOutputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, numTurns: 0, contextWindowSize: 200000 };
+          sessionStats.value = {
+            totalCostUsd: 0,
+            totalInputTokens: 0,
+            totalOutputTokens: 0,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 0,
+            numTurns: 0,
+            contextWindowSize: 200000,
+          };
           currentSessionId.value = null;
           selectedSessionId.value = null;
           currentResumedSessionId.value = null;
@@ -276,13 +327,36 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           loadingMoreHistory.value = false;
           break;
 
-        case 'sessionRenamed':
+        case "sessionRenamed":
           // Session rename acknowledged
           break;
 
-        case 'toolStreaming': {
+        case "toolStreaming": {
           const targetMsgId = message.messageId;
+          const parentToolUseId = message.parentToolUseId;
           currentRunningTool.value = message.tool.name;
+          const hasSubagent = parentToolUseId ? subagentMessages.hasSubagent(parentToolUseId) : false;
+
+          // Register Task tools for correlation with subagentStart
+          if (message.tool.name === "Task") {
+            subagentMessages.registerTaskTool(
+              message.tool.id,
+              message.tool.input as { description?: string; prompt?: string; subagent_type?: string }
+            );
+          }
+
+          // Route to subagent if this message belongs to one
+          if (parentToolUseId && hasSubagent) {
+            const toolCall: ToolCall = {
+              id: message.tool.id,
+              name: message.tool.name,
+              input: message.tool.input,
+              status: "running",
+            };
+            subagentMessages.addToolCallToSubagent(parentToolUseId, toolCall);
+            trackFileAccess(message.tool.name, message.tool.input);
+            break;
+          }
 
           // Finalize previous message if SDK message ID changed
           checkAndFinalizeForNewMessageId(targetMsgId);
@@ -294,56 +368,65 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
-        case 'requestPermission': {
+        case "requestPermission": {
+          const parentToolUseId = message.parentToolUseId;
           const toolCall: ToolCall = {
             id: message.toolUseId,
             name: message.toolName,
             input: message.toolInput,
-            status: 'awaiting_approval',
+            status: "awaiting_approval",
           };
 
-          if (streamingMessage.value) {
-            if (!streamingMessage.value.toolCalls) {
-              streamingMessage.value.toolCalls = [];
-            }
-            if (!streamingMessage.value.toolCalls.find((t: ToolCall) => t.id === message.toolUseId)) {
-              streamingMessage.value.toolCalls.push(toolCall);
-            }
-          } else {
-            streamingMessage.value = {
-              id: `permission-${message.toolUseId}`,
-              role: 'assistant',
-              content: '',
-              toolCalls: [toolCall],
-              timestamp: Date.now(),
-              isPartial: true,
-            };
-          }
-
-          if (message.toolName === 'Edit' || message.toolName === 'Write') {
+          if (message.toolName === "Edit" || message.toolName === "Write") {
             trackFileAccess(message.toolName, message.toolInput);
           }
 
-          pendingPermission.value = {
+          if (parentToolUseId && subagentMessages.hasSubagent(parentToolUseId)) {
+            subagentMessages.addToolCallToSubagent(parentToolUseId, toolCall);
+          } else {
+            if (streamingMessage.value) {
+              if (!streamingMessage.value.toolCalls) {
+                streamingMessage.value.toolCalls = [];
+              }
+              if (!streamingMessage.value.toolCalls.find((t: ToolCall) => t.id === message.toolUseId)) {
+                streamingMessage.value.toolCalls.push(toolCall);
+              }
+            } else {
+              streamingMessage.value = {
+                id: `permission-${message.toolUseId}`,
+                role: "assistant",
+                content: "",
+                toolCalls: [toolCall],
+                timestamp: Date.now(),
+                isPartial: true,
+              };
+            }
+          }
+
+          const agentDescription = parentToolUseId ? subagentMessages.getSubagentDescription(parentToolUseId) : undefined;
+
+          pendingPermissions.value.set(message.toolUseId, {
             toolUseId: message.toolUseId,
             toolName: message.toolName,
             filePath: message.filePath,
             originalContent: message.originalContent,
             proposedContent: message.proposedContent,
             command: message.command,
-          };
+            parentToolUseId,
+            agentDescription,
+          });
           break;
         }
 
-        case 'notification':
+        case "notification":
           switch (message.notificationType) {
-            case 'success':
+            case "success":
               toast.success(message.message);
               break;
-            case 'error':
+            case "error":
               toast.error(message.message);
               break;
-            case 'warning':
+            case "warning":
               toast.warning(message.message);
               break;
             default:
@@ -351,23 +434,23 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           }
           break;
 
-        case 'accountInfo':
+        case "accountInfo":
           accountInfo.value = message.data;
           break;
 
-        case 'availableModels':
+        case "availableModels":
           availableModels.value = message.models;
           break;
 
-        case 'settingsUpdate':
+        case "settingsUpdate":
           currentSettings.value = message.settings;
           break;
 
-        case 'mcpServerStatus':
+        case "mcpServerStatus":
           mcpServers.value = message.servers;
           break;
 
-        case 'budgetWarning':
+        case "budgetWarning":
           budgetWarning.value = {
             currentSpend: message.currentSpend,
             limit: message.limit,
@@ -375,7 +458,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           };
           break;
 
-        case 'budgetExceeded':
+        case "budgetExceeded":
           budgetWarning.value = {
             currentSpend: message.finalSpend,
             limit: message.limit,
@@ -383,33 +466,65 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           };
           break;
 
-        case 'toolCompleted':
-          updateToolStatus(message.toolUseId, 'completed', message.result);
+        case "toolCompleted": {
+          const found = subagentMessages.updateSubagentToolStatus(message.toolUseId, "completed", message.result);
+          if (!found) {
+            updateToolStatus(message.toolUseId, "completed", message.result);
+          }
+          if (message.toolName === "Task" && subagentMessages.hasSubagent(message.toolUseId)) {
+            subagentMessages.completeSubagent(message.toolUseId);
+            try {
+              const parsed = JSON.parse(message.result);
+              const contentItems = parsed.content as Array<{ type: string; text?: string }> | undefined;
+              const contentText =
+                contentItems
+                  ?.filter((item) => item.type === "text" && item.text)
+                  .map((item) => item.text)
+                  .join("\n") || "";
+              subagentMessages.setSubagentResult(message.toolUseId, {
+                content: contentText,
+                totalDurationMs: parsed.totalDurationMs,
+                totalTokens: parsed.totalTokens,
+                totalToolUseCount: parsed.totalToolUseCount,
+                sdkAgentId: parsed.agentId,
+              });
+            } catch {
+              console.warn("[useMessageHandler] Failed to parse Task tool result");
+            }
+          }
           currentRunningTool.value = null;
           break;
+        }
 
-        case 'toolFailed':
-          updateToolStatus(message.toolUseId, 'failed', undefined, message.error);
+        case "toolFailed": {
+          const found = subagentMessages.updateSubagentToolStatus(message.toolUseId, "failed", undefined, message.error);
+          if (!found) {
+            updateToolStatus(message.toolUseId, "failed", undefined, message.error);
+          }
+          if (message.toolName === "Task" && subagentMessages.hasSubagent(message.toolUseId)) {
+            subagentMessages.failSubagent(message.toolUseId);
+          }
           currentRunningTool.value = null;
           break;
+        }
 
-        case 'toolAbandoned':
-          updateToolStatus(message.toolUseId, 'abandoned');
+        case "toolAbandoned": {
+          const found = subagentMessages.updateSubagentToolStatus(message.toolUseId, "abandoned");
+          if (!found) {
+            updateToolStatus(message.toolUseId, "abandoned");
+          }
+          break;
+        }
+
+        case "subagentStart":
+          subagentMessages.startSubagent(message.agentId, message.agentType);
           break;
 
-        case 'subagentStart':
-          activeSubagents.value.set(message.agentId, {
-            id: message.agentId,
-            type: message.agentType,
-            startTime: Date.now(),
-          });
+        case "subagentStop":
+          subagentMessages.stopSubagent(message.agentId);
           break;
 
-        case 'subagentStop':
-          activeSubagents.value.delete(message.agentId);
-          break;
-
-        case 'compactBoundary':
+        case "compactBoundary":
           compactMarkers.value.push({
             id: generateId(),
             timestamp: Date.now(),
@@ -418,26 +533,33 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           });
           break;
 
-        case 'checkpointInfo':
+        case "checkpointInfo":
           checkpointMessages.value = new Set(message.checkpoints.map((cp: { userMessageId: string }) => cp.userMessageId));
           break;
 
-        case 'rewindComplete':
-          toast.success('Files rewound successfully');
+        case "rewindComplete":
+          toast.success("Files rewound successfully");
           break;
 
-        case 'rewindError':
+        case "rewindError":
           toast.error(`Rewind failed: ${message.message}`);
           break;
 
-        case 'userReplay':
+        case "userReplay":
           addUserMessage(message.content, true);
           break;
 
-        case 'assistantReplay': {
+        case "assistantReplay": {
+          if (message.tools) {
+            for (const tool of message.tools) {
+              if (tool.name === "Task") {
+                subagentMessages.restoreSubagentFromHistory(tool.id, tool.input, tool.result, tool.agentToolCalls, tool.agentModel, tool.sdkAgentId);
+              }
+            }
+          }
           messages.value.push({
             id: generateId(),
-            role: 'assistant',
+            role: "assistant",
             content: message.content,
             thinking: message.thinking,
             toolCalls: convertHistoryTools(message.tools),
@@ -447,10 +569,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
-        case 'errorReplay': {
+        case "errorReplay": {
           messages.value.push({
             id: generateId(),
-            role: 'error',
+            role: "error",
             content: message.content,
             timestamp: Date.now(),
             isReplay: true,
@@ -458,7 +580,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
-        case 'historyChunk': {
+        case "historyChunk": {
           loadingMoreHistory.value = false;
           hasMoreHistory.value = message.hasMore;
           nextHistoryOffset.value = message.nextOffset;
@@ -466,6 +588,23 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           if (message.messages.length > 0) {
             const container = messageContainerRef.value;
             const previousScrollHeight = container?.scrollHeight || 0;
+
+            for (const msg of message.messages) {
+              if (msg.tools) {
+                for (const tool of msg.tools) {
+                  if (tool.name === "Task") {
+                    subagentMessages.restoreSubagentFromHistory(
+                      tool.id,
+                      tool.input,
+                      tool.result,
+                      tool.agentToolCalls,
+                      tool.agentModel,
+                      tool.sdkAgentId
+                    );
+                  }
+                }
+              }
+            }
 
             const olderMessages: ChatMessage[] = message.messages.map((msg: HistoryMessage) => ({
               id: generateId(),
@@ -489,15 +628,15 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
-        case 'sessionStart':
+        case "sessionStart":
           // Could show a subtle indicator based on message.source
           break;
 
-        case 'sessionEnd':
+        case "sessionEnd":
           isProcessing.value = false;
           break;
 
-        case 'panelFocused':
+        case "panelFocused":
           nextTick(() => {
             chatInputRef.value?.focus();
           });
@@ -514,7 +653,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
     });
 
     // Notify extension that webview is ready
-    postMessage({ type: 'ready' });
+    postMessage({ type: "ready" });
 
     // Auto-focus the chat input when panel opens
     nextTick(() => {

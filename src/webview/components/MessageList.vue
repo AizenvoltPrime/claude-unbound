@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import type { ChatMessage, CompactMarker as CompactMarkerType } from "@shared/types";
+import type { ChatMessage, CompactMarker as CompactMarkerType, SubagentState } from "@shared/types";
 import ToolCallCard from "./ToolCallCard.vue";
+import SubagentCard from "./SubagentCard.vue";
 import CompactMarker from "./CompactMarker.vue";
 import ThinkingIndicator from "./ThinkingIndicator.vue";
 import MarkdownRenderer from "./MarkdownRenderer.vue";
@@ -18,12 +19,18 @@ const props = defineProps<{
   streamingMessage?: ChatMessage | null;
   compactMarkers?: CompactMarkerType[];
   checkpointMessages?: Set<string>;
+  subagents?: Map<string, SubagentState>;
 }>();
 
 const emit = defineEmits<{
   (e: "rewind", messageId: string): void;
   (e: "interrupt", toolId: string): void;
+  (e: "expandSubagent", subagentId: string): void;
 }>();
+
+function isTaskToolWithSubagent(toolId: string, toolName: string): boolean {
+  return toolName === 'Task' && (props.subagents?.has(toolId) ?? false);
+}
 
 function getMarkersBeforeMessage(messageTimestamp: number, messageIndex: number): CompactMarkerType[] {
   if (!props.compactMarkers) return [];
@@ -84,7 +91,14 @@ function canRewindTo(message: ChatMessage): boolean {
 
         <!-- Tool calls appear BEFORE text (Claude: think → use tools → respond) -->
         <div v-if="message.toolCalls?.length" class="pl-4 space-y-2">
-          <ToolCallCard v-for="tool in message.toolCalls" :key="tool.id" :tool-call="tool" @interrupt="emit('interrupt', $event)" />
+          <template v-for="tool in message.toolCalls" :key="tool.id">
+            <SubagentCard
+              v-if="isTaskToolWithSubagent(tool.id, tool.name) && subagents?.get(tool.id)"
+              :subagent="subagents.get(tool.id)!"
+              @expand="emit('expandSubagent', tool.id)"
+            />
+            <ToolCallCard v-else :tool-call="tool" @interrupt="emit('interrupt', $event)" />
+          </template>
         </div>
 
         <!-- Final text response appears AFTER tools -->
@@ -105,7 +119,14 @@ function canRewindTo(message: ChatMessage): boolean {
 
       <!-- Tool calls appear BEFORE text (Claude: think → use tools → respond) -->
       <div v-if="streamingMessage.toolCalls?.length" class="pl-4 space-y-2">
-        <ToolCallCard v-for="tool in streamingMessage.toolCalls" :key="tool.id" :tool-call="tool" @interrupt="emit('interrupt', $event)" />
+        <template v-for="tool in streamingMessage.toolCalls" :key="tool.id">
+          <SubagentCard
+            v-if="isTaskToolWithSubagent(tool.id, tool.name) && subagents?.get(tool.id)"
+            :subagent="subagents.get(tool.id)!"
+            @expand="emit('expandSubagent', tool.id)"
+          />
+          <ToolCallCard v-else :tool-call="tool" @interrupt="emit('interrupt', $event)" />
+        </template>
       </div>
 
       <!-- Final text response appears AFTER tools -->

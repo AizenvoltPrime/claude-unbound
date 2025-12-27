@@ -114,7 +114,8 @@ export interface ExtensionSettings {
   maxBudgetUsd: number | null;
   maxThinkingTokens: number | null;
   betasEnabled: string[];
-  permissionMode: PermissionMode;
+  permissionMode: PermissionMode;           // Per-panel mode (ephemeral)
+  defaultPermissionMode: PermissionMode;    // Global default for new panels (persisted)
   enableFileCheckpointing: boolean;
   sandbox: SandboxConfig;
 }
@@ -127,11 +128,29 @@ export interface MessageCheckpoint {
   canRewind: boolean;
 }
 
-// Active subagent tracking
-export interface ActiveSubagent {
+// Result from Task tool completion (parsed from tool_response JSON)
+export interface SubagentResult {
+  content: string;
+  totalDurationMs?: number;
+  totalTokens?: number;
+  totalToolUseCount?: number;
+  sdkAgentId?: string;
+}
+
+// Full subagent state for UI rendering
+export interface SubagentState {
   id: string;
-  type: string;
+  agentType: string;
+  description: string;
+  prompt: string;
+  status: "running" | "completed" | "failed";
   startTime: number;
+  endTime?: number;
+  messages: ChatMessage[];
+  toolCalls: ToolCall[];
+  result?: SubagentResult;
+  model?: string;
+  sdkAgentId?: string;
 }
 
 // Compaction marker for UI
@@ -201,6 +220,9 @@ export interface HistoryToolCall {
   name: string;
   input: Record<string, unknown>;
   result?: string; // Tool result if available
+  agentToolCalls?: HistoryToolCall[]; // For Task tools: nested tool calls from agent JSONL
+  agentModel?: string; // For Task tools: the model used by the subagent
+  sdkAgentId?: string; // For Task tools: SDK's agent ID for JSONL file access
 }
 
 /**
@@ -259,8 +281,8 @@ export type WebviewToExtensionMessage =
   | { type: "resumeSession"; sessionId: string }
   | {
       type: "approveEdit";
+      toolUseId: string;
       approved: boolean;
-      neverAskAgain?: boolean;
       customMessage?: string;
     }
   | { type: "ready" }
@@ -271,6 +293,7 @@ export type WebviewToExtensionMessage =
   | { type: "setBudgetLimit"; budgetUsd: number | null }
   | { type: "toggleBeta"; beta: string; enabled: boolean }
   | { type: "setPermissionMode"; mode: PermissionMode }
+  | { type: "setDefaultPermissionMode"; mode: PermissionMode }
   // New: File rewind
   | { type: "rewindToMessage"; userMessageId: string }
   // New: Session control
@@ -282,6 +305,7 @@ export type WebviewToExtensionMessage =
   | { type: "renameSession"; sessionId: string; newName: string }
   | { type: "deleteSession"; sessionId: string }
   | { type: "openSessionLog" }
+  | { type: "openAgentLog"; agentId: string }
   // History pagination
   | { type: "requestMoreHistory"; sessionId: string; offset: number }
   // Session list pagination
@@ -297,8 +321,8 @@ export type WebviewToExtensionMessage =
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
-  | { type: "assistant"; data: AssistantMessage }
-  | { type: "partial"; data: PartialMessage }
+  | { type: "assistant"; data: AssistantMessage; parentToolUseId?: string | null }
+  | { type: "partial"; data: PartialMessage; parentToolUseId?: string | null }
   | { type: "done"; data: ResultMessage }
   | { type: "userMessage"; content: string }
   | { type: "toolPending"; toolName: string; input: unknown }
@@ -326,10 +350,10 @@ export type ExtensionToWebviewMessage =
   | { type: "rewindComplete"; rewindToMessageId: string }
   | { type: "rewindError"; message: string }
   // New: Tool lifecycle
-  | { type: "toolStreaming"; messageId: string; tool: { id: string; name: string; input: Record<string, unknown> } }
-  | { type: "toolCompleted"; toolUseId: string; toolName: string; result: string }
-  | { type: "toolFailed"; toolUseId: string; toolName: string; error: string; isInterrupt?: boolean }
-  | { type: "toolAbandoned"; toolUseId: string; toolName: string } // Tool was streamed but never executed
+  | { type: "toolStreaming"; messageId: string; tool: { id: string; name: string; input: Record<string, unknown> }; parentToolUseId?: string | null }
+  | { type: "toolCompleted"; toolUseId: string; toolName: string; result: string; parentToolUseId?: string | null }
+  | { type: "toolFailed"; toolUseId: string; toolName: string; error: string; isInterrupt?: boolean; parentToolUseId?: string | null }
+  | { type: "toolAbandoned"; toolUseId: string; toolName: string; parentToolUseId?: string | null }
   // New: Subagent lifecycle
   | { type: "subagentStart"; agentId: string; agentType: string }
   | { type: "subagentStop"; agentId: string }
@@ -365,6 +389,7 @@ export type ExtensionToWebviewMessage =
       originalContent?: string;
       proposedContent?: string;
       command?: string;
+      parentToolUseId?: string | null;
     }
   // Custom slash commands from .claude/commands/
   | { type: "customSlashCommands"; commands: CustomSlashCommandInfo[] };
@@ -383,6 +408,7 @@ export interface ChatMessage {
   checkpointId?: string;
   thinking?: string;
   thinkingDuration?: number; // Seconds spent in thinking phase
+  parentToolUseId?: string | null; // Links to parent Task tool if from subagent
 }
 
 export interface ToolCall {

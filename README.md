@@ -9,8 +9,9 @@
 - **Chat Interface**: Integrated sidebar chat panel for conversing with Claude
 - **Code Assistance**: Get help with coding, debugging, refactoring, and more
 - **Syntax Highlighting**: Shiki-powered code blocks with VS Code-quality highlighting and one-click copy
-- **Diff Approval**: Review and approve file changes with syntax-highlighted unified diffs
-- **Tool Visualization**: See what tools Claude is using in real-time
+- **Diff Approval**: Review and approve file changes with syntax-highlighted unified diffs (supports concurrent diffs)
+- **Tool Visualization**: See what tools Claude is using in real-time with expandable details
+- **Subagent Visualization**: Nested view of Task tool calls showing agent type, model, tool calls, and results
 - **Streaming Responses**: Watch Claude's responses as they're generated
 - **@ Mentions**: Type `@` to reference workspace files with fuzzy search autocomplete
 - **Slash Commands**: Type `/` to trigger custom command autocomplete from `.claude/commands/`
@@ -18,9 +19,10 @@
 - **Session Management**: Create, rename, resume, and delete sessions with confirmation
 - **Multi-Panel Sync**: Command history syncs across all open panels instantly
 - **Context Stats**: Live tracking of token usage, cache activity, context window %, and session cost
-- **Session Logs**: Quick access button to open the raw JSONL session file
+- **Session Logs**: Quick access button to open the raw JSONL session file (also works for subagent logs)
 - **Model Selection**: Switch between Opus 4.5, Sonnet 4.5, and Haiku 4.5
 - **Extended Thinking**: Toggle thinking mode on/off with adjustable token budget (1K-64K)
+- **Per-Panel Permission Mode**: Each panel can have its own permission mode independent of the global default
 
 ## Installation
 
@@ -43,12 +45,14 @@
 - `Escape`: Cancel current request (when processing)
 
 #### @ Mention Autocomplete
+
 - `@`: Trigger file autocomplete popup
 - `↑` / `↓`: Navigate suggestions
 - `Tab` / `Enter`: Insert selected file
 - `Escape`: Close popup
 
 #### Slash Command Autocomplete
+
 - `/`: Trigger command autocomplete popup
 - `↑` / `↓`: Navigate suggestions
 - `Tab` / `Enter`: Insert selected command
@@ -58,11 +62,11 @@ Commands are loaded from `.claude/commands/*.md` (project) and `~/.claude/comman
 
 ## Configuration
 
-| Setting                         | Description                                                                            | Default   |
-| ------------------------------- | -------------------------------------------------------------------------------------- | --------- |
-| `claude-unbound.permissionMode` | How to handle tool permissions (`default`, `acceptEdits`, `bypassPermissions`, `plan`) | `default` |
-| `claude-unbound.maxTurns`       | Maximum conversation turns per session                                                 | `50`      |
-| `claude-unbound.maxIndexedFiles`| Maximum files to index for @ mention autocomplete                                      | `5000`    |
+| Setting                          | Description                                                                            | Default   |
+| -------------------------------- | -------------------------------------------------------------------------------------- | --------- |
+| `claude-unbound.permissionMode`  | How to handle tool permissions (`default`, `acceptEdits`, `bypassPermissions`, `plan`) | `default` |
+| `claude-unbound.maxTurns`        | Maximum conversation turns per session                                                 | `50`      |
+| `claude-unbound.maxIndexedFiles` | Maximum files to index for @ mention autocomplete                                      | `5000`    |
 
 ## Requirements
 

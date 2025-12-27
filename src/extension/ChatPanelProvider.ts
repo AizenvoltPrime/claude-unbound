@@ -12,16 +12,19 @@ import {
   getSessionDir,
   getSessionDirSync,
   getSessionFilePath,
+  getAgentFilePath,
   getSessionMetadata,
   ensureSessionDir,
   readSessionEntries,
   readSessionEntriesPaginated,
+  readAgentData,
   renameSession,
   deleteSession,
   extractSessionStats,
   extractCommandHistory,
   findUserTextBlock,
   type StoredSession,
+  type AgentData,
 } from "./SessionStorage";
 import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, McpServerConfig, ExtensionSettings, PermissionMode, HistoryMessage, HistoryToolCall } from "../shared/types";
 import type { JsonlContentBlock } from "./SessionStorage";
@@ -291,7 +294,7 @@ export class ChatPanelProvider {
     panelDisposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('claude-unbound')) {
-          this.sendCurrentSettings(panel);
+          this.sendCurrentSettings(panel, permissionHandler);
         }
       })
     );
@@ -340,7 +343,7 @@ export class ChatPanelProvider {
       return;
     }
 
-    const { panel, session } = instance;
+    const { panel, session, permissionHandler } = instance;
 
     switch (message.type) {
       case "log":
@@ -380,8 +383,7 @@ export class ChatPanelProvider {
         break;
 
       case "approveEdit":
-        instance.permissionHandler.resolveApproval(message.approved, {
-          neverAskAgain: message.neverAskAgain,
+        instance.permissionHandler.resolveApproval(message.toolUseId, message.approved, {
           customMessage: message.customMessage,
         });
         break;
@@ -394,7 +396,7 @@ export class ChatPanelProvider {
           .catch((err) => {
             log("[ChatPanelProvider] Error fetching sessions:", err);
           });
-        this.sendCurrentSettings(panel);
+        this.sendCurrentSettings(panel, permissionHandler);
         this.sendAvailableModels(session, panel);
         extractCommandHistory(this.workspacePath, 0)
           .then(({ history, hasMore }) => {
@@ -439,9 +441,16 @@ export class ChatPanelProvider {
       }
 
       case "setPermissionMode": {
+        // Per-panel permission mode - don't persist to VS Code config
+        permissionHandler.setPermissionMode(message.mode);
+        await session.setPermissionMode(message.mode);
+        break;
+      }
+
+      case "setDefaultPermissionMode": {
+        // Global default - persists to VS Code config (affects new panels)
         const config = vscode.workspace.getConfiguration("claude-unbound");
         await config.update("permissionMode", message.mode, vscode.ConfigurationTarget.Global);
-        await session.setPermissionMode(message.mode);
         break;
       }
 
@@ -474,6 +483,20 @@ export class ChatPanelProvider {
           await vscode.window.showTextDocument(doc, { preview: false });
         } else {
           vscode.window.showInformationMessage("No active session to view");
+        }
+        break;
+      }
+
+      case "openAgentLog": {
+        try {
+          const filePath = await getAgentFilePath(this.workspacePath, message.agentId);
+          const fileUri = vscode.Uri.file(filePath);
+          const doc = await vscode.workspace.openTextDocument(fileUri);
+          await vscode.window.showTextDocument(doc, { preview: false });
+        } catch (err) {
+          vscode.window.showWarningMessage(
+            `Agent log file not found: ${err instanceof Error ? err.message : "Unknown error"}`
+          );
         }
         break;
       }
@@ -598,17 +621,20 @@ export class ChatPanelProvider {
     }
   }
 
-  private sendCurrentSettings(panel: vscode.WebviewPanel): void {
+  private sendCurrentSettings(panel: vscode.WebviewPanel, permissionHandler: PermissionHandler): void {
     const config = vscode.workspace.getConfiguration("claude-unbound");
+    // permissionMode = per-panel mode (from handler)
+    // defaultPermissionMode = global default (from VS Code config)
     const settings: ExtensionSettings = {
-      model: config.inspect<string>("model")?.globalValue ?? "",
-      maxTurns: config.inspect<number>("maxTurns")?.globalValue ?? 50,
-      maxBudgetUsd: config.inspect<number | null>("maxBudgetUsd")?.globalValue ?? null,
-      maxThinkingTokens: config.inspect<number | null>("maxThinkingTokens")?.globalValue ?? null,
-      betasEnabled: config.inspect<string[]>("betasEnabled")?.globalValue ?? [],
-      permissionMode: config.inspect<PermissionMode>("permissionMode")?.globalValue ?? "default",
-      enableFileCheckpointing: config.inspect<boolean>("enableFileCheckpointing")?.globalValue ?? true,
-      sandbox: config.inspect<{ enabled: boolean }>("sandbox")?.globalValue ?? { enabled: false },
+      model: config.get<string>("model", ""),
+      maxTurns: config.get<number>("maxTurns", 50),
+      maxBudgetUsd: config.get<number | null>("maxBudgetUsd", null),
+      maxThinkingTokens: config.get<number | null>("maxThinkingTokens", null),
+      betasEnabled: config.get<string[]>("betasEnabled", []),
+      permissionMode: permissionHandler.getPermissionMode(),
+      defaultPermissionMode: config.get<PermissionMode>("permissionMode", "default"),
+      enableFileCheckpointing: config.get<boolean>("enableFileCheckpointing", true),
+      sandbox: config.get<{ enabled: boolean }>("sandbox", { enabled: false }),
     };
     this.postMessageToPanel(panel, { type: "settingsUpdate", settings });
   }
@@ -673,7 +699,7 @@ export class ChatPanelProvider {
   private async loadSessionHistory(sessionId: string, panel: vscode.WebviewPanel): Promise<void> {
     const result = await readSessionEntriesPaginated(this.workspacePath, sessionId, 0, HISTORY_PAGE_SIZE);
 
-    const messages = this.convertEntriesToMessages(result.entries);
+    const messages = await this.convertEntriesToMessages(result.entries);
 
     for (const msg of messages) {
       if (msg.type === "user") {
@@ -735,7 +761,7 @@ export class ChatPanelProvider {
   private async loadMoreHistory(sessionId: string, offset: number, panel: vscode.WebviewPanel): Promise<void> {
     const result = await readSessionEntriesPaginated(this.workspacePath, sessionId, offset, HISTORY_PAGE_SIZE);
 
-    const messages = this.convertEntriesToMessages(result.entries);
+    const messages = await this.convertEntriesToMessages(result.entries);
 
     this.postMessageToPanel(panel, {
       type: "historyChunk",
@@ -745,27 +771,50 @@ export class ChatPanelProvider {
     });
   }
 
-  private convertEntriesToMessages(
+  private async convertEntriesToMessages(
     entries: ReturnType<typeof readSessionEntries> extends Promise<infer T> ? T : never
-  ): HistoryMessage[] {
+  ): Promise<HistoryMessage[]> {
     const messages: HistoryMessage[] = [];
     // Map tool_use_id -> tool result (from subsequent user messages)
     const toolResults = new Map<string, string>();
+    // Map tool_use_id -> agentId (for loading agent tool calls)
+    const taskToolAgents = new Map<string, string>();
 
     // First pass: collect all tool results from user messages
     for (const entry of entries) {
       if (entry.type === "user" && entry.message && Array.isArray(entry.message.content)) {
         for (const block of entry.message.content as JsonlContentBlock[]) {
           if (block.type === "tool_result") {
-            // Truncate long tool results for display
-            const result = block.content.length > TOOL_RESULT_MAX_LENGTH
-              ? block.content.slice(0, TOOL_RESULT_MAX_LENGTH) + "... (truncated)"
-              : block.content;
-            toolResults.set(block.tool_use_id, result);
+            // Check if this is a Task tool result with rich metadata
+            if (entry.toolUseResult?.totalDurationMs !== undefined) {
+              // Store the full toolUseResult as JSON for Task tools
+              toolResults.set(block.tool_use_id, JSON.stringify(entry.toolUseResult));
+              // Track agentId for loading agent tool calls
+              if (entry.toolUseResult.agentId) {
+                taskToolAgents.set(block.tool_use_id, entry.toolUseResult.agentId);
+              }
+            } else {
+              // Truncate long tool results for display
+              const result = typeof block.content === 'string'
+                ? (block.content.length > TOOL_RESULT_MAX_LENGTH
+                    ? block.content.slice(0, TOOL_RESULT_MAX_LENGTH) + "... (truncated)"
+                    : block.content)
+                : JSON.stringify(block.content);
+              toolResults.set(block.tool_use_id, result);
+            }
           }
         }
       }
     }
+
+    // Load agent data (tool calls + model) for all Task tools in parallel
+    const agentDataMap = new Map<string, AgentData>();
+    await Promise.all(
+      Array.from(taskToolAgents.entries()).map(async ([toolUseId, agentId]) => {
+        const agentData = await readAgentData(this.workspacePath, agentId);
+        agentDataMap.set(toolUseId, agentData);
+      })
+    );
 
     // Second pass: build messages with tool calls
     for (const entry of entries) {
@@ -846,6 +895,20 @@ export class ChatPanelProvider {
               const result = toolResults.get(block.id);
               if (result) {
                 tool.result = result;
+              }
+              // For Task tools, attach nested agent data (tool calls + model + agentId)
+              const agentId = taskToolAgents.get(block.id);
+              if (agentId) {
+                tool.sdkAgentId = agentId;
+                const agentData = agentDataMap.get(block.id);
+                if (agentData) {
+                  if (agentData.toolCalls.length > 0) {
+                    tool.agentToolCalls = agentData.toolCalls;
+                  }
+                  if (agentData.model) {
+                    tool.agentModel = agentData.model;
+                  }
+                }
               }
               tools.push(tool);
             }

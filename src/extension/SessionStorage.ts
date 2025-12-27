@@ -68,6 +68,14 @@ export interface ClaudeSessionEntry {
     oldString?: string;
     newString?: string;
     originalFile?: string;
+    // Task tool specific fields
+    status?: string;
+    prompt?: string;
+    agentId?: string;
+    content?: Array<{ type: string; text?: string }>;
+    totalDurationMs?: number;
+    totalTokens?: number;
+    totalToolUseCount?: number;
   };
 }
 
@@ -461,6 +469,92 @@ export async function readSessionEntries(workspacePath: string, sessionId: strin
     return entries;
   } catch (err) {
     return [];
+  }
+}
+
+export interface AgentToolCall {
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+  result?: string;
+}
+
+export interface AgentData {
+  toolCalls: AgentToolCall[];
+  model?: string;
+}
+
+/**
+ * Gets the full path to an agent's JSONL file.
+ * Agent files are stored as agent-{agentId}.jsonl in the session directory.
+ */
+export async function getAgentFilePath(workspacePath: string, agentId: string): Promise<string> {
+  const sessionDir = await getSessionDir(workspacePath);
+  return path.join(sessionDir, `agent-${agentId}.jsonl`);
+}
+
+/**
+ * Reads tool calls and model from an agent's JSONL file.
+ * Agent files are stored as agent-{agentId}.jsonl in the session directory.
+ */
+export async function readAgentData(workspacePath: string, agentId: string): Promise<AgentData> {
+  const filePath = await getAgentFilePath(workspacePath, agentId);
+
+  try {
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    const lines = content.trim().split('\n');
+
+    const toolCalls: AgentToolCall[] = [];
+    const toolResults = new Map<string, string>();
+    let model: string | undefined;
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const entry = parseSessionEntry(line);
+
+        if (entry.type === 'user' && entry.message && Array.isArray(entry.message.content)) {
+          for (const block of entry.message.content as JsonlContentBlock[]) {
+            if (block.type === 'tool_result') {
+              const resultContent = typeof block.content === 'string'
+                ? block.content.slice(0, 500)
+                : JSON.stringify(block.content).slice(0, 500);
+              toolResults.set(block.tool_use_id, resultContent);
+            }
+          }
+        }
+
+        if (entry.type === 'assistant' && entry.message) {
+          if (!model && entry.message.model) {
+            model = entry.message.model as string;
+          }
+          if (Array.isArray(entry.message.content)) {
+            for (const block of entry.message.content as JsonlContentBlock[]) {
+              if (block.type === 'tool_use') {
+                toolCalls.push({
+                  id: block.id,
+                  name: block.name,
+                  input: block.input,
+                });
+              }
+            }
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    for (const tool of toolCalls) {
+      const result = toolResults.get(tool.id);
+      if (result) {
+        tool.result = result;
+      }
+    }
+
+    return { toolCalls, model };
+  } catch {
+    return { toolCalls: [] };
   }
 }
 

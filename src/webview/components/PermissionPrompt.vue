@@ -6,21 +6,25 @@ import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   visible: boolean;
+  toolUseId: string;
   toolName?: string;
   filePath?: string;
   originalContent?: string;
   proposedContent?: string;
   command?: string;
+  agentDescription?: string;
+  queuePosition?: number;
+  queueTotal?: number;
 }>();
 
 const emit = defineEmits<{
-  (e: 'approve', approved: boolean, options?: { neverAskAgain?: boolean; customMessage?: string }): void;
+  (e: 'approve', approved: boolean, options?: { acceptAll?: boolean; customMessage?: string }): void;
 }>();
 
 const showCustomInput = ref(false);
 const customMessage = ref('');
 const selectedValue = ref<string>('yes');
-const listboxRef = ref<HTMLElement | null>(null);
+const listboxRef = ref<InstanceType<typeof ListboxRoot> | null>(null);
 const textareaRef = ref<{ $el?: HTMLElement } | null>(null);
 
 const isBash = computed(() => props.toolName === 'Bash');
@@ -34,7 +38,7 @@ const actionLabel = computed(() => {
 
 const options = [
   { value: 'yes', label: 'Yes', shortcut: '1' },
-  { value: 'yes-never-ask', label: 'Yes, and don\'t ask again', shortcut: '2' },
+  { value: 'yes-accept-all', label: 'Yes, accept all edits', shortcut: '2' },
   { value: 'no', label: 'No', shortcut: '3' },
   { value: 'custom', label: 'Tell Claude what to do instead', shortcut: null },
 ] as const;
@@ -45,8 +49,8 @@ function handleSelect(value: string) {
       emit('approve', true);
       resetState();
       break;
-    case 'yes-never-ask':
-      emit('approve', true, { neverAskAgain: true });
+    case 'yes-accept-all':
+      emit('approve', true, { acceptAll: true });
       resetState();
       break;
     case 'no':
@@ -73,7 +77,7 @@ function handleCustomBack() {
   showCustomInput.value = false;
   customMessage.value = '';
   nextTick(() => {
-    listboxRef.value?.focus();
+    (listboxRef.value?.$el as HTMLElement)?.focus();
   });
 }
 
@@ -83,13 +87,12 @@ function resetState() {
   selectedValue.value = 'yes';
 }
 
-// Handle keyboard shortcuts (1, 2, 3) when listbox is focused
 function handleKeydown(e: KeyboardEvent) {
   if (showCustomInput.value) return;
 
   const shortcutMap: Record<string, string> = {
     '1': 'yes',
-    '2': 'yes-never-ask',
+    '2': 'yes-accept-all',
     '3': 'no',
   };
 
@@ -99,12 +102,11 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-// Reset and focus when becoming visible
 watch(() => props.visible, (visible) => {
   if (visible) {
     resetState();
     nextTick(() => {
-      listboxRef.value?.focus();
+      (listboxRef.value?.$el as HTMLElement)?.focus();
     });
   }
 });
@@ -117,6 +119,17 @@ watch(() => props.visible, (visible) => {
     role="region"
     aria-label="Permission request"
   >
+    <!-- Header with agent badge and queue indicator -->
+    <div class="px-4 pt-2 flex items-center gap-2">
+      <span v-if="agentDescription" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs bg-unbound-cyan-900/40 text-unbound-cyan-300 border border-unbound-cyan-800/50">
+        <span class="text-unbound-cyan-500">🤖</span>
+        {{ agentDescription }}
+      </span>
+      <span v-if="queueTotal && queueTotal > 1" class="ml-auto text-xs text-unbound-muted">
+        {{ queuePosition }} of {{ queueTotal }} pending
+      </span>
+    </div>
+
     <!-- Header question -->
     <div class="px-4 py-3 text-sm text-unbound-text">
       <template v-if="isBash">

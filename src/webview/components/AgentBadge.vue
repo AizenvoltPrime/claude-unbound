@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, type Component } from 'vue';
-import type { ActiveSubagent } from '@shared/types';
+import type { SubagentState } from '@shared/types';
 import { Badge } from '@/components/ui/badge';
 import { usePhraseCycler } from '../composables/usePhraseCycler';
 import { AGENT_PHRASES } from '../data/wittyPhrases';
@@ -9,30 +9,40 @@ import {
   IconCompass,
   IconClipboard,
   IconRobot,
+  IconCheck,
+  IconXCircle,
 } from '@/components/icons';
 
 const props = defineProps<{
-  agent: ActiveSubagent;
+  subagent: SubagentState;
 }>();
 
-// Get agent-specific phrases or fall back to general-purpose
+defineEmits<{
+  (e: 'click', subagentId: string): void;
+}>();
+
+const isRunning = computed(() => props.subagent.status === 'running');
+const isCompleted = computed(() => props.subagent.status === 'completed');
+
 const phrases = computed(() =>
-  AGENT_PHRASES[props.agent.type] || AGENT_PHRASES['general-purpose']
+  AGENT_PHRASES[props.subagent.agentType] || AGENT_PHRASES['general-purpose']
 );
 
-// Each agent badge has its own phrase cycler
-const { currentPhrase } = usePhraseCycler(() => true, phrases.value);
+const { currentPhrase } = usePhraseCycler(() => isRunning.value, phrases.value);
 
-// Live timer - updates every second
 const elapsedSeconds = ref(0);
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 
+function updateElapsed(): void {
+  const endTime = props.subagent.endTime ?? Date.now();
+  elapsedSeconds.value = Math.floor((endTime - props.subagent.startTime) / 1000);
+}
+
 onMounted(() => {
-  // Initialize and start interval
-  elapsedSeconds.value = Math.floor((Date.now() - props.agent.startTime) / 1000);
-  timerInterval = setInterval(() => {
-    elapsedSeconds.value = Math.floor((Date.now() - props.agent.startTime) / 1000);
-  }, 1000);
+  updateElapsed();
+  if (isRunning.value) {
+    timerInterval = setInterval(updateElapsed, 1000);
+  }
 });
 
 onUnmounted(() => {
@@ -50,6 +60,23 @@ const formattedDuration = computed(() => {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 });
 
+const displayText = computed(() =>
+  isRunning.value ? currentPhrase.value : props.subagent.description
+);
+
+const badgeClass = computed(() => {
+  switch (props.subagent.status) {
+    case 'running':
+      return 'bg-blue-600/30 text-blue-300 border-blue-500/30 hover:bg-blue-600/50';
+    case 'completed':
+      return 'bg-green-600/30 text-green-300 border-green-500/30 hover:bg-green-600/50';
+    case 'failed':
+      return 'bg-red-600/30 text-red-300 border-red-500/30 hover:bg-red-600/50';
+    default:
+      return 'bg-unbound-cyan-600/30 text-unbound-cyan-300 border-unbound-cyan-500/30 hover:bg-unbound-cyan-600/50';
+  }
+});
+
 function getAgentIcon(type: string): Component {
   const icons: Record<string, Component> = {
     'code-reviewer': IconSearch,
@@ -65,10 +92,16 @@ function getAgentIcon(type: string): Component {
 <template>
   <Badge
     variant="secondary"
-    class="bg-blue-600/30 text-blue-300 border-blue-500/30 gap-1.5"
+    :class="['gap-1.5 cursor-pointer transition-colors', badgeClass]"
+    @click="$emit('click', subagent.id)"
   >
-    <component :is="getAgentIcon(agent.type)" :size="14" class="animate-pulse shrink-0" />
-    <span class="max-w-40 truncate" :title="currentPhrase">{{ currentPhrase }}</span>
+    <component
+      :is="isRunning ? getAgentIcon(subagent.agentType) : isCompleted ? IconCheck : IconXCircle"
+      :size="14"
+      :class="{ 'animate-pulse': isRunning }"
+      class="shrink-0"
+    />
+    <span class="max-w-40 truncate" :title="displayText">{{ displayText }}</span>
     <span class="opacity-50 font-mono text-[10px]">{{ formattedDuration }}</span>
   </Badge>
 </template>

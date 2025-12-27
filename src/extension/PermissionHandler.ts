@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { DiffManager } from './DiffManager';
-import type { FileEditInput, FileWriteInput, ExtensionToWebviewMessage } from '../shared/types';
+import type { FileEditInput, FileWriteInput, ExtensionToWebviewMessage, PermissionMode } from '../shared/types';
 
 export interface PermissionResult {
   behavior: 'allow' | 'deny';
@@ -10,27 +10,42 @@ export interface PermissionResult {
 
 export interface CanUseToolContext {
   signal: AbortSignal;
-  toolUseID: string;
+  toolUseID: string | null;
   agentID?: string;
+  parentToolUseId?: string | null;
 }
 
 interface ApprovalResult {
   approved: boolean;
-  neverAskAgain?: boolean;
   customMessage?: string;
+}
+
+interface PendingApproval {
+  resolve: (result: ApprovalResult) => void;
+  reject: (error: Error) => void;
+  cleanup: () => void;
+  diffId?: string;
 }
 
 export class PermissionHandler {
   private diffManager: DiffManager;
-  private pendingApproval: {
-    resolve: (result: ApprovalResult) => void;
-    reject: (error: Error) => void;
-    cleanup: () => void;  // Cleanup function to remove abort listener
-  } | null = null;
+  private pendingApprovals: Map<string, PendingApproval> = new Map();
   private postMessageToWebview: ((msg: ExtensionToWebviewMessage) => void) | null = null;
+  private _permissionMode: PermissionMode = 'default';
 
   constructor(private extensionUri: vscode.Uri) {
     this.diffManager = new DiffManager();
+    // Initialize from VS Code config (can be overridden per-panel)
+    const config = vscode.workspace.getConfiguration('claude-unbound');
+    this._permissionMode = config.get<PermissionMode>('permissionMode', 'default');
+  }
+
+  setPermissionMode(mode: PermissionMode): void {
+    this._permissionMode = mode;
+  }
+
+  getPermissionMode(): PermissionMode {
+    return this._permissionMode;
   }
 
   setPostMessage(fn: (msg: ExtensionToWebviewMessage) => void): void {
@@ -42,23 +57,20 @@ export class PermissionHandler {
     input: Record<string, unknown>,
     context: CanUseToolContext
   ): Promise<PermissionResult> {
-    const config = vscode.workspace.getConfiguration('claude-unbound');
-    const permissionMode = config.get<string>('permissionMode', 'default');
-
-    if (permissionMode === 'bypassPermissions') {
+    if (this._permissionMode === 'bypassPermissions') {
       return { behavior: 'allow', updatedInput: input };
     }
 
+    if (this._permissionMode === 'plan') {
+      return { behavior: 'deny', message: 'Plan mode: tools are disabled' };
+    }
+
     if (toolName === 'Edit' || toolName === 'Write') {
-      if (permissionMode === 'acceptEdits') {
+      if (this._permissionMode === 'acceptEdits') {
         return { behavior: 'allow', updatedInput: input };
       }
       const typedInput = input as unknown as FileEditInput | FileWriteInput;
       const result = await this.requestFilePermissionFromWebview(toolName, typedInput, context);
-
-      if (result.neverAskAgain) {
-        await config.update('permissionMode', 'acceptEdits', vscode.ConfigurationTarget.Global);
-      }
 
       if (!result.approved) {
         return {
@@ -72,10 +84,6 @@ export class PermissionHandler {
 
     if (toolName === 'Bash') {
       const result = await this.requestBashPermissionFromWebview(input, context);
-
-      if (result.neverAskAgain) {
-        await config.update('permissionMode', 'acceptEdits', vscode.ConfigurationTarget.Global);
-      }
 
       if (!result.approved) {
         return {
@@ -120,49 +128,55 @@ export class PermissionHandler {
       return { approved: false, customMessage: 'Cannot request permission: webview not available' };
     }
 
+    const toolUseId = context.toolUseID;
+    if (!toolUseId) {
+      return { approved: false, customMessage: 'Cannot request permission: no tool use ID' };
+    }
+
     const filePath = input.file_path;
     const diffInput = toolName === 'Write'
       ? { content: (input as FileWriteInput).content }
       : { old_string: (input as FileEditInput).old_string, new_string: (input as FileEditInput).new_string };
 
-    const diffInfo = await this.diffManager.prepareDiff(toolName, filePath, diffInput);
-    if (!diffInfo && toolName === 'Edit') {
+    const diffResult = await this.diffManager.prepareDiff(toolUseId, toolName, filePath, diffInput);
+    if (!diffResult && toolName === 'Edit') {
       return { approved: false, customMessage: 'Could not find the text to replace in the file' };
     }
 
-    const originalContent = diffInfo?.originalContent || '';
-    const proposedContent = diffInfo?.proposedContent || '';
+    const originalContent = diffResult?.originalContent || '';
+    const proposedContent = diffResult?.proposedContent || '';
 
-    await this.diffManager.showDiffView(filePath, originalContent, proposedContent);
+    await this.diffManager.showDiffView(toolUseId, filePath, originalContent, proposedContent);
 
     return new Promise<ApprovalResult>((resolve) => {
       const abortHandler = () => {
-        this.diffManager.closeDiffView();
-        this.pendingApproval = null;
+        this.diffManager.closeDiffView(toolUseId);
+        this.pendingApprovals.delete(toolUseId);
         resolve({ approved: false });
       };
 
-      // Create cleanup function to remove the abort listener when resolved normally
       const cleanup = () => {
         context.signal.removeEventListener('abort', abortHandler);
       };
 
-      this.pendingApproval = {
+      this.pendingApprovals.set(toolUseId, {
         resolve,
         reject: () => resolve({ approved: false }),
         cleanup,
-      };
+        diffId: toolUseId,
+      });
 
       context.signal.addEventListener('abort', abortHandler, { once: true });
 
       this.postMessageToWebview!({
         type: 'requestPermission',
-        toolUseId: context.toolUseID,
+        toolUseId,
         toolName: toolName as 'Write' | 'Edit',
         toolInput: input as unknown as Record<string, unknown>,
         filePath,
         originalContent,
         proposedContent,
+        parentToolUseId: context.parentToolUseId,
       });
     });
   }
@@ -177,9 +191,14 @@ export class PermissionHandler {
       return { approved: false, customMessage: 'Cannot request permission: webview not available' };
     }
 
+    const toolUseId = context.toolUseID;
+    if (!toolUseId) {
+      return { approved: false, customMessage: 'Cannot request permission: no tool use ID' };
+    }
+
     return new Promise<ApprovalResult>((resolve) => {
       const abortHandler = () => {
-        this.pendingApproval = null;
+        this.pendingApprovals.delete(toolUseId);
         resolve({ approved: false });
       };
 
@@ -187,37 +206,41 @@ export class PermissionHandler {
         context.signal.removeEventListener('abort', abortHandler);
       };
 
-      this.pendingApproval = {
+      this.pendingApprovals.set(toolUseId, {
         resolve,
         reject: () => resolve({ approved: false }),
         cleanup,
-      };
+      });
 
       context.signal.addEventListener('abort', abortHandler, { once: true });
 
       this.postMessageToWebview!({
         type: 'requestPermission',
-        toolUseId: context.toolUseID,
+        toolUseId,
         toolName: 'Bash',
         toolInput: input,
         command,
+        parentToolUseId: context.parentToolUseId,
       });
     });
   }
 
-  async resolveApproval(approved: boolean, options?: { neverAskAgain?: boolean; customMessage?: string }): Promise<void> {
-    await this.diffManager.closeDiffView();
-
-    if (this.pendingApproval) {
-      // Clean up abort listener before resolving
-      this.pendingApproval.cleanup();
-      this.pendingApproval.resolve({
-        approved,
-        neverAskAgain: options?.neverAskAgain,
-        customMessage: options?.customMessage,
-      });
-      this.pendingApproval = null;
+  async resolveApproval(toolUseId: string, approved: boolean, options?: { customMessage?: string }): Promise<void> {
+    const pending = this.pendingApprovals.get(toolUseId);
+    if (!pending) {
+      return;
     }
+
+    if (pending.diffId) {
+      await this.diffManager.closeDiffView(pending.diffId);
+    }
+
+    pending.cleanup();
+    pending.resolve({
+      approved,
+      customMessage: options?.customMessage,
+    });
+    this.pendingApprovals.delete(toolUseId);
   }
 
   async dispose(): Promise<void> {

@@ -9,6 +9,7 @@ import { Toaster } from '@/components/ui/sonner';
 import McpStatusIndicator from './components/McpStatusIndicator.vue';
 import McpStatusPanel from './components/McpStatusPanel.vue';
 import SubagentIndicator from './components/SubagentIndicator.vue';
+import SubagentOverlay from './components/SubagentOverlay.vue';
 import StatusBar from './components/StatusBar.vue';
 import BudgetWarning from './components/BudgetWarning.vue';
 import RewindConfirmModal from './components/RewindConfirmModal.vue';
@@ -16,6 +17,7 @@ import DeleteSessionModal from './components/DeleteSessionModal.vue';
 import PermissionPrompt from './components/PermissionPrompt.vue';
 import { useVSCode } from './composables/useVSCode';
 import { useStreamingMessage } from './composables/useStreamingMessage';
+import { useSubagentMessages } from './composables/useSubagentMessages';
 import { useMessageHandler } from './composables/useMessageHandler';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,7 +40,6 @@ import type {
   ModelInfo,
   ExtensionSettings,
   McpServerStatusInfo,
-  ActiveSubagent,
   CompactMarker,
   PermissionMode,
 } from '@shared/types';
@@ -53,6 +54,16 @@ const {
   updateToolStatus,
   clearAll: clearMessages,
 } = streaming;
+
+// Subagent messages composable - handles Task tool state and overlay
+const subagentMessages = useSubagentMessages();
+const {
+  subagents,
+  expandedSubagent,
+  expandSubagent,
+  collapseSubagent,
+  getSubagentStreaming,
+} = subagentMessages;
 const isProcessing = ref(false);
 const accountInfo = ref<AccountInfo | null>(null);
 const currentSessionId = ref<string | null>(null);
@@ -97,11 +108,11 @@ const currentSettings = ref<ExtensionSettings>({
   maxThinkingTokens: null,
   betasEnabled: [],
   permissionMode: 'default',
+  defaultPermissionMode: 'default',
   enableFileCheckpointing: true,
   sandbox: { enabled: false },
 });
 const mcpServers = ref<McpServerStatusInfo[]>([]);
-const activeSubagents = ref<Map<string, ActiveSubagent>>(new Map());
 const compactMarkers = ref<CompactMarker[]>([]);
 const budgetWarning = ref<{ currentSpend: number; limit: number; exceeded: boolean } | null>(null);
 const checkpointMessages = ref<Set<string>>(new Set());
@@ -113,14 +124,17 @@ const currentRunningTool = ref<string | null>(null);
 const showSettingsPanel = ref(false);
 const showMcpPanel = ref(false);
 const pendingRewindMessageId = ref<string | null>(null);
-const pendingPermission = ref<{
+export interface PendingPermissionInfo {
   toolUseId: string;
   toolName: string;
   filePath?: string;
   originalContent?: string;
   proposedContent?: string;
   command?: string;
-} | null>(null);
+  parentToolUseId?: string | null;
+  agentDescription?: string;
+}
+const pendingPermissions = ref<Map<string, PendingPermissionInfo>>(new Map());
 
 const filesArray = computed(() => Array.from(accessedFiles.value.values()));
 const compactMarkersList = computed(() => compactMarkers.value);
@@ -164,6 +178,7 @@ function trackFileAccess(toolName: string, input: Record<string, unknown>) {
 // Set up message handler for extension-to-webview communication
 useMessageHandler({
   streaming,
+  subagentMessages,
   isProcessing,
   accountInfo,
   currentSessionId,
@@ -181,12 +196,11 @@ useMessageHandler({
   availableModels,
   currentSettings,
   mcpServers,
-  activeSubagents,
   compactMarkers,
   budgetWarning,
   checkpointMessages,
   currentRunningTool,
-  pendingPermission,
+  pendingPermissions,
   messageContainerRef,
   chatInputRef,
   trackFileAccess,
@@ -386,6 +400,12 @@ function handleToggleBeta(beta: string, enabled: boolean) {
 
 function handleSetPermissionMode(mode: PermissionMode) {
   postMessage({ type: 'setPermissionMode', mode });
+  currentSettings.value.permissionMode = mode; // Update local state
+}
+
+function handleSetDefaultPermissionMode(mode: PermissionMode) {
+  postMessage({ type: 'setDefaultPermissionMode', mode });
+  currentSettings.value.defaultPermissionMode = mode; // Update local state
 }
 
 function handleOpenVSCodeSettings() {
@@ -394,6 +414,10 @@ function handleOpenVSCodeSettings() {
 
 function handleOpenSessionLog() {
   postMessage({ type: 'openSessionLog' });
+}
+
+function handleOpenAgentLog(agentId: string) {
+  postMessage({ type: 'openAgentLog', agentId });
 }
 
 // MCP handlers
@@ -417,23 +441,20 @@ function handleCancelRewind() {
   pendingRewindMessageId.value = null;
 }
 
-// Permission approval handler
-function handlePermissionApproval(approved: boolean, options?: { neverAskAgain?: boolean; customMessage?: string }) {
-  // Update the tool status in the message list
-  if (pendingPermission.value) {
-    updateToolStatus(
-      pendingPermission.value.toolUseId,
-      approved ? 'approved' : 'denied'
-    );
+function handlePermissionApproval(toolUseId: string, approved: boolean, options?: { acceptAll?: boolean; customMessage?: string }) {
+  updateToolStatus(toolUseId, approved ? 'approved' : 'denied');
+
+  if (options?.acceptAll) {
+    handleSetPermissionMode('acceptEdits');
   }
 
   postMessage({
     type: 'approveEdit',
+    toolUseId,
     approved,
-    neverAskAgain: options?.neverAskAgain,
     customMessage: options?.customMessage,
   });
-  pendingPermission.value = null;
+  pendingPermissions.value.delete(toolUseId);
 }
 
 // Tool interrupt handler
@@ -441,6 +462,7 @@ function handlePermissionApproval(approved: boolean, options?: { neverAskAgain?:
 function handleInterrupt(_toolId: string) {
   postMessage({ type: 'interrupt' });
 }
+
 
 // Dismiss budget warning
 function handleDismissBudgetWarning() {
@@ -453,6 +475,15 @@ const rewindMessagePreview = computed(() => {
   const msg = messages.value.find((m: ChatMessage) => m.id === pendingRewindMessageId.value);
   return msg?.content.slice(0, 100) || '';
 });
+
+const currentPermission = computed(() => {
+  const firstEntry = pendingPermissions.value.entries().next();
+  if (firstEntry.done) return null;
+  const [toolUseId, info] = firstEntry.value;
+  return { toolUseId, ...info };
+});
+
+const pendingPermissionCount = computed(() => pendingPermissions.value.size);
 </script>
 
 <template>
@@ -495,8 +526,8 @@ const rewindMessagePreview = computed(() => {
       @dismiss="handleDismissBudgetWarning"
     />
 
-    <!-- Active Subagents Indicator -->
-    <SubagentIndicator :subagents="activeSubagents" />
+    <!-- Subagents Indicator (running and recently completed) -->
+    <SubagentIndicator :subagents="subagents" @expand="expandSubagent" />
 
     <!-- Session picker dropdown (select-box style) -->
     <div v-if="storedSessions.length > 0" class="px-3 py-2 border-b border-unbound-cyan-900/30 bg-unbound-bg-light">
@@ -630,8 +661,10 @@ const rewindMessagePreview = computed(() => {
           :streaming-message="streamingMessage"
           :compact-markers="compactMarkersList"
           :checkpoint-messages="checkpointMessages"
+          :subagents="subagents"
           @rewind="handleRequestRewind"
           @interrupt="handleInterrupt"
+          @expand-subagent="expandSubagent"
         />
       </div>
 
@@ -658,15 +691,20 @@ const rewindMessagePreview = computed(() => {
 
     <SessionStats :stats="sessionStats" @open-log="handleOpenSessionLog" />
 
-    <!-- Permission Prompt (inline bottom bar) -->
+    <!-- Permission Prompt (queue - shows one at a time) -->
     <PermissionPrompt
-      :visible="!!pendingPermission"
-      :tool-name="pendingPermission?.toolName"
-      :file-path="pendingPermission?.filePath"
-      :original-content="pendingPermission?.originalContent"
-      :proposed-content="pendingPermission?.proposedContent"
-      :command="pendingPermission?.command"
-      @approve="handlePermissionApproval"
+      v-if="currentPermission"
+      :visible="true"
+      :tool-use-id="currentPermission.toolUseId"
+      :tool-name="currentPermission.toolName"
+      :file-path="currentPermission.filePath"
+      :original-content="currentPermission.originalContent"
+      :proposed-content="currentPermission.proposedContent"
+      :command="currentPermission.command"
+      :agent-description="currentPermission.agentDescription"
+      :queue-position="1"
+      :queue-total="pendingPermissionCount"
+      @approve="(approved, options) => handlePermissionApproval(currentPermission.toolUseId, approved, options)"
     />
 
     <ChatInput
@@ -693,7 +731,7 @@ const rewindMessagePreview = computed(() => {
       @set-max-thinking-tokens="handleSetMaxThinkingTokens"
       @set-budget-limit="handleSetBudgetLimit"
       @toggle-beta="handleToggleBeta"
-      @set-permission-mode="handleSetPermissionMode"
+      @set-default-permission-mode="handleSetDefaultPermissionMode"
       @open-v-s-code-settings="handleOpenVSCodeSettings"
     />
 
@@ -719,6 +757,16 @@ const rewindMessagePreview = computed(() => {
       :session-name="deletingSessionId ? getSessionDisplayName(storedSessions.find(s => s.id === deletingSessionId) || { id: '', timestamp: 0, preview: '' }) : ''"
       @confirm="confirmDeleteSession"
       @cancel="cancelDeleteSession"
+    />
+
+    <!-- Subagent Overlay (full-screen) -->
+    <SubagentOverlay
+      v-if="expandedSubagent"
+      :subagent="expandedSubagent"
+      :streaming="expandedSubagent ? getSubagentStreaming(expandedSubagent.id) : undefined"
+      @close="collapseSubagent"
+      @interrupt="handleInterrupt"
+      @open-log="handleOpenAgentLog"
     />
 
   </div>

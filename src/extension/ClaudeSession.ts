@@ -79,22 +79,24 @@ interface PendingAssistantMessage {
   stopReason: string | null;
   content: ContentBlock[];
   sessionId: string;
+  parentToolUseId: string | null;
 }
 
 interface StreamingContent {
-  messageId: string | null;  // Which message this content belongs to
+  messageId: string | null;
   thinking: string;
   text: string;
   isThinking: boolean;
-  hasStreamedTools: boolean;  // Once true, stop sending partial updates (thinking is "frozen")
-  thinkingStartTime: number | null;  // Timestamp when thinking began
-  thinkingDuration: number | null;  // Seconds spent thinking (set when thinking ends)
+  hasStreamedTools: boolean;
+  thinkingStartTime: number | null;
+  thinkingDuration: number | null;
+  parentToolUseId: string | null;
 }
 
-// Tracks a tool that was streamed to UI but may or may not execute
 interface StreamedToolInfo {
   toolName: string;
   messageId: string;
+  parentToolUseId: string | null;
 }
 
 export class ClaudeSession {
@@ -108,9 +110,11 @@ export class ClaudeSession {
   private messageCheckpoints: Map<string, string> = new Map();
   private accumulatedCost = 0;
   private pendingAssistant: PendingAssistantMessage | null = null;
-  private streamingContent: StreamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null };
+  private streamingContent: StreamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null, parentToolUseId: null };
   // Tracks tools that were streamed to UI - if they never reach PreToolUse/completion, they're "abandoned"
   private streamedToolIds: Map<string, StreamedToolInfo> = new Map();
+  // FIFO queue for correlating toolStreaming with canUseTool (SDK doesn't pass tool_use_id in canUseTool context)
+  private pendingToolQueue: Map<string, Array<{ toolUseId: string; parentToolUseId: string | null }>> = new Map();
   // Turn-level tracking: persists across messages within a single turn (reset in sendMessage)
   private toolsUsedThisTurn = false;
   // Track current prompt and model for interrupt handling
@@ -149,6 +153,7 @@ export class ClaudeSession {
           type: 'toolAbandoned',
           toolUseId,
           toolName: info.toolName,
+          parentToolUseId: info.parentToolUseId,
         });
         this.streamedToolIds.delete(toolUseId);
       }
@@ -184,6 +189,7 @@ export class ClaudeSession {
         },
         session_id: pending.sessionId,
       },
+      parentToolUseId: pending.parentToolUseId,
     });
   }
 
@@ -230,7 +236,7 @@ export class ClaudeSession {
     this.isProcessing = true;
     this.abortController = new AbortController();
     this.pendingAssistant = null;
-    this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null };
+    this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null, parentToolUseId: null };
     this.toolsUsedThisTurn = false;
     this.currentPrompt = prompt;
     this.wasInterrupted = false;
@@ -293,10 +299,21 @@ export class ClaudeSession {
           // before the tool call. The tool call itself is sent via requestPermission.
           this.flushPendingAssistant();
 
-          const ctx = context as { tool_use_id?: string } | undefined;
-          const toolUseId = ctx?.tool_use_id;
+          // SDK doesn't pass tool_use_id in canUseTool context, so we use FIFO queue correlation
+          // toolStreaming queues tool info, canUseTool dequeues it (tools are processed in order)
+          // This works because SDK awaits each canUseTool before processing the next tool
+          const toolQueue = this.pendingToolQueue.get(toolName) ?? [];
+          const queuedInfo = toolQueue.shift();
+          if (queuedInfo) {
+            this.pendingToolQueue.set(toolName, toolQueue);
+          } else {
+            log('[ClaudeSession] Warning: canUseTool called but no queued info for tool %s - timing mismatch?', toolName);
+          }
+          const toolUseId = queuedInfo?.toolUseId ?? null;
+          const parentToolUseId = queuedInfo?.parentToolUseId ?? null;
 
-          const result = await this.options.permissionHandler.canUseTool(toolName, input, context);
+          const extendedContext = { ...context, toolUseID: toolUseId, parentToolUseId };
+          const result = await this.options.permissionHandler.canUseTool(toolName, input, extendedContext);
           if (result.behavior === 'allow') {
             // Tool will execute - remove from orphan tracking
             if (toolUseId) {
@@ -310,7 +327,6 @@ export class ClaudeSession {
           // Tool was denied - send toolFailed since PostToolUseFailure won't fire
           // (that hook only fires for execution failures, not permission denials)
           if (toolUseId) {
-            // Remove from orphan tracking - we're handling it now
             this.streamedToolIds.delete(toolUseId);
             log('[ClaudeSession] Tool denied, sending toolFailed:', toolName, toolUseId);
             this.options.onMessage({
@@ -319,6 +335,7 @@ export class ClaudeSession {
               toolName,
               error: result.message ?? 'Permission denied',
               isInterrupt: false,
+              parentToolUseId,
             });
           }
           return {
@@ -359,6 +376,8 @@ export class ClaudeSession {
                 const p = params as { tool_name?: string; tool_use_id?: string; tool_response?: unknown };
                 const id = toolUseId ?? p.tool_use_id;
                 if (p.tool_name && id) {
+                  const toolInfo = this.streamedToolIds.get(id);
+                  const parentToolUseId = toolInfo?.parentToolUseId ?? null;
                   // Remove from orphan tracking (just in case PreToolUse didn't fire)
                   this.streamedToolIds.delete(id);
                   this.options.onMessage({
@@ -366,6 +385,7 @@ export class ClaudeSession {
                     toolUseId: id,
                     toolName: p.tool_name,
                     result: this.serializeToolResult(p.tool_response),
+                    parentToolUseId,
                   });
                 }
                 return {};
@@ -379,6 +399,8 @@ export class ClaudeSession {
                 const p = params as { tool_name?: string; tool_use_id?: string; error?: string; is_interrupt?: boolean };
                 const id = toolUseId ?? p.tool_use_id;
                 if (p.tool_name && id) {
+                  const toolInfo = this.streamedToolIds.get(id);
+                  const parentToolUseId = toolInfo?.parentToolUseId ?? null;
                   // Remove from orphan tracking
                   this.streamedToolIds.delete(id);
                   this.options.onMessage({
@@ -387,6 +409,7 @@ export class ClaudeSession {
                     toolName: p.tool_name,
                     error: p.error || 'Unknown error',
                     isInterrupt: p.is_interrupt,
+                    parentToolUseId,
                   });
                 }
                 return {};
@@ -534,7 +557,9 @@ export class ClaudeSession {
         }
 
         switch (message.type) {
-          case 'assistant':
+          case 'assistant': {
+            const parentToolUseId = (message as { parent_tool_use_id?: string | null }).parent_tool_use_id ?? null;
+
             if (this.sessionId !== message.session_id) {
               this.sessionId = message.session_id;
               this.options.onSessionIdChange?.(this.sessionId);
@@ -546,11 +571,12 @@ export class ClaudeSession {
               this.flushPendingAssistant();
               // Only reset streamingContent if not already set by message_start
               if (this.streamingContent.messageId !== message.message.id) {
-                this.streamingContent = { messageId: message.message.id, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null };
+                this.streamingContent = { messageId: message.message.id, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null, parentToolUseId };
               }
             } else if (!this.streamingContent.messageId) {
               // Fallback: associate streaming content if message_start wasn't received
               this.streamingContent.messageId = message.message.id;
+              this.streamingContent.parentToolUseId = parentToolUseId;
             }
 
             const serializedContent = this.serializeContent(message.message.content);
@@ -575,13 +601,18 @@ export class ClaudeSession {
                       isThinking: false,
                       thinkingDuration: duration,
                     },
+                    parentToolUseId,
                   });
                 }
                 // Mark that we've streamed tools - after this, thinking updates should NOT be sent
                 // This prevents the visual glitch of thinking text updating above tool cards
                 this.streamingContent.hasStreamedTools = true;
                 // Track this tool - if it never executes (no PreToolUse), it's "abandoned"
-                this.streamedToolIds.set(block.id, { toolName: block.name, messageId: message.message.id });
+                this.streamedToolIds.set(block.id, { toolName: block.name, messageId: message.message.id, parentToolUseId });
+                // Queue for canUseTool correlation (SDK doesn't pass tool_use_id in canUseTool context)
+                const toolQueue = this.pendingToolQueue.get(block.name) ?? [];
+                toolQueue.push({ toolUseId: block.id, parentToolUseId });
+                this.pendingToolQueue.set(block.name, toolQueue);
                 this.options.onMessage({
                   type: 'toolStreaming',
                   messageId: message.message.id,
@@ -590,6 +621,7 @@ export class ClaudeSession {
                     name: block.name,
                     input: block.input,
                   },
+                  parentToolUseId,
                 });
               }
             }
@@ -602,6 +634,7 @@ export class ClaudeSession {
                 stopReason: message.message.stop_reason,
                 content: serializedContent,
                 sessionId: message.session_id,
+                parentToolUseId,
               };
             } else {
               // Append new content blocks to same message
@@ -609,8 +642,10 @@ export class ClaudeSession {
               this.pendingAssistant.stopReason = message.message.stop_reason;
             }
             break;
+          }
 
           case 'stream_event': {
+            const streamParentToolUseId = (message as { parent_tool_use_id?: string | null }).parent_tool_use_id ?? null;
             const event = message.event as {
               type: string;
               message?: { id: string };
@@ -632,6 +667,7 @@ export class ClaudeSession {
                 hasStreamedTools: false,
                 thinkingStartTime: null,
                 thinkingDuration: null,
+                parentToolUseId: streamParentToolUseId,
               };
             }
 
@@ -657,6 +693,7 @@ export class ClaudeSession {
                       streamingThinking: this.streamingContent.thinking,
                       isThinking: true,
                     },
+                    parentToolUseId: this.streamingContent.parentToolUseId,
                   });
                 }
               } else if (event.delta?.type === 'text_delta' && event.delta.text) {
@@ -678,6 +715,7 @@ export class ClaudeSession {
                     isThinking: false,
                     thinkingDuration: this.streamingContent.thinkingDuration ?? undefined,
                   },
+                  parentToolUseId: this.streamingContent.parentToolUseId,
                 });
               }
             }
@@ -931,8 +969,9 @@ export class ClaudeSession {
 
       // Clear streaming state
       this.currentPrompt = null;
-      this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null };
+      this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null, parentToolUseId: null };
       this.streamedToolIds.clear();
+      this.pendingToolQueue.clear();
 
       this.isProcessing = false;
       this.abortController = null;

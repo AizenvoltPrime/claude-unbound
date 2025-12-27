@@ -41,3 +41,20 @@ export function extractSlashCommandDisplay(content: string): string | null {
 
   return commandArgs ? `${commandName} ${commandArgs}` : commandName;
 }
+
+/**
+ * Formats a Claude model ID into a human-readable display name.
+ * E.g., "claude-haiku-4-5-20251001" → "Haiku 4.5"
+ */
+export function formatModelDisplayName(modelId: string | undefined | null): string | null {
+  if (!modelId) return null;
+
+  const versionMatch = modelId.match(/(\d+)-(\d+)/);
+  const version = versionMatch ? `${versionMatch[1]}.${versionMatch[2]}` : '';
+
+  if (modelId.includes('opus')) return `Opus ${version}`.trim();
+  if (modelId.includes('sonnet')) return `Sonnet ${version}`.trim();
+  if (modelId.includes('haiku')) return `Haiku ${version}`.trim();
+
+  return modelId.split('-').slice(1, 3).join(' ');
+}

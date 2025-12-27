@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import type { ExtensionSettings, ModelInfo } from '@shared/types';
+import type { ExtensionSettings, ModelInfo, PermissionMode } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,8 +33,20 @@ const emit = defineEmits<{
   (e: 'setMaxThinkingTokens', tokens: number | null): void;
   (e: 'setBudgetLimit', budgetUsd: number | null): void;
   (e: 'toggleBeta', beta: string, enabled: boolean): void;
+  (e: 'setDefaultPermissionMode', mode: PermissionMode): void;
   (e: 'openVSCodeSettings'): void;
 }>();
+
+const permissionModeOptions: { value: PermissionMode; label: string; description: string }[] = [
+  { value: 'default', label: 'Ask before edits', description: 'Prompt for file changes' },
+  { value: 'acceptEdits', label: 'Accept edits', description: 'Auto-approve file changes' },
+  { value: 'bypassPermissions', label: 'Bypass all', description: 'Auto-approve everything' },
+  { value: 'plan', label: 'Plan mode', description: 'Read-only, no execution' },
+];
+
+function handleDefaultModeChange(mode: string) {
+  emit('setDefaultPermissionMode', mode as PermissionMode);
+}
 
 // Local state for form inputs
 const localModel = ref(props.settings.model);
@@ -124,6 +136,28 @@ const currentModelDisplayName = computed(() => {
       <SheetHeader class="mb-6">
         <SheetTitle>Settings</SheetTitle>
       </SheetHeader>
+
+      <!-- Default Permission Mode -->
+      <div class="mb-5">
+        <Label class="block mb-2 text-unbound-cyan-300">Default Permission Mode</Label>
+        <Select :model-value="settings.defaultPermissionMode" @update:model-value="handleDefaultModeChange">
+          <SelectTrigger class="w-full bg-unbound-bg-card border-unbound-cyan-800/50">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent class="bg-unbound-bg-card border-unbound-cyan-800/50">
+            <SelectItem
+              v-for="option in permissionModeOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <p class="text-xs opacity-50 mt-1">
+          Default mode for new chat panels. Each panel can override this.
+        </p>
+      </div>
 
       <!-- Model Selection -->
       <div class="mb-5">
