@@ -8,15 +8,15 @@ Control tool usage and permissions in the Claude Agent SDK
 
 The Claude Agent SDK provides powerful permission controls that allow you to manage how Claude uses tools in your application.
 
-This guide covers how to implement permission systems using the `canUseTool` callback, hooks, and settings.json permission rules. For complete API documentation, see the [TypeScript SDK reference](/docs/en/agent-sdk/typescript).
+This guide covers how to implement permission systems using the `canUseTool` callback, hooks, and settings.json permission rules. For complete API documentation, see the [TypeScript SDK reference](./agents-sdk.md).
 
 ## Overview
 
 The Claude Agent SDK provides four complementary ways to control tool usage:
 
 1. **[Permission Modes](#permission-modes)** - Global permission behavior settings that affect all tools
-2. **[canUseTool callback](/docs/en/agent-sdk/typescript#canusetool)** - Runtime permission handler for cases not covered by other rules
-3. **[Hooks](/docs/en/agent-sdk/hooks)** - Fine-grained control over every tool execution with custom logic
+2. **[canUseTool callback](./agents-sdk.md#canusetool)** - Runtime permission handler for cases not covered by other rules
+3. **[Hooks](./hooks-guide.md)** - Fine-grained control over every tool execution with custom logic
 4. **[Permission rules (settings.json)](https://code.claude.com/docs/en/settings#permission-settings)** - Declarative allow/deny rules with integrated bash command parsing
 
 Use cases for each approach:
@@ -424,5 +424,5 @@ Multi-select answers are comma-separated strings (e.g., `"Authentication, Cachin
 
 ## Related Resources
 
-- [Hooks Guide](/docs/en/agent-sdk/hooks) - Learn how to implement hooks for fine-grained control over tool execution
+- [Hooks Guide](./hooks-guide.md) - Learn how to implement hooks for fine-grained control over tool execution
 - [Settings: Permission Rules](https://code.claude.com/docs/en/settings#permission-settings) - Configure declarative allow/deny rules with bash command parsing

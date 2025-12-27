@@ -3,12 +3,12 @@
 > This page provides reference documentation for implementing hooks in Claude Code.
 
 <Tip>
-  For a quickstart guide with examples, see [Get started with Claude Code hooks](/en/hooks-guide).
+  For a quickstart guide with examples, see [Get started with Claude Code hooks](./hooks-guide.md).
 </Tip>
 
 ## Configuration
 
-Claude Code hooks are configured in your [settings files](/en/settings):
+Claude Code hooks are configured in your [settings files](./permission-settings.md):
 
 - `~/.claude/settings.json` - User settings
 - `.claude/settings.json` - Project settings
@@ -16,7 +16,7 @@ Claude Code hooks are configured in your [settings files](/en/settings):
 - Enterprise managed policy settings
 
 <Note>
-  Enterprise administrators can use `allowManagedHooksOnly` to block user, project, and plugin hooks. See [Hook configuration](/en/settings#hook-configuration).
+  Enterprise administrators can use `allowManagedHooksOnly` to block user, project, and plugin hooks. See [Hook configuration](./permission-settings.md#hook-configuration).
 </Note>
 
 ### Structure
@@ -94,7 +94,7 @@ You can use the environment variable `CLAUDE_PROJECT_DIR` (only available when C
 
 ### Plugin hooks
 
-[Plugins](/en/plugins) can provide hooks that integrate seamlessly with your user and project hooks. Plugin hooks are automatically merged with your configuration when plugins are enabled.
+[Plugins](./plugins.md) can provide hooks that integrate seamlessly with your user and project hooks. Plugin hooks are automatically merged with your configuration when plugins are enabled.
 
 **How plugin hooks work**:
 
@@ -973,7 +973,7 @@ You can target specific MCP tools or entire MCP servers:
 ## Examples
 
 <Tip>
-  For practical examples including code formatting, notifications, and file protection, see [More Examples](/en/hooks-guide#more-examples) in the get started guide.
+  For practical examples including code formatting, notifications, and file protection, see [More Examples](./hooks-guide.md#more-examples) in the get started guide.
 </Tip>
 
 ## Security Considerations

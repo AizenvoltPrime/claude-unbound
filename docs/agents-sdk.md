@@ -103,7 +103,7 @@ Configuration object for the `query()` function.
 | `continue` | `boolean` | `false` | Continue the most recent conversation |
 | `cwd` | `string` | `process.cwd()` | Current working directory |
 | `disallowedTools` | `string[]` | `[]` | List of disallowed tool names |
-| `enableFileCheckpointing` | `boolean` | `false` | Enable file change tracking for rewinding. See [File checkpointing](/docs/en/agent-sdk/file-checkpointing) |
+| `enableFileCheckpointing` | `boolean` | `false` | Enable file change tracking for rewinding. See [File checkpointing](./file-checkpointing.md) |
 | `env` | `Dict<string>` | `process.env` | Environment variables |
 | `executable` | `'bun' \| 'deno' \| 'node'` | Auto-detected | JavaScript runtime to use |
 | `executableArgs` | `string[]` | `[]` | Arguments to pass to the executable |
@@ -117,11 +117,11 @@ Configuration object for the `query()` function.
 | `maxTurns` | `number` | `undefined` | Maximum conversation turns |
 | `mcpServers` | `Record<string, [`McpServerConfig`](#mcpserverconfig)>` | `{}` | MCP server configurations |
 | `model` | `string` | Default from CLI | Claude model to use |
-| `outputFormat` | `{ type: 'json_schema', schema: JSONSchema }` | `undefined` | Define output format for agent results. See [Structured outputs](/docs/en/agent-sdk/structured-outputs) for details |
+| `outputFormat` | `{ type: 'json_schema', schema: JSONSchema }` | `undefined` | Define output format for agent results. See [Structured outputs](./structured-outputs.md) for details |
 | `pathToClaudeCodeExecutable` | `string` | Uses built-in executable | Path to Claude Code executable |
 | `permissionMode` | [`PermissionMode`](#permissionmode) | `'default'` | Permission mode for the session |
 | `permissionPromptToolName` | `string` | `undefined` | MCP tool name for permission prompts |
-| `plugins` | [`SdkPluginConfig`](#sdkpluginconfig)`[]` | `[]` | Load custom plugins from local paths. See [Plugins](/docs/en/agent-sdk/plugins) for details |
+| `plugins` | [`SdkPluginConfig`](#sdkpluginconfig)`[]` | `[]` | Load custom plugins from local paths. See [Plugins](./plugins.md) for details |
 | `resume` | `string` | `undefined` | Session ID to resume |
 | `resumeSessionAt` | `string` | `undefined` | Resume session at a specific message UUID |
 | `sandbox` | [`SandboxSettings`](#sandboxsettings) | `undefined` | Configure sandbox behavior programmatically. See [Sandbox settings](#sandboxsettings) for details |
@@ -154,7 +154,7 @@ interface Query extends AsyncGenerator<SDKMessage, void> {
 | Method | Description |
 | :----- | :---------- |
 | `interrupt()` | Interrupts the query (only available in streaming input mode) |
-| `rewindFiles(userMessageUuid)` | Restores files to their state at the specified user message. Requires `enableFileCheckpointing: true`. See [File checkpointing](/docs/en/agent-sdk/file-checkpointing) |
+| `rewindFiles(userMessageUuid)` | Restores files to their state at the specified user message. Requires `enableFileCheckpointing: true`. See [File checkpointing](./file-checkpointing.md) |
 | `setPermissionMode()` | Changes the permission mode (only available in streaming input mode) |
 | `setModel()` | Changes the model (only available in streaming input mode) |
 | `setMaxThinkingTokens()` | Changes the maximum thinking tokens (only available in streaming input mode) |
@@ -397,7 +397,7 @@ plugins: [
 ]
 ```
 
-For complete information on creating and using plugins, see [Plugins](/docs/en/agent-sdk/plugins).
+For complete information on creating and using plugins, see [Plugins](./plugins.md).
 
 ## Message Types
 
@@ -570,7 +570,7 @@ type SDKPermissionDenial = {
 
 ## Hook Types
 
-For a comprehensive guide on using hooks with examples and common patterns, see the [Hooks guide](/docs/en/agent-sdk/hooks).
+For a comprehensive guide on using hooks with examples and common patterns, see the [Hooks guide](./hooks-guide.md).
 
 ### `HookEvent`
 
@@ -916,7 +916,7 @@ interface AskUserQuestionInput {
 }
 ```
 
-Asks the user clarifying questions during execution. See [Handling the AskUserQuestion Tool](/docs/en/agent-sdk/permissions#handling-the-askuserquestion-tool) for usage details.
+Asks the user clarifying questions during execution. See [Handling the AskUserQuestion Tool](./handling-permissions.md#handling-the-askuserquestion-tool) for usage details.
 
 ### Bash
 
@@ -1892,7 +1892,7 @@ type ApiKeySource = 'user' | 'project' | 'org' | 'temporary';
 
 ### `SdkBeta`
 
-Available beta features that can be enabled via the `betas` option. See [Beta headers](/docs/en/api/beta-headers) for more information.
+Available beta features that can be enabled via the `betas` option. See [Beta headers](./beta-headers.md) for more information.
 
 ```typescript
 type SdkBeta = 'context-1m-2025-08-07';
@@ -2167,7 +2167,7 @@ Commands running with `dangerouslyDisableSandbox: true` have full system access.
 
 ## See also
 
-- [SDK overview](/docs/en/agent-sdk/overview) - General SDK concepts
+- [SDK overview](./overview.md) - General SDK concepts
 - [Python SDK reference](/docs/en/agent-sdk/python) - Python SDK documentation
 - [CLI reference](https://code.claude.com/docs/en/cli-reference) - Command-line interface
 - [Common workflows](https://code.claude.com/docs/en/common-workflows) - Step-by-step guides
