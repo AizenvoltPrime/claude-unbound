@@ -70,19 +70,22 @@ function adjustTextareaHeight() {
 const {
   isNavigating,
   currentEntry,
+  shouldRestoreOriginal,
   navigateUp,
   navigateDown,
   reset: resetHistory,
   captureOriginal,
   getOriginalInput,
+  clearRestoreFlag,
   addEntry,
 } = useCommandHistory();
 
 watch(currentEntry, (entry) => {
   if (entry !== null) {
     inputText.value = entry;
-  } else if (isNavigating.value === false) {
+  } else if (shouldRestoreOriginal.value) {
     inputText.value = getOriginalInput();
+    clearRestoreFlag();
   }
 });
 

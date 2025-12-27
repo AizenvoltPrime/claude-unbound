@@ -15,6 +15,7 @@ export function useCommandHistory() {
   const isLoaded = ref(false);
   const hasMore = ref(false);
   const prefetchedUpTo = ref(0);
+  const shouldRestoreOriginal = ref(false);
 
   const isNavigating = computed(() => historyIndex.value >= 0);
   const currentEntry = computed(() =>
@@ -108,6 +109,7 @@ export function useCommandHistory() {
     if (historyIndex.value > 0) {
       historyIndex.value--;
     } else if (historyIndex.value === 0) {
+      shouldRestoreOriginal.value = true;
       historyIndex.value = -1;
     }
   }
@@ -115,8 +117,13 @@ export function useCommandHistory() {
   function reset() {
     historyIndex.value = -1;
     originalInput.value = '';
+    shouldRestoreOriginal.value = false;
     pendingNavigate = false;
     pendingLoadMore = false;
+  }
+
+  function clearRestoreFlag() {
+    shouldRestoreOriginal.value = false;
   }
 
   function captureOriginal(text: string) {
@@ -141,11 +148,13 @@ export function useCommandHistory() {
     isNavigating,
     isLoading,
     currentEntry,
+    shouldRestoreOriginal,
     navigateUp,
     navigateDown,
     reset,
     captureOriginal,
     getOriginalInput,
+    clearRestoreFlag,
     addEntry,
   };
 }
