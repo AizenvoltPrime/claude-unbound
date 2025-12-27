@@ -973,6 +973,10 @@ export class ClaudeSession {
       this.streamedToolIds.clear();
       this.pendingToolQueue.clear();
 
+      if (this.wasInterrupted) {
+        this.options.onMessage({ type: 'sessionCancelled' });
+      }
+
       this.isProcessing = false;
       this.abortController = null;
       this.options.onMessage({ type: 'processing', isProcessing: false });

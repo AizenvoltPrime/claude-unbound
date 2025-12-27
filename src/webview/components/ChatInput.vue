@@ -67,6 +67,37 @@ function adjustTextareaHeight() {
   textarea.style.overflowY = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
 }
 
+let measureCtx: CanvasRenderingContext2D | null = null;
+
+function getMeasureContext(): CanvasRenderingContext2D | null {
+  if (!measureCtx) {
+    measureCtx = document.createElement('canvas').getContext('2d');
+  }
+  return measureCtx;
+}
+
+function isCursorOnFirstVisualLine(textarea: HTMLTextAreaElement): boolean {
+  const textBeforeCursor = textarea.value.slice(0, textarea.selectionStart);
+  if (textBeforeCursor.includes('\n')) return false;
+  const ctx = getMeasureContext();
+  if (!ctx) return true;
+  const style = window.getComputedStyle(textarea);
+  ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  const contentWidth = textarea.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  return ctx.measureText(textBeforeCursor).width <= contentWidth;
+}
+
+function isCursorOnLastVisualLine(textarea: HTMLTextAreaElement): boolean {
+  const textAfterCursor = textarea.value.slice(textarea.selectionStart);
+  if (textAfterCursor.includes('\n')) return false;
+  const ctx = getMeasureContext();
+  if (!ctx) return true;
+  const style = window.getComputedStyle(textarea);
+  ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  const contentWidth = textarea.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  return ctx.measureText(textAfterCursor).width <= contentWidth;
+}
+
 const {
   isNavigating,
   currentEntry,
@@ -158,27 +189,19 @@ function handleKeydown(event: KeyboardEvent) {
 
   if (event.key === 'ArrowUp') {
     const textarea = textareaRef.value;
-    if (textarea) {
-      const textBeforeCursor = inputText.value.slice(0, textarea.selectionStart);
-      const isOnFirstLine = !textBeforeCursor.includes('\n');
-      if (inputText.value === '' || isOnFirstLine) {
-        event.preventDefault();
-        captureOriginal(inputText.value);
-        navigateUp();
-      }
+    if (textarea && (textarea.value === '' || isCursorOnFirstVisualLine(textarea))) {
+      event.preventDefault();
+      captureOriginal(inputText.value);
+      navigateUp();
     }
     return;
   }
 
   if (event.key === 'ArrowDown') {
     const textarea = textareaRef.value;
-    if (isNavigating.value && textarea) {
-      const textAfterCursor = inputText.value.slice(textarea.selectionStart);
-      const isOnLastLine = !textAfterCursor.includes('\n');
-      if (isOnLastLine) {
-        event.preventDefault();
-        navigateDown();
-      }
+    if (isNavigating.value && textarea && isCursorOnLastVisualLine(textarea)) {
+      event.preventDefault();
+      navigateDown();
     }
   }
 }

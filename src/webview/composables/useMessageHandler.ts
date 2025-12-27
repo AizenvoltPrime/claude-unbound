@@ -524,6 +524,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           subagentMessages.stopSubagent(message.agentId);
           break;
 
+        case "sessionCancelled":
+          subagentMessages.cancelRunningSubagents();
+          break;
+
         case "compactBoundary":
           compactMarkers.value.push({
             id: generateId(),

@@ -17,6 +17,7 @@ import {
   IconRobot,
   IconCheck,
   IconXCircle,
+  IconBan,
   IconChevronDown,
   IconFile,
 } from '@/components/icons';
@@ -94,9 +95,21 @@ const statusBadgeClass = computed(() => {
       return 'bg-green-600/30 text-green-300 border-green-500/30';
     case 'failed':
       return 'bg-red-600/30 text-red-300 border-red-500/30';
+    case 'cancelled':
+      return 'bg-amber-600/30 text-amber-300 border-amber-500/30';
     default:
       return 'bg-unbound-cyan-600/30 text-unbound-cyan-300 border-unbound-cyan-500/30';
   }
+});
+
+const displayStatus = computed(() => {
+  const statusMap: Record<string, string> = {
+    running: 'Running',
+    completed: 'Completed',
+    failed: 'Failed',
+    cancelled: 'Cancelled',
+  };
+  return statusMap[props.subagent.status] || props.subagent.status;
 });
 
 const displayAgentType = computed(() => {
@@ -184,7 +197,8 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
         <LoadingSpinner v-if="subagent.status === 'running'" :size="12" />
         <IconCheck v-else-if="subagent.status === 'completed'" :size="12" />
         <IconXCircle v-else-if="subagent.status === 'failed'" :size="12" />
-        <span>{{ subagent.status === 'running' ? 'Running' : subagent.status === 'completed' ? 'Completed' : 'Failed' }}</span>
+        <IconBan v-else-if="subagent.status === 'cancelled'" :size="12" />
+        <span>{{ displayStatus }}</span>
       </Badge>
     </header>
 

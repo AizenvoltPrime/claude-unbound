@@ -786,13 +786,57 @@ export async function renameSession(workspacePath: string, sessionId: string, ne
   }
 }
 
+async function findAgentFilesForSession(sessionDir: string, sessionId: string): Promise<string[]> {
+  try {
+    const files = await fs.promises.readdir(sessionDir);
+    const agentFileNames = files.filter(file => file.startsWith('agent-') && file.endsWith('.jsonl'));
+
+    const results = await Promise.all(
+      agentFileNames.map(async (file): Promise<string | null> => {
+        const filePath = path.join(sessionDir, file);
+        try {
+          const handle = await fs.promises.open(filePath, 'r');
+          try {
+            const buffer = Buffer.alloc(4096);
+            const { bytesRead } = await handle.read(buffer, 0, 4096, 0);
+            const firstLine = buffer.toString('utf-8', 0, bytesRead).split('\n')[0];
+            const entry = JSON.parse(firstLine);
+            return entry.sessionId === sessionId ? filePath : null;
+          } finally {
+            await handle.close();
+          }
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    return results.filter((f): f is string => f !== null);
+  } catch {
+    return [];
+  }
+}
+
 export async function deleteSession(workspacePath: string, sessionId: string): Promise<void> {
   if (!isValidSessionId(sessionId)) {
     throw new Error('Invalid session ID format');
   }
 
-  const filePath = await getSessionFilePath(workspacePath, sessionId);
+  const sessionDir = await getSessionDir(workspacePath);
 
+  const agentFiles = await findAgentFilesForSession(sessionDir, sessionId);
+  const deleteResults = await Promise.allSettled(
+    agentFiles.map(filePath => fs.promises.unlink(filePath))
+  );
+
+  for (let i = 0; i < deleteResults.length; i++) {
+    const result = deleteResults[i];
+    if (result.status === 'rejected' && (result.reason as NodeJS.ErrnoException).code !== 'ENOENT') {
+      log(`Warning: Failed to delete agent file ${agentFiles[i]}: ${result.reason}`);
+    }
+  }
+
+  const filePath = path.join(sessionDir, `${sessionId}.jsonl`);
   try {
     await fs.promises.unlink(filePath);
   } catch (err) {

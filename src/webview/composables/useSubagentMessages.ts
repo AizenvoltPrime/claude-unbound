@@ -94,6 +94,23 @@ export function useSubagentMessages() {
   }
 
   /**
+   * Mark all running subagents as cancelled.
+   * Called when session is interrupted (ESC key or pause button).
+   */
+  function cancelRunningSubagents(): void {
+    if (subagents.value.size === 0) return;
+
+    const now = Date.now();
+    for (const subagent of subagents.value.values()) {
+      if (subagent.status === 'running') {
+        subagent.status = 'cancelled';
+        subagent.endTime = now;
+      }
+    }
+    streamingMessages.value.clear();
+  }
+
+  /**
    * Set the result of a completed subagent.
    * Called when toolCompleted arrives for a Task tool - parses the result JSON.
    * Also marks the subagent as completed if not already.
@@ -319,6 +336,7 @@ export function useSubagentMessages() {
     stopSubagent,
     completeSubagent,
     failSubagent,
+    cancelRunningSubagents,
     setSubagentResult,
     addMessageToSubagent,
     updateSubagentStreaming,

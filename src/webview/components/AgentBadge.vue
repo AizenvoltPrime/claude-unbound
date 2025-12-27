@@ -72,6 +72,8 @@ const badgeClass = computed(() => {
       return 'bg-green-600/30 text-green-300 border-green-500/30 hover:bg-green-600/50';
     case 'failed':
       return 'bg-red-600/30 text-red-300 border-red-500/30 hover:bg-red-600/50';
+    case 'cancelled':
+      return 'bg-amber-600/30 text-amber-300 border-amber-500/30 hover:bg-amber-600/50';
     default:
       return 'bg-unbound-cyan-600/30 text-unbound-cyan-300 border-unbound-cyan-500/30 hover:bg-unbound-cyan-600/50';
   }

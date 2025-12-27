@@ -143,7 +143,7 @@ export interface SubagentState {
   agentType: string;
   description: string;
   prompt: string;
-  status: "running" | "completed" | "failed";
+  status: "running" | "completed" | "failed" | "cancelled";
   startTime: number;
   endTime?: number;
   messages: ChatMessage[];
@@ -357,6 +357,7 @@ export type ExtensionToWebviewMessage =
   // New: Subagent lifecycle
   | { type: "subagentStart"; agentId: string; agentType: string }
   | { type: "subagentStop"; agentId: string }
+  | { type: "sessionCancelled" }
   // New: Session lifecycle
   | { type: "sessionStart"; source: "startup" | "resume" | "clear" | "compact" }
   | { type: "sessionEnd"; reason: string }

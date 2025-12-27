@@ -253,14 +253,15 @@ function formatInput(input: Record<string, unknown>): string {
         </div>
       </div>
 
-      <Alert
+      <div
         v-if="isFailed && toolCall.errorMessage"
-        variant="destructive"
-        class="m-3 p-2 text-xs bg-red-900/20 border-red-500/30"
+        class="px-3 py-2 border-t border-red-500/20 bg-red-950/30"
       >
-        <AlertTitle class="text-red-400 font-semibold mb-0">Error</AlertTitle>
-        <AlertDescription class="text-red-400">{{ toolCall.errorMessage }}</AlertDescription>
-      </Alert>
+        <div class="flex items-start gap-2 text-xs">
+          <IconXCircle :size="14" class="text-red-400 shrink-0 mt-0.5" />
+          <span class="text-red-300">{{ toolCall.errorMessage }}</span>
+        </div>
+      </div>
 
       <Alert
         v-if="isAwaitingApproval"
@@ -301,14 +302,13 @@ function formatInput(input: Record<string, unknown>): string {
         <span class="font-mono text-unbound-muted truncate">{{ formatInput(toolCall.input) }}</span>
       </div>
 
-      <Alert
+      <div
         v-if="isFailed && toolCall.errorMessage"
-        variant="destructive"
-        class="p-2 text-xs bg-red-900/20 border-red-500/30"
+        class="flex items-start gap-2 text-xs border-t border-red-500/20 pt-2 -mx-3 px-3 bg-red-950/30 -mb-3 pb-3"
       >
-        <AlertTitle class="text-red-400 font-semibold mb-0">Error</AlertTitle>
-        <AlertDescription class="text-red-400">{{ toolCall.errorMessage }}</AlertDescription>
-      </Alert>
+        <IconXCircle :size="14" class="text-red-400 shrink-0 mt-0.5" />
+        <span class="text-red-300">{{ toolCall.errorMessage }}</span>
+      </div>
 
       <div
         v-else-if="toolCall.result"

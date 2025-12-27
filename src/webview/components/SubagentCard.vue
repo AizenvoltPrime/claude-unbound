@@ -11,6 +11,7 @@ import {
   IconRobot,
   IconCheck,
   IconXCircle,
+  IconBan,
   IconGear,
 } from '@/components/icons';
 import LoadingSpinner from './LoadingSpinner.vue';
@@ -75,6 +76,8 @@ const cardClass = computed(() => {
       return 'border-green-500/50 hover:border-green-400/70';
     case 'failed':
       return 'border-red-500/50 hover:border-red-400/70';
+    case 'cancelled':
+      return 'border-amber-500/50 hover:border-amber-400/70';
     default:
       return 'border-unbound-cyan-800/50';
   }
@@ -88,6 +91,8 @@ const statusBadgeClass = computed(() => {
       return 'bg-green-600/30 text-green-300 border-green-500/30';
     case 'failed':
       return 'bg-red-600/30 text-red-300 border-red-500/30';
+    case 'cancelled':
+      return 'bg-amber-600/30 text-amber-300 border-amber-500/30';
     default:
       return 'bg-unbound-cyan-600/30 text-unbound-cyan-300 border-unbound-cyan-500/30';
   }
@@ -153,6 +158,11 @@ const metadataItems = computed(() => [
           v-else-if="subagent.status === 'failed'"
           :size="14"
           class="text-red-400"
+        />
+        <IconBan
+          v-else-if="subagent.status === 'cancelled'"
+          :size="14"
+          class="text-amber-400"
         />
       </div>
     </CardContent>
