@@ -108,6 +108,10 @@ export default {
           from: { opacity: '0' },
           to: { opacity: '1' },
         },
+        'spinner': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -116,6 +120,8 @@ export default {
         'collapsible-up': 'collapsible-up 0.2s ease-out',
         'message-enter': 'message-enter 0.2s ease-out',
         'fade-in': 'fade-in 0.15s ease-out',
+        'spinner': 'spinner 0.8s linear infinite',
+        'spin-slow': 'spinner 2s linear infinite',
       },
     },
   },

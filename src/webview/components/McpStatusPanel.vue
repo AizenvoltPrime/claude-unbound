@@ -14,9 +14,9 @@ import {
   IconCheckCircle,
   IconXCircle,
   IconKey,
-  IconHourglass,
   IconGear,
 } from '@/components/icons';
+import LoadingSpinner from './LoadingSpinner.vue';
 
 defineProps<{
   servers: McpServerStatusInfo[];
@@ -28,7 +28,7 @@ const emit = defineEmits<{
   (e: 'refresh'): void;
 }>();
 
-function getStatusIcon(status: McpServerStatusInfo['status']): Component {
+function getStatusIcon(status: McpServerStatusInfo['status']): Component | null {
   switch (status) {
     case 'connected':
       return IconCheckCircle;
@@ -37,7 +37,7 @@ function getStatusIcon(status: McpServerStatusInfo['status']): Component {
     case 'needs-auth':
       return IconKey;
     case 'pending':
-      return IconHourglass;
+      return null;
     default:
       return IconGear;
   }
@@ -67,7 +67,7 @@ function getStatusClass(status: McpServerStatusInfo['status']): string {
     case 'needs-auth':
       return 'text-yellow-500';
     case 'pending':
-      return 'text-blue-500';
+      return 'text-unbound-cyan-400';
     default:
       return 'text-gray-500';
   }
@@ -108,7 +108,8 @@ function getStatusClass(status: McpServerStatusInfo['status']): string {
             <CardContent class="p-3">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <component :is="getStatusIcon(server.status)" :size="16" :class="getStatusClass(server.status)" />
+                  <LoadingSpinner v-if="server.status === 'pending'" :size="16" :class="getStatusClass(server.status)" />
+                  <component v-else :is="getStatusIcon(server.status)" :size="16" :class="getStatusClass(server.status)" />
                   <span class="font-medium">{{ server.name }}</span>
                 </div>
                 <span

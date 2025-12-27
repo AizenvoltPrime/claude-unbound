@@ -12,7 +12,6 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import {
-  IconHourglass,
   IconGear,
   IconLock,
   IconCheckCircle,
@@ -29,6 +28,7 @@ import {
   IconWrench,
   IconClipboard,
 } from '@/components/icons';
+import LoadingSpinner from './LoadingSpinner.vue';
 import DiffView from './DiffView.vue';
 
 const props = defineProps<{
@@ -107,10 +107,12 @@ const previewLines = computed(() => {
   return addedLines.filter(l => l.trim()).slice(0, 5);
 });
 
-const statusIconComponent = computed((): Component => {
+const isPending = computed(() => props.toolCall.status === 'pending');
+
+const statusIconComponent = computed((): Component | null => {
   switch (props.toolCall.status) {
     case 'pending':
-      return IconHourglass;
+      return null;
     case 'running':
       return IconGear;
     case 'awaiting_approval':
@@ -133,7 +135,7 @@ const statusIconComponent = computed((): Component => {
 const statusClass = computed(() => {
   switch (props.toolCall.status) {
     case 'pending':
-      return 'text-yellow-500';
+      return 'text-unbound-cyan-400';
     case 'running':
       return 'text-blue-500 animate-spin-slow';
     case 'awaiting_approval':
@@ -207,7 +209,8 @@ function formatInput(input: Record<string, unknown>): string {
       <span v-if="isFileOperation && filePath" class="text-unbound-muted text-xs truncate max-w-[300px]">
         {{ filePath }}
       </span>
-      <component :is="statusIconComponent" :size="16" :class="statusClass" class="ml-auto shrink-0" />
+      <LoadingSpinner v-if="isPending" :size="16" :class="statusClass" class="ml-auto shrink-0" />
+      <component v-else :is="statusIconComponent" :size="16" :class="statusClass" class="ml-auto shrink-0" />
 
       <Button
         v-if="isRunning"
@@ -362,19 +365,6 @@ function formatInput(input: Record<string, unknown>): string {
 
 .animate-progress {
   animation: progress 1.5s ease-in-out infinite;
-}
-
-.animate-spin-slow {
-  animation: spin 2s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .diff-added {
