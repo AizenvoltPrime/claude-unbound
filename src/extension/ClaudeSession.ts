@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import { log } from './logger';
+import { stripControlChars } from '../shared/utils';
 import {
   persistInterruptMarker,
   persistUserMessage,
@@ -724,7 +725,7 @@ export class ClaudeSession {
             }
             // Send replayed user messages to UI
             if (userMsg.isReplay && userMsg.message?.content) {
-              const content = Array.isArray(userMsg.message.content)
+              const rawContent = Array.isArray(userMsg.message.content)
                 ? userMsg.message.content
                     .filter((c): c is { type: 'text'; text: string } =>
                       typeof c === 'object' && c !== null && 'type' in c && c.type === 'text')
@@ -733,6 +734,7 @@ export class ClaudeSession {
                 : typeof userMsg.message.content === 'string'
                   ? userMsg.message.content
                   : '';
+              const content = stripControlChars(rawContent);
               if (content) {
                 this.options.onMessage({
                   type: 'userReplay',

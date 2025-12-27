@@ -3,6 +3,8 @@ import * as path from "path";
 import * as fs from "fs";
 import { ClaudeSession } from "./ClaudeSession";
 import { PermissionHandler } from "./PermissionHandler";
+import { SlashCommandService } from "./SlashCommandService";
+import { extractSlashCommandDisplay } from "../shared/utils";
 import { log } from "./logger";
 import { listWorkspaceFiles } from "./ripgrep";
 import {
@@ -43,6 +45,7 @@ export class ChatPanelProvider {
   private allSessionsCache: StoredSession[] | null = null;
   private mcpConfigLoaded: boolean = false;
   private sessionWatcher: vscode.FileSystemWatcher | null = null;
+  private slashCommandService: SlashCommandService;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -50,6 +53,7 @@ export class ChatPanelProvider {
   ) {
     const homeDir = process.env.HOME || process.env.USERPROFILE || "";
     this.workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || homeDir;
+    this.slashCommandService = new SlashCommandService(this.workspacePath);
     this.setupSessionWatcher();
     this.loadMcpConfig().catch((err) => {
       log("[ChatPanelProvider] Error pre-loading MCP config:", err);
@@ -349,6 +353,8 @@ export class ChatPanelProvider {
             type: "userMessage",
             content: message.content,
           });
+          // Send raw message to SDK - SDK handles slash command expansion
+          // This matches CLI behavior: SDK creates XML wrapper + isMeta message
           session.sendMessage(message.content, message.agentId);
           this.broadcastCommandHistoryEntry(message.content.trim());
         }
@@ -577,6 +583,18 @@ export class ChatPanelProvider {
         }
         break;
       }
+
+      case "requestCustomSlashCommands": {
+        try {
+          const commands = await this.slashCommandService.getCommands();
+          this.postMessageToPanel(panel, { type: "customSlashCommands", commands });
+        } catch (err) {
+          log("[ChatPanelProvider] Error fetching custom slash commands:", err);
+          this.postMessageToPanel(panel, { type: "customSlashCommands", commands: [] });
+        }
+        break;
+      }
+
     }
   }
 
@@ -762,14 +780,26 @@ export class ChatPanelProvider {
           content = textBlock?.text ?? "";
         }
 
-        // Skip system messages and command wrappers
+        // Skip empty and system messages
         if (
           !content ||
-          content.startsWith("<command-name>") ||
-          content.startsWith("<local-command-") ||
           content.startsWith("Unknown slash command:") ||
           content.startsWith("Caveat:")
         ) {
+          continue;
+        }
+
+        // Extract display format from slash command XML wrappers
+        if (content.startsWith("<command-message>") || content.startsWith("<command-name>")) {
+          const displayContent = extractSlashCommandDisplay(content);
+          if (displayContent) {
+            messages.push({ type: "user", content: displayContent });
+          }
+          continue;
+        }
+
+        // Skip local command wrappers (CLI internal)
+        if (content.startsWith("<local-command-")) {
           continue;
         }
 
@@ -859,6 +889,7 @@ export class ChatPanelProvider {
 
   dispose(): void {
     this.sessionWatcher?.dispose();
+    this.slashCommandService.dispose();
     for (const [, instance] of this.panels) {
       instance.session.cancel();
       instance.permissionHandler.dispose();

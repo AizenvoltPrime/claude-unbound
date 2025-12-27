@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import type { StoredSession } from '../shared/types';
+import { stripControlChars, extractSlashCommandDisplay } from '../shared/utils';
 import { log } from './logger';
 
 const EXTENSION_VERSION = '2.0.76';
@@ -72,6 +73,35 @@ export interface ClaudeSessionEntry {
 
 // Re-export StoredSession for convenience
 export type { StoredSession };
+
+/**
+ * Parses a JSONL line and sanitizes string content to remove control characters.
+ * This is the single point of sanitization for all JSONL data.
+ */
+function parseSessionEntry(line: string): ClaudeSessionEntry {
+  const entry: ClaudeSessionEntry = JSON.parse(line);
+
+  if (entry.message?.content) {
+    if (typeof entry.message.content === 'string') {
+      entry.message.content = stripControlChars(entry.message.content);
+    } else if (Array.isArray(entry.message.content)) {
+      entry.message.content = entry.message.content.map(block => {
+        if (block.type === 'text' && typeof block.text === 'string') {
+          return { ...block, text: stripControlChars(block.text) };
+        }
+        if (block.type === 'thinking' && typeof block.thinking === 'string') {
+          return { ...block, thinking: stripControlChars(block.thinking) };
+        }
+        if (block.type === 'tool_result' && typeof block.content === 'string') {
+          return { ...block, content: stripControlChars(block.content) };
+        }
+        return block;
+      });
+    }
+  }
+
+  return entry;
+}
 
 /**
  * UUID v4 regex pattern for validating session IDs.
@@ -299,7 +329,7 @@ async function parseSessionFile(filePath: string): Promise<{
     if (!line.trim()) continue;
 
     try {
-      const entry: ClaudeSessionEntry = JSON.parse(line);
+      const entry = parseSessionEntry(line);
 
       // Get custom title from custom-title entry (user-set name via /rename)
       if (entry.type === 'custom-title' && entry.customTitle) {
@@ -378,27 +408,18 @@ async function parseSessionFile(filePath: string): Promise<{
 /**
  * Extracts a clean preview text from message content.
  * For command messages, shows the command name with args (like CLI does).
+ * Note: Control characters are already stripped at JSONL parse time.
  */
 function extractPreviewText(content: string): string {
-  // Handle command-wrapped messages (slash commands like /code-review, /commit)
-  if (content.startsWith('<command-') || content.startsWith('<local-command-')) {
-    const nameMatch = content.match(/<command-name>([^<]*)<\/command-name>/);
-    const argsMatch = content.match(/<command-args>([^<]*)<\/command-args>/);
-
-    const commandName = nameMatch?.[1]?.trim();
-    const commandArgs = argsMatch?.[1]?.trim();
-
-    if (commandName) {
-      // Show command name with args if present (like CLI does)
-      // e.g., "/commit staged" or "/code-review"
-      if (commandArgs) {
-        return `${commandName} ${commandArgs}`.slice(0, 100);
-      }
-      return commandName;
-    }
+  const commandDisplay = extractSlashCommandDisplay(content);
+  if (commandDisplay) {
+    return commandDisplay.slice(0, 100);
   }
 
-  // Regular message: remove XML tags and markdown formatting
+  if (content.startsWith('<local-command-')) {
+    return '';
+  }
+
   let text = content.replace(/<[^>]+>/g, ' ');
   text = text.replace(/[#*_`]/g, '');
   text = text.replace(/\s+/g, ' ').trim();
@@ -431,7 +452,7 @@ export async function readSessionEntries(workspacePath: string, sessionId: strin
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
-        entries.push(JSON.parse(line));
+        entries.push(parseSessionEntry(line));
       } catch {
         continue;
       }
@@ -565,7 +586,7 @@ export async function readSessionEntriesPaginated(
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
-        const entry = JSON.parse(line) as ClaudeSessionEntry;
+        const entry = parseSessionEntry(line);
         if (isDisplayableMessage(entry)) {
           displayableEntries.push(entry);
         }
@@ -636,7 +657,7 @@ export async function renameSession(workspacePath: string, sessionId: string, ne
   const otherLines: string[] = [];
   for (const line of lines) {
     try {
-      const entry = JSON.parse(line);
+      const entry = parseSessionEntry(line);
       if (entry.type !== 'custom-title') {
         otherLines.push(line);
       }
@@ -864,7 +885,7 @@ export async function getLastMessageUuid(workspacePath: string, sessionId: strin
       const line = lines[i];
       if (!line.trim()) continue;
       try {
-        const entry = JSON.parse(line) as ClaudeSessionEntry;
+        const entry = parseSessionEntry(line);
         if ((entry.type === 'user' || entry.type === 'assistant') && entry.uuid) {
           return entry.uuid;
         }
@@ -895,7 +916,7 @@ export async function findUserMessageInCurrentTurn(
       const line = lines[i];
       if (!line.trim()) continue;
       try {
-        const entry = JSON.parse(line) as ClaudeSessionEntry;
+        const entry = parseSessionEntry(line);
         if (entry.type === 'queue-operation' && (entry as { operation?: string }).operation === 'dequeue') {
           lastQueueOpIndex = i;
           break;
@@ -910,7 +931,7 @@ export async function findUserMessageInCurrentTurn(
       const line = lines[i];
       if (!line.trim()) continue;
       try {
-        const entry = JSON.parse(line) as ClaudeSessionEntry;
+        const entry = parseSessionEntry(line);
 
         if (entry.type === 'user' && entry.uuid) {
           const messageContent = Array.isArray(entry.message?.content)
@@ -956,7 +977,7 @@ export async function findLastMessageInCurrentTurn(
       const line = lines[i];
       if (!line.trim()) continue;
       try {
-        const entry = JSON.parse(line) as ClaudeSessionEntry;
+        const entry = parseSessionEntry(line);
         if (entry.type === 'queue-operation' && (entry as { operation?: string }).operation === 'dequeue') {
           lastQueueOpIndex = i;
           break;
@@ -971,7 +992,7 @@ export async function findLastMessageInCurrentTurn(
       const line = lines[i];
       if (!line.trim()) continue;
       try {
-        const entry = JSON.parse(line) as ClaudeSessionEntry;
+        const entry = parseSessionEntry(line);
         if ((entry.type === 'user' || entry.type === 'assistant') && entry.uuid) {
           return entry.uuid;
         }
@@ -1050,14 +1071,20 @@ function extractUserMessageText(content: string | JsonlContentBlock[]): string {
   return '';
 }
 
+/**
+ * Extracts display text from command XML wrappers.
+ * Note: Control characters are already stripped at JSONL parse time.
+ */
 function cleanCommandWrapper(text: string): string {
-  if (text.startsWith('<command-') || text.startsWith('<local-command-')) {
-    const argsMatch = text.match(/<command-args>([\s\S]*?)<\/command-args>/);
-    if (argsMatch) {
-      return argsMatch[1].trim();
-    }
+  const commandDisplay = extractSlashCommandDisplay(text);
+  if (commandDisplay) {
+    return commandDisplay;
+  }
+
+  if (text.startsWith('<local-command-')) {
     return '';
   }
+
   return text;
 }
 

@@ -11,7 +11,9 @@ import {
 } from '@/components/icons';
 import { useCommandHistory } from '@/composables/useCommandHistory';
 import { useAtMentionAutocomplete } from '@/composables/useAtMentionAutocomplete';
+import { useSlashCommandAutocomplete } from '@/composables/useSlashCommandAutocomplete';
 import AtMentionPopup from './AtMentionPopup.vue';
+import SlashCommandPopup from './SlashCommandPopup.vue';
 
 const MAX_TEXTAREA_HEIGHT = 200;
 
@@ -43,6 +45,18 @@ const {
   selectItem: selectAtMentionItem,
   close: closeAtMention,
 } = useAtMentionAutocomplete(inputText, textareaRef);
+
+const {
+  isOpen: slashCommandOpen,
+  query: slashCommandQuery,
+  selectedIndex: slashCommandSelectedIndex,
+  filteredCommands: slashCommandCommands,
+  isLoading: slashCommandLoading,
+  checkAndUpdateSlashCommand,
+  handleKeyDown: handleSlashCommandKeyDown,
+  selectItem: selectSlashCommandItem,
+  close: closeSlashCommand,
+} = useSlashCommandAutocomplete(inputText, textareaRef);
 
 function adjustTextareaHeight() {
   const textarea = textareaRef.value;
@@ -106,12 +120,23 @@ function handleSend() {
   if (!canSend.value) return;
   const message = inputText.value.trim();
   addEntry(message);
+  // Send raw message - SDK handles slash command expansion
   emit('send', message);
   inputText.value = '';
   resetHistory();
 }
 
 function handleKeydown(event: KeyboardEvent) {
+  if (slashCommandOpen.value) {
+    if (['ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Escape'].includes(event.key)) {
+      const handled = handleSlashCommandKeyDown(event);
+      if (handled) {
+        event.preventDefault();
+        return;
+      }
+    }
+  }
+
   if (atMentionOpen.value) {
     if (['ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Escape'].includes(event.key)) {
       const handled = handleAtMentionKeyDown(event);
@@ -160,6 +185,7 @@ function handleInput() {
     resetHistory();
   }
   checkAndUpdateMention();
+  checkAndUpdateSlashCommand();
 }
 
 function handleCancel() {
@@ -202,6 +228,18 @@ const displayFile = computed(() => {
       :is-loading="atMentionLoading"
       @select="selectAtMentionItem(atMentionFiles.indexOf($event))"
       @close="closeAtMention"
+    />
+
+    <!-- Slash Command Autocomplete Popup -->
+    <SlashCommandPopup
+      :is-open="slashCommandOpen"
+      :commands="slashCommandCommands"
+      v-model:selected-index="slashCommandSelectedIndex"
+      :anchor-element="cardRef"
+      :query="slashCommandQuery"
+      :is-loading="slashCommandLoading"
+      @select="selectSlashCommandItem(slashCommandCommands.indexOf($event))"
+      @close="closeSlashCommand"
     />
 
     <!-- Input area -->

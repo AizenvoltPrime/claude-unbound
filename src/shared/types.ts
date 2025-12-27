@@ -21,6 +21,16 @@ export interface SlashCommandInfo {
   argumentHint: string;
 }
 
+// Custom slash command from .claude/commands/ files
+export interface CustomSlashCommandInfo {
+  name: string;
+  description: string;
+  argumentHint?: string;
+  filePath: string;
+  source: "project" | "user";
+  namespace?: string;
+}
+
 // System initialization data from SDK 'system' message (subtype: 'init')
 export interface SystemInitData {
   model: string;
@@ -281,7 +291,9 @@ export type WebviewToExtensionMessage =
   // Workspace file listing for @ mentions
   | { type: "requestWorkspaceFiles" }
   // Open file in editor (from clickable file paths)
-  | { type: "openFile"; filePath: string; line?: number };
+  | { type: "openFile"; filePath: string; line?: number }
+  // Custom slash commands from .claude/commands/
+  | { type: "requestCustomSlashCommands" };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
@@ -353,7 +365,9 @@ export type ExtensionToWebviewMessage =
       originalContent?: string;
       proposedContent?: string;
       command?: string;
-    };
+    }
+  // Custom slash commands from .claude/commands/
+  | { type: "customSlashCommands"; commands: CustomSlashCommandInfo[] };
 
 // Chat message for UI rendering
 export interface ChatMessage {

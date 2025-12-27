@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
-import { IconFile, IconFolder, IconLoader } from '@/components/icons';
-import type { WorkspaceFileInfo } from '@shared/types';
+import { IconLoader, IconTerminal } from '@/components/icons';
+import type { CustomSlashCommandInfo } from '@shared/types';
 import { escapeHtml } from '@shared/utils';
 
 const props = defineProps<{
   isOpen: boolean;
-  files: WorkspaceFileInfo[];
+  commands: CustomSlashCommandInfo[];
   selectedIndex: number;
   anchorElement: HTMLElement | null;
   query: string;
@@ -14,8 +14,9 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  select: [file: WorkspaceFileInfo];
+  select: [command: CustomSlashCommandInfo];
   close: [];
+  'update:selectedIndex': [index: number];
 }>();
 
 const popupRef = ref<HTMLDivElement | null>(null);
@@ -69,16 +70,6 @@ onUnmounted(() => {
   window.removeEventListener('resize', updatePosition);
 });
 
-function getFileName(path: string): string {
-  return path.split('/').pop() || path;
-}
-
-function getFolderPath(path: string): string {
-  const parts = path.split('/');
-  if (parts.length <= 1) return '';
-  return parts.slice(0, -1).join('/');
-}
-
 function highlightMatch(text: string): string {
   const escaped = escapeHtml(text);
   if (!props.query) return escaped;
@@ -94,6 +85,16 @@ function highlightMatch(text: string): string {
   const escapedAfter = escapeHtml(text.slice(index + props.query.length));
 
   return `${escapedBefore}<span class="text-unbound-cyan-300 font-semibold">${escapedMatch}</span>${escapedAfter}`;
+}
+
+function getSourceBadge(command: CustomSlashCommandInfo): string | null {
+  if (command.namespace) {
+    return command.namespace;
+  }
+  if (command.source === 'user') {
+    return 'user';
+  }
+  return null;
 }
 </script>
 
@@ -118,46 +119,57 @@ function highlightMatch(text: string): string {
             <!-- Loading State -->
             <div v-if="isLoading" class="px-3 py-4 flex items-center justify-center gap-2 text-sm text-unbound-muted">
               <IconLoader :size="16" class="animate-spin text-unbound-cyan-400" />
-              <span>Indexing workspace files...</span>
+              <span>Loading commands...</span>
             </div>
 
             <!-- Empty State -->
-            <div v-else-if="files.length === 0" class="px-3 py-4 text-center text-sm text-unbound-muted">
-              <div class="mb-1">No matching files</div>
-              <div class="text-xs opacity-70">Try a different search term</div>
+            <div v-else-if="commands.length === 0" class="px-3 py-4 text-center text-sm text-unbound-muted">
+              <div class="mb-1">No matching commands</div>
+              <div class="text-xs opacity-70">Create commands in .claude/commands/</div>
             </div>
 
-            <!-- File List -->
+            <!-- Command List -->
             <div
-              v-for="(file, index) in files"
+              v-for="(cmd, index) in commands"
               v-else
-              :key="file.relativePath"
+              :key="cmd.name"
               :ref="el => itemRefs[index] = el as HTMLDivElement"
               class="px-2 py-1.5 rounded cursor-pointer flex items-center gap-2 transition-all duration-75"
               :class="index === selectedIndex
                 ? 'bg-unbound-cyan-900/60 text-unbound-cyan-200'
                 : 'hover:bg-unbound-cyan-900/30 text-unbound-text'"
-              @click="emit('select', file)"
+              @click="emit('select', cmd)"
               @mouseenter="$emit('update:selectedIndex', index)"
             >
               <!-- Icon -->
-              <IconFolder v-if="file.isDirectory" :size="16" class="shrink-0 text-unbound-cyan-500" />
-              <IconFile v-else :size="16" class="shrink-0 text-unbound-muted" />
+              <IconTerminal :size="16" class="shrink-0 text-unbound-cyan-500" />
 
-              <!-- File info -->
-              <div class="flex-1 min-w-0 flex items-center gap-2">
-                <!-- Filename (primary) -->
-                <span
-                  class="font-medium truncate"
-                  v-html="highlightMatch(getFileName(file.relativePath))"
-                />
-                <!-- Folder path (secondary, right-aligned with RTL for smart truncation) -->
-                <span
-                  v-if="getFolderPath(file.relativePath)"
-                  class="text-xs text-unbound-muted/70 truncate flex-1 text-right"
-                  style="direction: rtl; text-align: right;"
-                >
-                  {{ getFolderPath(file.relativePath) }}
+              <!-- Command info -->
+              <div class="flex-1 min-w-0 flex flex-col">
+                <div class="flex items-center gap-2">
+                  <!-- Command name -->
+                  <span
+                    class="font-mono font-medium"
+                    v-html="'/' + highlightMatch(cmd.name)"
+                  />
+                  <!-- Argument hint -->
+                  <span
+                    v-if="cmd.argumentHint"
+                    class="text-xs text-unbound-muted/70 font-mono"
+                  >
+                    {{ cmd.argumentHint }}
+                  </span>
+                  <!-- Source badge -->
+                  <span
+                    v-if="getSourceBadge(cmd)"
+                    class="text-[10px] px-1.5 py-0.5 rounded bg-unbound-cyan-900/40 text-unbound-cyan-400/80"
+                  >
+                    {{ getSourceBadge(cmd) }}
+                  </span>
+                </div>
+                <!-- Description -->
+                <span class="text-xs text-unbound-muted truncate">
+                  {{ cmd.description }}
                 </span>
               </div>
             </div>

@@ -13,6 +13,7 @@
 - **Tool Visualization**: See what tools Claude is using in real-time
 - **Streaming Responses**: Watch Claude's responses as they're generated
 - **@ Mentions**: Type `@` to reference workspace files with fuzzy search autocomplete
+- **Slash Commands**: Type `/` to trigger custom command autocomplete from `.claude/commands/`
 - **Command History**: Navigate previous prompts with arrow keys (shell-style)
 - **Session Management**: Create, rename, resume, and delete sessions with confirmation
 - **Multi-Panel Sync**: Command history syncs across all open panels instantly
@@ -46,6 +47,14 @@
 - `↑` / `↓`: Navigate suggestions
 - `Tab` / `Enter`: Insert selected file
 - `Escape`: Close popup
+
+#### Slash Command Autocomplete
+- `/`: Trigger command autocomplete popup
+- `↑` / `↓`: Navigate suggestions
+- `Tab` / `Enter`: Insert selected command
+- `Escape`: Close popup
+
+Commands are loaded from `.claude/commands/*.md` (project) and `~/.claude/commands/*.md` (user).
 
 ## Configuration
 
