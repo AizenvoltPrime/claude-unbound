@@ -995,6 +995,7 @@ export class ClaudeSession {
   reset(): void {
     this.cancel();
     this.sessionId = null;
+    this.resumeSessionId = null;
     this.currentQuery = null;
     this.lastUserMessageId = null;
     this.messageCheckpoints.clear();
