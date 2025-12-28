@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick, computed } from 'vue';
 import { onKeyStroke } from '@vueuse/core';
+import { storeToRefs } from 'pinia';
 import MessageList from './components/MessageList.vue';
 import ChatInput from './components/ChatInput.vue';
 import SessionStats from './components/SessionStats.vue';
@@ -19,6 +20,7 @@ import { useVSCode } from './composables/useVSCode';
 import { useStreamingMessage } from './composables/useStreamingMessage';
 import { useSubagentMessages } from './composables/useSubagentMessages';
 import { useMessageHandler } from './composables/useMessageHandler';
+import { useUIStore, useSettingsStore } from './stores';
 import { Button } from '@/components/ui/button';
 import {
   IconGear,
@@ -32,14 +34,9 @@ import {
 } from '@/components/icons';
 import type {
   ChatMessage,
-  ToolCall,
   SessionStats as SessionStatsType,
   FileEntry,
   StoredSession,
-  AccountInfo,
-  ModelInfo,
-  ExtensionSettings,
-  McpServerStatusInfo,
   CompactMarker,
   PermissionMode,
 } from '@shared/types';
@@ -64,8 +61,32 @@ const {
   collapseSubagent,
   getSubagentStreaming,
 } = subagentMessages;
-const isProcessing = ref(false);
-const accountInfo = ref<AccountInfo | null>(null);
+
+// UI Store - centralized UI state management
+const uiStore = useUIStore();
+const {
+  isProcessing,
+  isAtBottom,
+  showSettingsPanel,
+  showMcpPanel,
+  showSessionPicker,
+  currentRunningTool,
+  pendingRewindMessageId,
+  renamingSessionId,
+  renameInputValue,
+  deletingSessionId,
+  showDeleteModal,
+} = storeToRefs(uiStore);
+
+// Settings Store - configuration state management
+const settingsStore = useSettingsStore();
+const {
+  currentSettings,
+  availableModels,
+  accountInfo,
+  mcpServers,
+  budgetWarning,
+} = storeToRefs(settingsStore);
 const currentSessionId = ref<string | null>(null);
 const sessionStats = ref<SessionStatsType>({
   totalCostUsd: 0,
@@ -78,13 +99,8 @@ const sessionStats = ref<SessionStatsType>({
 });
 const accessedFiles = ref<Map<string, FileEntry>>(new Map());
 const storedSessions = ref<StoredSession[]>([]);
-const showSessionPicker = ref(false);
-const selectedSessionId = ref<string | null>(null);  // Currently selected/resumed session
-const renamingSessionId = ref<string | null>(null);
-const renameInputValue = ref('');
+const selectedSessionId = ref<string | null>(null);
 const renameInputRef = ref<HTMLInputElement | null>(null);
-const deletingSessionId = ref<string | null>(null);
-const showDeleteModal = ref(false);
 // Session list pagination state
 const sessionPickerRef = ref<HTMLElement | null>(null);
 const hasMoreSessions = ref(false);
@@ -97,33 +113,10 @@ const nextHistoryOffset = ref(0);
 const loadingMoreHistory = ref(false);
 const currentResumedSessionId = ref<string | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
-const isAtBottom = ref(true);
 
-// New state for SDK features
-const availableModels = ref<ModelInfo[]>([]);
-const currentSettings = ref<ExtensionSettings>({
-  model: '',
-  maxTurns: 50,
-  maxBudgetUsd: null,
-  maxThinkingTokens: null,
-  betasEnabled: [],
-  permissionMode: 'default',
-  defaultPermissionMode: 'default',
-  enableFileCheckpointing: true,
-  sandbox: { enabled: false },
-});
-const mcpServers = ref<McpServerStatusInfo[]>([]);
 const compactMarkers = ref<CompactMarker[]>([]);
-const budgetWarning = ref<{ currentSpend: number; limit: number; exceeded: boolean } | null>(null);
 const checkpointMessages = ref<Set<string>>(new Set());
 
-// Track currently running tool for status bar display
-const currentRunningTool = ref<string | null>(null);
-
-// UI state
-const showSettingsPanel = ref(false);
-const showMcpPanel = ref(false);
-const pendingRewindMessageId = ref<string | null>(null);
 export interface PendingPermissionInfo {
   toolUseId: string;
   toolName: string;
@@ -212,7 +205,7 @@ function handleSendMessage(content: string) {
 
 function handleModeChange(mode: PermissionMode) {
   postMessage({ type: 'setPermissionMode', mode });
-  currentSettings.value.permissionMode = mode; // Optimistic update
+  settingsStore.setPermissionMode(mode);
 }
 
 function handleCancel() {
@@ -220,44 +213,35 @@ function handleCancel() {
 }
 
 function handleResumeSession(sessionId: string) {
-  // Clear previous session's data before loading new session
   clearMessages();
   accessedFiles.value.clear();
   sessionStats.value = { totalCostUsd: 0, totalInputTokens: 0, totalOutputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, numTurns: 0, contextWindowSize: 200000 };
 
-  // Reset pagination state for new session
   currentResumedSessionId.value = sessionId;
-  selectedSessionId.value = sessionId;  // Track selected session for UI
+  selectedSessionId.value = sessionId;
   hasMoreHistory.value = false;
   nextHistoryOffset.value = 0;
   loadingMoreHistory.value = false;
   postMessage({ type: 'resumeSession', sessionId });
-  showSessionPicker.value = false;
-}
-
-function toggleSessionPicker() {
-  showSessionPicker.value = !showSessionPicker.value;
+  uiStore.closeSessionPicker();
 }
 
 onKeyStroke('Escape', () => {
   if (showSessionPicker.value && !renamingSessionId.value) {
-    showSessionPicker.value = false;
+    uiStore.closeSessionPicker();
   }
 });
 
+function toggleSessionPicker() {
+  uiStore.toggleSessionPicker();
+}
+
 function startRenameSession(sessionId: string, currentName: string) {
-  renamingSessionId.value = sessionId;
-  renameInputValue.value = currentName;
-  // Focus the input after Vue renders the input element
+  uiStore.startRename(sessionId, currentName);
   nextTick(() => {
     renameInputRef.value?.focus();
     renameInputRef.value?.select();
   });
-}
-
-function cancelRenameSession() {
-  renamingSessionId.value = null;
-  renameInputValue.value = '';
 }
 
 function submitRenameSession() {
@@ -267,18 +251,20 @@ function submitRenameSession() {
       sessionId: renamingSessionId.value,
       newName: renameInputValue.value.trim(),
     });
-    cancelRenameSession();
+    uiStore.cancelRename();
   }
 }
 
+function cancelRenameSession() {
+  uiStore.cancelRename();
+}
+
 function startDeleteSession(sessionId: string) {
-  deletingSessionId.value = sessionId;
-  showDeleteModal.value = true;
+  uiStore.startDelete(sessionId);
 }
 
 function cancelDeleteSession() {
-  deletingSessionId.value = null;
-  showDeleteModal.value = false;
+  uiStore.cancelDelete();
 }
 
 function confirmDeleteSession() {
@@ -287,7 +273,7 @@ function confirmDeleteSession() {
       type: 'deleteSession',
       sessionId: deletingSessionId.value,
     });
-    cancelDeleteSession();
+    uiStore.cancelDelete();
   }
 }
 
@@ -310,14 +296,12 @@ function handleMessageScroll(event: Event) {
   const container = event.target as HTMLElement;
   if (!container) return;
 
-  // Load more when scrolled within 100px of the top
   if (container.scrollTop < 100 && hasMoreHistory.value && !loadingMoreHistory.value) {
     loadMoreHistory();
   }
 
-  // Track if user is at bottom (within 20px threshold)
   const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-  isAtBottom.value = scrollBottom < 20;
+  uiStore.setIsAtBottom(scrollBottom < 20);
 }
 
 function scrollToBottom() {
@@ -373,39 +357,34 @@ function formatSessionTime(timestamp: number): string {
   return date.toLocaleDateString();
 }
 
-// New handlers for settings panel (optimistic updates to prevent feedback loops)
 function handleSetModel(model: string) {
-  currentSettings.value.model = model;
+  settingsStore.setModel(model);
   postMessage({ type: 'setModel', model });
 }
 
 function handleSetMaxThinkingTokens(tokens: number | null) {
-  currentSettings.value.maxThinkingTokens = tokens;
+  settingsStore.setMaxThinkingTokens(tokens);
   postMessage({ type: 'setMaxThinkingTokens', tokens });
 }
 
 function handleSetBudgetLimit(budgetUsd: number | null) {
-  currentSettings.value.maxBudgetUsd = budgetUsd;
+  settingsStore.setBudgetLimit(budgetUsd);
   postMessage({ type: 'setBudgetLimit', budgetUsd });
 }
 
 function handleToggleBeta(beta: string, enabled: boolean) {
-  if (enabled) {
-    currentSettings.value.betasEnabled = [...currentSettings.value.betasEnabled, beta];
-  } else {
-    currentSettings.value.betasEnabled = currentSettings.value.betasEnabled.filter(b => b !== beta);
-  }
+  settingsStore.toggleBeta(beta, enabled);
   postMessage({ type: 'toggleBeta', beta, enabled });
 }
 
 function handleSetPermissionMode(mode: PermissionMode) {
   postMessage({ type: 'setPermissionMode', mode });
-  currentSettings.value.permissionMode = mode; // Update local state
+  settingsStore.setPermissionMode(mode);
 }
 
 function handleSetDefaultPermissionMode(mode: PermissionMode) {
   postMessage({ type: 'setDefaultPermissionMode', mode });
-  currentSettings.value.defaultPermissionMode = mode; // Update local state
+  settingsStore.setDefaultPermissionMode(mode);
 }
 
 function handleOpenVSCodeSettings() {
@@ -427,18 +406,18 @@ function handleRefreshMcpStatus() {
 
 // Rewind handlers
 function handleRequestRewind(messageId: string) {
-  pendingRewindMessageId.value = messageId;
+  uiStore.requestRewind(messageId);
 }
 
 function handleConfirmRewind() {
   if (pendingRewindMessageId.value) {
     postMessage({ type: 'rewindToMessage', userMessageId: pendingRewindMessageId.value });
-    pendingRewindMessageId.value = null;
+    uiStore.cancelRewind();
   }
 }
 
 function handleCancelRewind() {
-  pendingRewindMessageId.value = null;
+  uiStore.cancelRewind();
 }
 
 function handlePermissionApproval(toolUseId: string, approved: boolean, options?: { acceptAll?: boolean; customMessage?: string }) {
@@ -464,9 +443,8 @@ function handleInterrupt(_toolId: string) {
 }
 
 
-// Dismiss budget warning
 function handleDismissBudgetWarning() {
-  budgetWarning.value = null;
+  settingsStore.dismissBudgetWarning();
 }
 
 // Get message preview for rewind modal
@@ -502,7 +480,7 @@ const pendingPermissionCount = computed(() => pendingPermissions.value.size);
       <!-- MCP Status Indicator -->
       <McpStatusIndicator
         :servers="mcpServers"
-        @click="showMcpPanel = true"
+        @click="uiStore.openMcpPanel()"
       />
 
       <!-- Settings button -->
@@ -511,7 +489,7 @@ const pendingPermissionCount = computed(() => pendingPermissions.value.size);
         size="icon-sm"
         class="text-unbound-cyan-400 hover:bg-unbound-cyan-900/30"
         title="Settings"
-        @click="showSettingsPanel = true"
+        @click="uiStore.openSettingsPanel()"
       >
         <IconGear :size="18" />
       </Button>
@@ -726,7 +704,7 @@ const pendingPermissionCount = computed(() => pendingPermissions.value.size);
       :visible="showSettingsPanel"
       :settings="currentSettings"
       :available-models="availableModels"
-      @close="showSettingsPanel = false"
+      @close="uiStore.closeSettingsPanel()"
       @set-model="handleSetModel"
       @set-max-thinking-tokens="handleSetMaxThinkingTokens"
       @set-budget-limit="handleSetBudgetLimit"
@@ -739,7 +717,7 @@ const pendingPermissionCount = computed(() => pendingPermissions.value.size);
     <McpStatusPanel
       :visible="showMcpPanel"
       :servers="mcpServers"
-      @close="showMcpPanel = false"
+      @close="uiStore.closeMcpPanel()"
       @refresh="handleRefreshMcpStatus"
     />
 
