@@ -39,6 +39,7 @@ import type {
   StoredSession,
   CompactMarker,
   PermissionMode,
+  PendingPermissionInfo,
 } from '@shared/types';
 
 const { postMessage } = useVSCode();
@@ -116,17 +117,6 @@ const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
 
 const compactMarkers = ref<CompactMarker[]>([]);
 const checkpointMessages = ref<Set<string>>(new Set());
-
-export interface PendingPermissionInfo {
-  toolUseId: string;
-  toolName: string;
-  filePath?: string;
-  originalContent?: string;
-  proposedContent?: string;
-  command?: string;
-  parentToolUseId?: string | null;
-  agentDescription?: string;
-}
 const pendingPermissions = ref<Map<string, PendingPermissionInfo>>(new Map());
 
 const filesArray = computed(() => Array.from(accessedFiles.value.values()));

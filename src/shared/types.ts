@@ -168,6 +168,18 @@ export interface BudgetWarningInfo {
   percentUsed: number;
 }
 
+// Permission request info for tool approval queue
+export interface PendingPermissionInfo {
+  toolUseId: string;
+  toolName: string;
+  filePath?: string;
+  originalContent?: string;
+  proposedContent?: string;
+  command?: string;
+  parentToolUseId?: string | null;
+  agentDescription?: string;
+}
+
 // ============================================================================
 // Tool Input Types
 // ============================================================================
