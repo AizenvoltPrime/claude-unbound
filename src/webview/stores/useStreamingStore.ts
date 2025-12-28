@@ -1,4 +1,4 @@
-import { shallowRef, ref } from 'vue';
+import { ref } from 'vue';
 import { defineStore } from 'pinia';
 import type {
   ChatMessage,
@@ -13,7 +13,7 @@ export interface ToolStatusEntry {
 }
 
 export const useStreamingStore = defineStore('streaming', () => {
-  const messages = shallowRef<ChatMessage[]>([]);
+  const messages = ref<ChatMessage[]>([]);
   const streamingMessage = ref<ChatMessage | null>(null);
   const toolStatusCache = ref<Map<string, ToolStatusEntry>>(new Map());
 

@@ -9,36 +9,19 @@ Claude Unbound is a VS Code extension that integrates Claude AI as a coding assi
 ## Development Commands
 
 ```bash
-# Install dependencies
-npm install
-
-# Build both extension and webview
-npm run build
-
-# Watch mode for development (builds both on change)
-npm run dev
-
-# Type checking
-npm run typecheck
-
-# Lint
-npm run lint
-
-# Build extension only (esbuild)
-npm run build:extension
-
-# Build webview only (Vite)
-npm run build:webview
-
-# Package for distribution
-npm run package
+npm install           # Install dependencies
+npm run build         # Build both extension and webview
+npm run dev           # Watch mode for development
+npm run typecheck     # Type checking
+npm run lint          # Lint
+npm run package       # Package for distribution
 ```
 
 **Testing:** Press F5 in VS Code to launch the Extension Development Host.
 
 ## Architecture
 
-### Three-Layer Structure
+### Extension ↔ Webview Communication
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -51,15 +34,15 @@ npm run package
 │           │              postMessage           │            │
 ├───────────┼────────────────────────────────────┼────────────┤
 │           ▼                                    ▼            │
-│                         Webview (Vue 3)                     │
+│                      Webview (Vue 3 + Pinia)                │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │  App.vue ─── MessageList, ChatInput, ToolCallCard   │   │
-│  │              SettingsPanel, DiffView, etc.          │   │
+│  │  App.vue ─── Pinia Stores ─── Components            │   │
+│  │  useMessageHandler (composable) handles all events  │   │
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Key Files
+### Key Extension Files
 
 | File | Purpose |
 |------|---------|
@@ -67,14 +50,24 @@ npm run package
 | `src/extension/ChatPanelProvider.ts` | Creates/manages webview panels, routes messages |
 | `src/extension/PermissionHandler.ts` | Intercepts Edit/Write tools, shows diff for approval |
 | `src/shared/types.ts` | All TypeScript types for extension↔webview communication |
-| `src/webview/App.vue` | Main webview component, message state management |
+
+### Webview State (Pinia Stores)
+
+| Store | Responsibility |
+|-------|----------------|
+| `useUIStore` | Panel visibility, processing state, scroll position |
+| `useSettingsStore` | Model selection, thinking tokens, permission mode, MCP servers |
+| `useSessionStore` | Session list, history pagination, checkpoints, stats |
+| `usePermissionStore` | Pending tool approvals queue |
+| `useStreamingStore` | Messages array, streaming message, tool status |
+| `useSubagentStore` | Subagent instances and their streaming states |
 
 ### Communication Flow
 
 1. User types in ChatInput → `postMessage({ type: 'sendMessage', content })`
 2. ChatPanelProvider receives → calls `ClaudeSession.sendMessage()`
 3. ClaudeSession streams SDK responses → converts to `ExtensionToWebviewMessage`
-4. Webview receives via `onMessage()` → updates Vue reactive state
+4. `useMessageHandler` composable dispatches to appropriate Pinia stores
 
 ### Build Targets
 
@@ -82,7 +75,7 @@ npm run package
 - **Webview:** Vite bundles `src/webview/` → `dist/webview/` (ESM for browser)
 - SDK is external (not bundled) - listed in `esbuild.config.mjs`
 
-## SDK Integration Notes
+## SDK Integration
 
 ClaudeSession wraps the Agent SDK `query()` function with:
 
@@ -93,9 +86,16 @@ ClaudeSession wraps the Agent SDK `query()` function with:
 
 The SDK is dynamically imported (ESM) since the extension uses CommonJS.
 
+## Webview UI
+
+- **Component Library:** shadcn-vue (radix-vue based) in `src/webview/components/ui/`
+- **Styling:** Tailwind CSS with custom `unbound-*` color tokens
+- **Icons:** Lucide icons via wrapper components in `src/webview/components/icons/`
+- **Code Highlighting:** Shiki with VS Code themes
+
 ## Type Aliases
 
-The codebase uses path aliases configured in both tsconfig.json and vite.config.ts:
+Configured in both tsconfig.json and vite.config.ts:
 - `@shared/*` → `src/shared/*`
 - `@/*` → `src/webview/*` (webview only)
 
@@ -108,14 +108,15 @@ The codebase uses path aliases configured in both tsconfig.json and vite.config.
 | `bypassPermissions` | Auto-approves all tools |
 | `plan` | Read-only mode, no tool execution |
 
-## MCP Server Configuration
-
-MCP servers are loaded from `.mcp.json` in the workspace root and passed to the SDK at session start.
-
 ## Session Storage
 
-Sessions are stored in `~/.claude/projects/<encoded-workspace-path>/` as JSONL files. The `SessionStorage.ts` module handles:
-- Path encoding for cross-platform compatibility
-- Session listing with pagination
-- Session renaming (custom-title entries)
-- JSONL parsing for history replay
+Sessions are stored in `~/.claude/projects/<encoded-workspace-path>/` as JSONL files. The `SessionStorage.ts` module handles path encoding, pagination, renaming, and history replay.
+
+## Code Quality Standards
+
+- Never implement fallback business logic, backwards compatibility, or bandaid fixes
+- Address root causes rather than symptoms
+- Write self-documenting code; avoid inline comments
+- Use concise documentation comments for public APIs only
+- Prefer functional patterns over OOP
+- Use Tailwind instead of custom CSS

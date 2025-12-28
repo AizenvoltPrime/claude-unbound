@@ -19,7 +19,7 @@ const props = defineProps<{
   streamingMessage?: ChatMessage | null;
   compactMarkers?: CompactMarkerType[];
   checkpointMessages?: Set<string>;
-  subagents?: Map<string, SubagentState>;
+  subagents?: Record<string, SubagentState>;
 }>();
 
 const emit = defineEmits<{
@@ -29,7 +29,7 @@ const emit = defineEmits<{
 }>();
 
 function isTaskToolWithSubagent(toolId: string, toolName: string): boolean {
-  return toolName === 'Task' && (props.subagents?.has(toolId) ?? false);
+  return toolName === 'Task' && (props.subagents ? toolId in props.subagents : false);
 }
 
 function getMarkersBeforeMessage(messageTimestamp: number, messageIndex: number): CompactMarkerType[] {
@@ -93,8 +93,8 @@ function canRewindTo(message: ChatMessage): boolean {
         <div v-if="message.toolCalls?.length" class="pl-4 space-y-2">
           <template v-for="tool in message.toolCalls" :key="tool.id">
             <SubagentCard
-              v-if="isTaskToolWithSubagent(tool.id, tool.name) && subagents?.get(tool.id)"
-              :subagent="subagents.get(tool.id)!"
+              v-if="isTaskToolWithSubagent(tool.id, tool.name) && subagents?.[tool.id]"
+              :subagent="subagents[tool.id]"
               @expand="emit('expandSubagent', tool.id)"
             />
             <ToolCallCard v-else :tool-call="tool" @interrupt="emit('interrupt', $event)" />
@@ -121,8 +121,8 @@ function canRewindTo(message: ChatMessage): boolean {
       <div v-if="streamingMessage.toolCalls?.length" class="pl-4 space-y-2">
         <template v-for="tool in streamingMessage.toolCalls" :key="tool.id">
           <SubagentCard
-            v-if="isTaskToolWithSubagent(tool.id, tool.name) && subagents?.get(tool.id)"
-            :subagent="subagents.get(tool.id)!"
+            v-if="isTaskToolWithSubagent(tool.id, tool.name) && subagents?.[tool.id]"
+            :subagent="subagents[tool.id]"
             @expand="emit('expandSubagent', tool.id)"
           />
           <ToolCallCard v-else :tool-call="tool" @interrupt="emit('interrupt', $event)" />
