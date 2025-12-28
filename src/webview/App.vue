@@ -17,10 +17,15 @@ import RewindConfirmModal from './components/RewindConfirmModal.vue';
 import DeleteSessionModal from './components/DeleteSessionModal.vue';
 import PermissionPrompt from './components/PermissionPrompt.vue';
 import { useVSCode } from './composables/useVSCode';
-import { useStreamingMessage } from './composables/useStreamingMessage';
-import { useSubagentMessages } from './composables/useSubagentMessages';
 import { useMessageHandler } from './composables/useMessageHandler';
-import { useUIStore, useSettingsStore } from './stores';
+import {
+  useUIStore,
+  useSettingsStore,
+  useSessionStore,
+  usePermissionStore,
+  useStreamingStore,
+  useSubagentStore,
+} from './stores';
 import { Button } from '@/components/ui/button';
 import {
   IconGear,
@@ -34,36 +39,12 @@ import {
 } from '@/components/icons';
 import type {
   ChatMessage,
-  SessionStats as SessionStatsType,
-  FileEntry,
   StoredSession,
-  CompactMarker,
   PermissionMode,
-  PendingPermissionInfo,
 } from '@shared/types';
 
 const { postMessage } = useVSCode();
 
-// Streaming message composable - handles all message accumulation logic
-const streaming = useStreamingMessage();
-const {
-  messages,
-  streamingMessage,
-  updateToolStatus,
-  clearAll: clearMessages,
-} = streaming;
-
-// Subagent messages composable - handles Task tool state and overlay
-const subagentMessages = useSubagentMessages();
-const {
-  subagents,
-  expandedSubagent,
-  expandSubagent,
-  collapseSubagent,
-  getSubagentStreaming,
-} = subagentMessages;
-
-// UI Store - centralized UI state management
 const uiStore = useUIStore();
 const {
   isProcessing,
@@ -79,7 +60,6 @@ const {
   showDeleteModal,
 } = storeToRefs(uiStore);
 
-// Settings Store - configuration state management
 const settingsStore = useSettingsStore();
 const {
   currentSettings,
@@ -88,105 +68,45 @@ const {
   mcpServers,
   budgetWarning,
 } = storeToRefs(settingsStore);
-const currentSessionId = ref<string | null>(null);
-const sessionStats = ref<SessionStatsType>({
-  totalCostUsd: 0,
-  totalInputTokens: 0,
-  totalOutputTokens: 0,
-  cacheCreationTokens: 0,
-  cacheReadTokens: 0,
-  numTurns: 0,
-  contextWindowSize: 200000,
-});
-const accessedFiles = ref<Map<string, FileEntry>>(new Map());
-const storedSessions = ref<StoredSession[]>([]);
-const selectedSessionId = ref<string | null>(null);
-const renameInputRef = ref<HTMLInputElement | null>(null);
-// Session list pagination state
-const sessionPickerRef = ref<HTMLElement | null>(null);
-const hasMoreSessions = ref(false);
-const nextSessionsOffset = ref(0);
-const loadingMoreSessions = ref(false);
-// History pagination state
-const messageContainerRef = ref<HTMLElement | null>(null);
-const hasMoreHistory = ref(false);
-const nextHistoryOffset = ref(0);
-const loadingMoreHistory = ref(false);
-const currentResumedSessionId = ref<string | null>(null);
-const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
 
-const compactMarkers = ref<CompactMarker[]>([]);
-const checkpointMessages = ref<Set<string>>(new Set());
-const pendingPermissions = ref<Map<string, PendingPermissionInfo>>(new Map());
-
-const filesArray = computed(() => Array.from(accessedFiles.value.values()));
-const compactMarkersList = computed(() => compactMarkers.value);
-
-// Get the most recently accessed file for display in input
-const lastAccessedFile = computed(() => {
-  const files = Array.from(accessedFiles.value.values());
-  if (files.length === 0) return undefined;
-  // Return the last one (most recent)
-  return files[files.length - 1].path;
-});
-
-// Get the selected session object for display
-const selectedSession = computed(() => {
-  if (!selectedSessionId.value) return null;
-  return storedSessions.value.find((s: StoredSession) => s.id === selectedSessionId.value) || null;
-});
-
-function trackFileAccess(toolName: string, input: Record<string, unknown>) {
-  const filePath = input.file_path as string | undefined;
-  if (!filePath) return;
-
-  let operation: FileEntry['operation'];
-  switch (toolName) {
-    case 'Read':
-      operation = 'read';
-      break;
-    case 'Edit':
-      operation = 'edit';
-      break;
-    case 'Write':
-      operation = accessedFiles.value.has(filePath) ? 'write' : 'create';
-      break;
-    default:
-      return;
-  }
-
-  accessedFiles.value.set(filePath, { path: filePath, operation });
-}
-
-// Set up message handler for extension-to-webview communication
-useMessageHandler({
-  streaming,
-  subagentMessages,
-  isProcessing,
-  accountInfo,
+const sessionStore = useSessionStore();
+const {
   currentSessionId,
-  sessionStats,
-  accessedFiles,
-  storedSessions,
   selectedSessionId,
+  currentResumedSessionId,
+  storedSessions,
   hasMoreSessions,
   nextSessionsOffset,
   loadingMoreSessions,
   hasMoreHistory,
   nextHistoryOffset,
   loadingMoreHistory,
-  currentResumedSessionId,
-  availableModels,
-  currentSettings,
-  mcpServers,
-  compactMarkers,
-  budgetWarning,
   checkpointMessages,
-  currentRunningTool,
-  pendingPermissions,
+  compactMarkers,
+  sessionStats,
+  selectedSession,
+  lastAccessedFile,
+} = storeToRefs(sessionStore);
+
+const permissionStore = usePermissionStore();
+const { currentPermission, pendingCount: pendingPermissionCount } = storeToRefs(permissionStore);
+
+const streamingStore = useStreamingStore();
+const { messages, streamingMessage } = storeToRefs(streamingStore);
+
+const subagentStore = useSubagentStore();
+const { subagents, expandedSubagent } = storeToRefs(subagentStore);
+
+const messageContainerRef = ref<HTMLElement | null>(null);
+const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
+const renameInputRef = ref<HTMLInputElement | null>(null);
+const sessionPickerRef = ref<HTMLElement | null>(null);
+
+const compactMarkersList = computed(() => compactMarkers.value);
+
+useMessageHandler({
   messageContainerRef,
   chatInputRef,
-  trackFileAccess,
 });
 
 function handleSendMessage(content: string) {
@@ -203,15 +123,11 @@ function handleCancel() {
 }
 
 function handleResumeSession(sessionId: string) {
-  clearMessages();
-  accessedFiles.value.clear();
-  sessionStats.value = { totalCostUsd: 0, totalInputTokens: 0, totalOutputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, numTurns: 0, contextWindowSize: 200000 };
+  streamingStore.$reset();
+  sessionStore.clearSessionData();
 
-  currentResumedSessionId.value = sessionId;
-  selectedSessionId.value = sessionId;
-  hasMoreHistory.value = false;
-  nextHistoryOffset.value = 0;
-  loadingMoreHistory.value = false;
+  sessionStore.setResumedSession(sessionId);
+  sessionStore.setSelectedSession(sessionId);
   postMessage({ type: 'resumeSession', sessionId });
   uiStore.closeSessionPicker();
 }
@@ -267,13 +183,12 @@ function confirmDeleteSession() {
   }
 }
 
-// Load more history when scrolling to top
 function loadMoreHistory() {
   if (!hasMoreHistory.value || loadingMoreHistory.value || !currentResumedSessionId.value) {
     return;
   }
 
-  loadingMoreHistory.value = true;
+  sessionStore.setLoadingMoreHistory(true);
   postMessage({
     type: 'requestMoreHistory',
     sessionId: currentResumedSessionId.value,
@@ -281,7 +196,6 @@ function loadMoreHistory() {
   });
 }
 
-// Handle scroll to detect when user is near the top or bottom
 function handleMessageScroll(event: Event) {
   const container = event.target as HTMLElement;
   if (!container) return;
@@ -301,25 +215,22 @@ function scrollToBottom() {
   }
 }
 
-// Load more sessions when scrolling to bottom of session picker
 function loadMoreSessions() {
   if (!hasMoreSessions.value || loadingMoreSessions.value) {
     return;
   }
 
-  loadingMoreSessions.value = true;
+  sessionStore.setLoadingMoreSessions(true);
   postMessage({
     type: 'requestMoreSessions',
     offset: nextSessionsOffset.value,
   });
 }
 
-// Handle scroll in session picker
 function handleSessionPickerScroll(event: Event) {
   const container = event.target as HTMLElement;
   if (!container) return;
 
-  // Load more when scrolled within 50px of the bottom
   const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
   if (scrollBottom < 50 && hasMoreSessions.value && !loadingMoreSessions.value) {
     loadMoreSessions();
@@ -327,8 +238,6 @@ function handleSessionPickerScroll(event: Event) {
 }
 
 function getSessionDisplayName(session: StoredSession): string {
-  // Priority: customTitle (user-set name) > preview (first user message)
-  // Note: slug is an internal identifier, not shown to users
   return session.customTitle || session.preview;
 }
 
@@ -389,12 +298,10 @@ function handleOpenAgentLog(agentId: string) {
   postMessage({ type: 'openAgentLog', agentId });
 }
 
-// MCP handlers
 function handleRefreshMcpStatus() {
   postMessage({ type: 'requestMcpStatus' });
 }
 
-// Rewind handlers
 function handleRequestRewind(messageId: string) {
   uiStore.requestRewind(messageId);
 }
@@ -411,7 +318,7 @@ function handleCancelRewind() {
 }
 
 function handlePermissionApproval(toolUseId: string, approved: boolean, options?: { acceptAll?: boolean; customMessage?: string }) {
-  updateToolStatus(toolUseId, approved ? 'approved' : 'denied');
+  streamingStore.updateToolStatus(toolUseId, approved ? 'approved' : 'denied');
 
   if (options?.acceptAll) {
     handleSetPermissionMode('acceptEdits');
@@ -423,35 +330,22 @@ function handlePermissionApproval(toolUseId: string, approved: boolean, options?
     approved,
     customMessage: options?.customMessage,
   });
-  pendingPermissions.value.delete(toolUseId);
+  permissionStore.removePermission(toolUseId);
 }
 
-// Tool interrupt handler
-// Note: toolId is passed from ToolCallCard but current SDK only supports global interrupt
 function handleInterrupt(_toolId: string) {
   postMessage({ type: 'interrupt' });
 }
-
 
 function handleDismissBudgetWarning() {
   settingsStore.dismissBudgetWarning();
 }
 
-// Get message preview for rewind modal
 const rewindMessagePreview = computed(() => {
   if (!pendingRewindMessageId.value) return '';
   const msg = messages.value.find((m: ChatMessage) => m.id === pendingRewindMessageId.value);
   return msg?.content.slice(0, 100) || '';
 });
-
-const currentPermission = computed(() => {
-  const firstEntry = pendingPermissions.value.entries().next();
-  if (firstEntry.done) return null;
-  const [toolUseId, info] = firstEntry.value;
-  return { toolUseId, ...info };
-});
-
-const pendingPermissionCount = computed(() => pendingPermissions.value.size);
 </script>
 
 <template>
@@ -495,7 +389,7 @@ const pendingPermissionCount = computed(() => pendingPermissions.value.size);
     />
 
     <!-- Subagents Indicator (running and recently completed) -->
-    <SubagentIndicator :subagents="subagents" @expand="expandSubagent" />
+    <SubagentIndicator :subagents="subagents" @expand="subagentStore.expandSubagent" />
 
     <!-- Session picker dropdown (select-box style) -->
     <div v-if="storedSessions.length > 0" class="px-3 py-2 border-b border-unbound-cyan-900/30 bg-unbound-bg-light">
@@ -632,7 +526,7 @@ const pendingPermissionCount = computed(() => pendingPermissions.value.size);
           :subagents="subagents"
           @rewind="handleRequestRewind"
           @interrupt="handleInterrupt"
-          @expand-subagent="expandSubagent"
+          @expand-subagent="subagentStore.expandSubagent"
         />
       </div>
 
@@ -731,8 +625,8 @@ const pendingPermissionCount = computed(() => pendingPermissions.value.size);
     <SubagentOverlay
       v-if="expandedSubagent"
       :subagent="expandedSubagent"
-      :streaming="expandedSubagent ? getSubagentStreaming(expandedSubagent.id) : undefined"
-      @close="collapseSubagent"
+      :streaming="expandedSubagent ? subagentStore.getSubagentStreaming(expandedSubagent.id) : undefined"
+      @close="subagentStore.collapseSubagent"
       @interrupt="handleInterrupt"
       @open-log="handleOpenAgentLog"
     />

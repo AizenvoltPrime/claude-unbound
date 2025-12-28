@@ -14,7 +14,7 @@ export interface ToolStatusEntry {
 
 export const useStreamingStore = defineStore('streaming', () => {
   const messages = shallowRef<ChatMessage[]>([]);
-  const streamingMessage = shallowRef<ChatMessage | null>(null);
+  const streamingMessage = ref<ChatMessage | null>(null);
   const toolStatusCache = ref<Map<string, ToolStatusEntry>>(new Map());
 
   function generateId(): string {
@@ -244,6 +244,12 @@ export const useStreamingStore = defineStore('streaming', () => {
     messages.value = [...olderMessages, ...messages.value];
   }
 
+  function addMessage(message: Omit<ChatMessage, 'id'>): ChatMessage {
+    const msg: ChatMessage = { id: generateId(), ...message };
+    messages.value = [...messages.value, msg];
+    return msg;
+  }
+
   function $reset() {
     messages.value = [];
     streamingMessage.value = null;
@@ -267,6 +273,7 @@ export const useStreamingStore = defineStore('streaming', () => {
     addUserMessage,
     addErrorMessage,
     prependMessages,
+    addMessage,
     $reset,
   };
 });

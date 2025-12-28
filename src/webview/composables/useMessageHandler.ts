@@ -2,82 +2,24 @@ import { onMounted, nextTick } from "vue";
 import type { Ref, ComponentPublicInstance } from "vue";
 import { toast } from "vue-sonner";
 import { useVSCode } from "./useVSCode";
-import type { UseStreamingMessageReturn } from "./useStreamingMessage";
-import type { UseSubagentMessagesReturn } from "./useSubagentMessages";
+import { useUIStore } from "@/stores/useUIStore";
+import { useSettingsStore } from "@/stores/useSettingsStore";
+import { useSessionStore } from "@/stores/useSessionStore";
+import { usePermissionStore } from "@/stores/usePermissionStore";
+import { useStreamingStore } from "@/stores/useStreamingStore";
+import { useSubagentStore } from "@/stores/useSubagentStore";
 import type {
   ChatMessage,
   ToolCall,
-  SessionStats,
-  FileEntry,
-  StoredSession,
-  AccountInfo,
-  ModelInfo,
-  ExtensionSettings,
-  McpServerStatusInfo,
-  CompactMarker,
   HistoryMessage,
   HistoryToolCall,
 } from "@shared/types";
 
-/**
- * Options for setting up the message handler.
- * These are refs and callbacks from the parent component.
- */
 export interface MessageHandlerOptions {
-  // Streaming message composable
-  streaming: UseStreamingMessageReturn;
-  // Subagent message composable
-  subagentMessages: UseSubagentMessagesReturn;
-
-  // App state refs
-  isProcessing: Ref<boolean>;
-  accountInfo: Ref<AccountInfo | null>;
-  currentSessionId: Ref<string | null>;
-  sessionStats: Ref<SessionStats>;
-  accessedFiles: Ref<Map<string, FileEntry>>;
-  storedSessions: Ref<StoredSession[]>;
-  selectedSessionId: Ref<string | null>;
-  hasMoreSessions: Ref<boolean>;
-  nextSessionsOffset: Ref<number>;
-  loadingMoreSessions: Ref<boolean>;
-  hasMoreHistory: Ref<boolean>;
-  nextHistoryOffset: Ref<number>;
-  loadingMoreHistory: Ref<boolean>;
-  currentResumedSessionId: Ref<string | null>;
-  availableModels: Ref<ModelInfo[]>;
-  currentSettings: Ref<ExtensionSettings>;
-  mcpServers: Ref<McpServerStatusInfo[]>;
-  compactMarkers: Ref<CompactMarker[]>;
-  budgetWarning: Ref<{ currentSpend: number; limit: number; exceeded: boolean } | null>;
-  checkpointMessages: Ref<Set<string>>;
-  currentRunningTool: Ref<string | null>;
-  pendingPermissions: Ref<
-    Map<
-      string,
-      {
-        toolUseId: string;
-        toolName: string;
-        filePath?: string;
-        originalContent?: string;
-        proposedContent?: string;
-        command?: string;
-        parentToolUseId?: string | null;
-        agentDescription?: string;
-      }
-    >
-  >;
-
-  // DOM refs for scroll management
   messageContainerRef: Ref<HTMLElement | null>;
   chatInputRef: Ref<ComponentPublicInstance<{ focus: () => void }> | null>;
-
-  // Callbacks
-  trackFileAccess: (toolName: string, input: Record<string, unknown>) => void;
 }
 
-/**
- * Convert HistoryToolCall[] to ToolCall[] (history tools are always completed)
- */
 function convertHistoryTools(tools: HistoryToolCall[] | undefined): ToolCall[] | undefined {
   return tools?.map((t) => ({
     id: t.id,
@@ -88,87 +30,40 @@ function convertHistoryTools(tools: HistoryToolCall[] | undefined): ToolCall[] |
   }));
 }
 
-/**
- * Composable that sets up the message handler for extension-to-webview communication.
- * Handles all incoming messages from the VS Code extension and updates app state accordingly.
- */
 export function useMessageHandler(options: MessageHandlerOptions): void {
   const { postMessage, onMessage } = useVSCode();
-  const {
-    streaming,
-    subagentMessages,
-    isProcessing,
-    accountInfo,
-    currentSessionId,
-    sessionStats,
-    accessedFiles,
-    storedSessions,
-    selectedSessionId,
-    hasMoreSessions,
-    nextSessionsOffset,
-    loadingMoreSessions,
-    hasMoreHistory,
-    nextHistoryOffset,
-    loadingMoreHistory,
-    currentResumedSessionId,
-    availableModels,
-    currentSettings,
-    mcpServers,
-    compactMarkers,
-    budgetWarning,
-    checkpointMessages,
-    currentRunningTool,
-    pendingPermissions,
-    messageContainerRef,
-    chatInputRef,
-    trackFileAccess,
-  } = options;
+  const { messageContainerRef, chatInputRef } = options;
 
-  // Destructure streaming message functions
-  const {
-    messages,
-    streamingMessage,
-    generateId,
-    finalizeStreamingMessage,
-    checkAndFinalizeForNewMessageId,
-    ensureStreamingMessage,
-    updateToolStatus,
-    addToolCall,
-    mergeToolCalls,
-    extractTextFromContent,
-    extractToolCalls,
-    extractThinkingContent,
-    addUserMessage,
-    addErrorMessage,
-    clearAll: clearMessages,
-    prependMessages,
-  } = streaming;
+  const uiStore = useUIStore();
+  const settingsStore = useSettingsStore();
+  const sessionStore = useSessionStore();
+  const permissionStore = usePermissionStore();
+  const streamingStore = useStreamingStore();
+  const subagentStore = useSubagentStore();
 
   onMounted(() => {
     onMessage((message) => {
       switch (message.type) {
         case "userMessage":
-          addUserMessage(message.content);
+          streamingStore.addUserMessage(message.content);
           break;
 
         case "assistant": {
           const assistantMsg = message.data;
           const msgId = assistantMsg.message.id;
           const parentToolUseId = message.parentToolUseId;
-          const textContent = extractTextFromContent(assistantMsg.message.content);
-          const toolCalls = extractToolCalls(assistantMsg.message.content);
-          const thinkingContent = extractThinkingContent(assistantMsg.message.content);
-          const hasSubagent = parentToolUseId ? subagentMessages.hasSubagent(parentToolUseId) : false;
+          const textContent = streamingStore.extractTextFromContent(assistantMsg.message.content);
+          const toolCalls = streamingStore.extractToolCalls(assistantMsg.message.content);
+          const thinkingContent = streamingStore.extractThinkingContent(assistantMsg.message.content);
+          const hasSubagent = parentToolUseId ? subagentStore.hasSubagent(parentToolUseId) : false;
 
-          // Track file access from tool calls
           for (const tool of toolCalls) {
-            trackFileAccess(tool.name, tool.input);
+            sessionStore.trackFileAccess(tool.name, tool.input);
           }
 
-          // Route to subagent if this message belongs to one
           if (parentToolUseId && hasSubagent) {
             const subagentMsg: ChatMessage = {
-              id: generateId(),
+              id: streamingStore.generateId(),
               sdkMessageId: msgId,
               role: "assistant",
               content: textContent,
@@ -177,19 +72,16 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               timestamp: Date.now(),
               parentToolUseId,
             };
-            subagentMessages.addMessageToSubagent(parentToolUseId, subagentMsg);
+            subagentStore.addMessageToSubagent(parentToolUseId, subagentMsg);
             for (const tool of toolCalls) {
-              subagentMessages.addToolCallToSubagent(parentToolUseId, tool);
+              subagentStore.addToolCallToSubagent(parentToolUseId, tool);
             }
-            currentSessionId.value = assistantMsg.session_id;
+            sessionStore.setCurrentSession(assistantMsg.session_id);
             break;
           }
 
-          // Finalize previous message if SDK message ID changed
-          checkAndFinalizeForNewMessageId(msgId);
-
-          // Get or create streaming message
-          const msg = ensureStreamingMessage(msgId);
+          streamingStore.checkAndFinalizeForNewMessageId(msgId);
+          const msg = streamingStore.ensureStreamingMessage(msgId);
 
           if (textContent) {
             msg.content = textContent;
@@ -198,14 +90,13 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             msg.thinking = thinkingContent;
           }
           if (toolCalls.length > 0) {
-            msg.toolCalls = mergeToolCalls(msg.toolCalls, toolCalls);
+            msg.toolCalls = streamingStore.mergeToolCalls(msg.toolCalls, toolCalls);
           }
-          // Stop thinking animation once we have tools or text
           if (toolCalls.length > 0 || textContent) {
             msg.isThinkingPhase = false;
           }
 
-          currentSessionId.value = assistantMsg.session_id;
+          sessionStore.setCurrentSession(assistantMsg.session_id);
           break;
         }
 
@@ -214,9 +105,8 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           const msgId = partialData.messageId ?? undefined;
           const parentToolUseId = message.parentToolUseId;
 
-          // Route to subagent if this message belongs to one
-          if (parentToolUseId && subagentMessages.hasSubagent(parentToolUseId) && msgId) {
-            subagentMessages.updateSubagentStreaming(parentToolUseId, msgId, {
+          if (parentToolUseId && subagentStore.hasSubagent(parentToolUseId) && msgId) {
+            subagentStore.updateSubagentStreaming(parentToolUseId, msgId, {
               content: partialData.streamingText,
               thinking: partialData.streamingThinking,
               thinkingDuration: partialData.thinkingDuration,
@@ -225,12 +115,11 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             break;
           }
 
-          // Finalize previous message if SDK message ID changed (same as assistant/toolStreaming)
           if (msgId) {
-            checkAndFinalizeForNewMessageId(msgId);
+            streamingStore.checkAndFinalizeForNewMessageId(msgId);
           }
 
-          const msg = ensureStreamingMessage(msgId);
+          const msg = streamingStore.ensureStreamingMessage(msgId);
 
           if (partialData.streamingThinking !== undefined) {
             msg.thinking = partialData.streamingThinking;
@@ -241,7 +130,6 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           if (partialData.thinkingDuration !== undefined) {
             msg.thinkingDuration = partialData.thinkingDuration;
           }
-          // Track thinking phase (but not once tools are present)
           if (!msg.toolCalls || msg.toolCalls.length === 0) {
             msg.isThinkingPhase = partialData.isThinking ?? false;
           }
@@ -250,102 +138,70 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
         case "done": {
           const resultData = message.data;
-          finalizeStreamingMessage();
-          // Update session stats
-          if (resultData.total_cost_usd !== undefined) {
-            sessionStats.value.totalCostUsd = resultData.total_cost_usd;
-          }
-          if (resultData.total_input_tokens !== undefined) {
-            sessionStats.value.totalInputTokens = resultData.total_input_tokens;
-          }
-          if (resultData.total_output_tokens !== undefined) {
-            sessionStats.value.totalOutputTokens = resultData.total_output_tokens;
-          }
-          if (resultData.cache_creation_tokens !== undefined) {
-            sessionStats.value.cacheCreationTokens = resultData.cache_creation_tokens;
-          }
-          if (resultData.cache_read_tokens !== undefined) {
-            sessionStats.value.cacheReadTokens = resultData.cache_read_tokens;
-          }
-          if (resultData.num_turns !== undefined) {
-            sessionStats.value.numTurns = resultData.num_turns;
-          }
-          if (resultData.context_window_size !== undefined) {
-            sessionStats.value.contextWindowSize = resultData.context_window_size;
-          }
+          streamingStore.finalizeStreamingMessage();
+          sessionStore.updateStats({
+            ...(resultData.total_cost_usd !== undefined && { totalCostUsd: resultData.total_cost_usd }),
+            ...(resultData.total_input_tokens !== undefined && { totalInputTokens: resultData.total_input_tokens }),
+            ...(resultData.total_output_tokens !== undefined && { totalOutputTokens: resultData.total_output_tokens }),
+            ...(resultData.cache_creation_tokens !== undefined && { cacheCreationTokens: resultData.cache_creation_tokens }),
+            ...(resultData.cache_read_tokens !== undefined && { cacheReadTokens: resultData.cache_read_tokens }),
+            ...(resultData.num_turns !== undefined && { numTurns: resultData.num_turns }),
+            ...(resultData.context_window_size !== undefined && { contextWindowSize: resultData.context_window_size }),
+          });
           break;
         }
 
         case "processing":
-          isProcessing.value = message.isProcessing;
-          // When processing stops, finalize any partial streaming content
-          if (!message.isProcessing && streamingMessage.value) {
-            finalizeStreamingMessage();
+          uiStore.setProcessing(message.isProcessing);
+          if (!message.isProcessing && streamingStore.streamingMessage) {
+            streamingStore.finalizeStreamingMessage();
           }
           break;
 
         case "error":
-          addErrorMessage(message.message);
+          streamingStore.addErrorMessage(message.message);
           break;
 
         case "sessionStarted":
-          currentSessionId.value = message.sessionId;
+          sessionStore.setCurrentSession(message.sessionId);
           break;
 
         case "storedSessions": {
-          loadingMoreSessions.value = false;
-          // First page: replace list. Pagination: append to list.
-          const isFirstPage = message.isFirstPage ?? storedSessions.value.length === 0;
-          if (isFirstPage) {
-            storedSessions.value = message.sessions;
-          } else {
-            storedSessions.value = [...storedSessions.value, ...message.sessions];
-          }
-          hasMoreSessions.value = message.hasMore ?? false;
-          nextSessionsOffset.value = message.nextOffset ?? message.sessions.length;
+          const isFirstPage = message.isFirstPage ?? sessionStore.storedSessions.length === 0;
+          sessionStore.updateStoredSessions(
+            message.sessions,
+            isFirstPage,
+            message.hasMore ?? false,
+            message.nextOffset ?? message.sessions.length
+          );
           return;
         }
 
         case "sessionCleared":
-          clearMessages();
-          subagentMessages.clearSubagents();
-          accessedFiles.value.clear();
-          sessionStats.value = {
-            totalCostUsd: 0,
-            totalInputTokens: 0,
-            totalOutputTokens: 0,
-            cacheCreationTokens: 0,
-            cacheReadTokens: 0,
-            numTurns: 0,
-            contextWindowSize: 200000,
-          };
-          currentSessionId.value = null;
-          selectedSessionId.value = null;
-          currentResumedSessionId.value = null;
-          hasMoreHistory.value = false;
-          nextHistoryOffset.value = 0;
-          loadingMoreHistory.value = false;
+          streamingStore.$reset();
+          subagentStore.$reset();
+          sessionStore.clearSessionData();
+          sessionStore.setCurrentSession(null);
+          sessionStore.setSelectedSession(null);
+          sessionStore.setResumedSession(null);
           break;
 
         case "sessionRenamed":
-          // Session rename acknowledged
           break;
 
         case "toolStreaming": {
           const targetMsgId = message.messageId;
           const parentToolUseId = message.parentToolUseId;
-          currentRunningTool.value = message.tool.name;
-          const hasSubagent = parentToolUseId ? subagentMessages.hasSubagent(parentToolUseId) : false;
+          uiStore.setCurrentRunningTool(message.tool.name);
+          const hasSubagent = parentToolUseId ? subagentStore.hasSubagent(parentToolUseId) : false;
 
-          // Register Task tools for correlation with subagentStart
           if (message.tool.name === "Task") {
-            subagentMessages.registerTaskTool(
+            subagentStore.registerTaskTool(
               message.tool.id,
               message.tool.input as { description?: string; prompt?: string; subagent_type?: string }
             );
           }
 
-          // Route to subagent if this message belongs to one
           if (parentToolUseId && hasSubagent) {
             const toolCall: ToolCall = {
               id: message.tool.id,
@@ -353,18 +209,15 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               input: message.tool.input,
               status: "running",
             };
-            subagentMessages.addToolCallToSubagent(parentToolUseId, toolCall);
-            trackFileAccess(message.tool.name, message.tool.input);
+            subagentStore.addToolCallToSubagent(parentToolUseId, toolCall);
+            sessionStore.trackFileAccess(message.tool.name, message.tool.input);
             break;
           }
 
-          // Finalize previous message if SDK message ID changed
-          checkAndFinalizeForNewMessageId(targetMsgId);
-
-          // Ensure streaming message exists and add the tool
-          ensureStreamingMessage(targetMsgId);
-          addToolCall(message.tool);
-          trackFileAccess(message.tool.name, message.tool.input);
+          streamingStore.checkAndFinalizeForNewMessageId(targetMsgId);
+          streamingStore.ensureStreamingMessage(targetMsgId);
+          streamingStore.addToolCall(message.tool);
+          sessionStore.trackFileAccess(message.tool.name, message.tool.input);
           break;
         }
 
@@ -378,21 +231,21 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           };
 
           if (message.toolName === "Edit" || message.toolName === "Write") {
-            trackFileAccess(message.toolName, message.toolInput);
+            sessionStore.trackFileAccess(message.toolName, message.toolInput);
           }
 
-          if (parentToolUseId && subagentMessages.hasSubagent(parentToolUseId)) {
-            subagentMessages.addToolCallToSubagent(parentToolUseId, toolCall);
+          if (parentToolUseId && subagentStore.hasSubagent(parentToolUseId)) {
+            subagentStore.addToolCallToSubagent(parentToolUseId, toolCall);
           } else {
-            if (streamingMessage.value) {
-              if (!streamingMessage.value.toolCalls) {
-                streamingMessage.value.toolCalls = [];
+            if (streamingStore.streamingMessage) {
+              if (!streamingStore.streamingMessage.toolCalls) {
+                streamingStore.streamingMessage.toolCalls = [];
               }
-              if (!streamingMessage.value.toolCalls.find((t: ToolCall) => t.id === message.toolUseId)) {
-                streamingMessage.value.toolCalls.push(toolCall);
+              if (!streamingStore.streamingMessage.toolCalls.find((t: ToolCall) => t.id === message.toolUseId)) {
+                streamingStore.streamingMessage.toolCalls.push(toolCall);
               }
             } else {
-              streamingMessage.value = {
+              streamingStore.streamingMessage = {
                 id: `permission-${message.toolUseId}`,
                 role: "assistant",
                 content: "",
@@ -403,10 +256,9 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             }
           }
 
-          const agentDescription = parentToolUseId ? subagentMessages.getSubagentDescription(parentToolUseId) : undefined;
+          const agentDescription = parentToolUseId ? subagentStore.getSubagentDescription(parentToolUseId) : undefined;
 
-          pendingPermissions.value.set(message.toolUseId, {
-            toolUseId: message.toolUseId,
+          permissionStore.addPermission(message.toolUseId, {
             toolName: message.toolName,
             filePath: message.filePath,
             originalContent: message.originalContent,
@@ -435,44 +287,36 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
 
         case "accountInfo":
-          accountInfo.value = message.data;
+          settingsStore.setAccountInfo(message.data);
           break;
 
         case "availableModels":
-          availableModels.value = message.models;
+          settingsStore.setAvailableModels(message.models);
           break;
 
         case "settingsUpdate":
-          currentSettings.value = message.settings;
+          settingsStore.updateSettings(message.settings);
           break;
 
         case "mcpServerStatus":
-          mcpServers.value = message.servers;
+          settingsStore.setMcpServers(message.servers);
           break;
 
         case "budgetWarning":
-          budgetWarning.value = {
-            currentSpend: message.currentSpend,
-            limit: message.limit,
-            exceeded: false,
-          };
+          settingsStore.setBudgetWarning(message.currentSpend, message.limit, false);
           break;
 
         case "budgetExceeded":
-          budgetWarning.value = {
-            currentSpend: message.finalSpend,
-            limit: message.limit,
-            exceeded: true,
-          };
+          settingsStore.setBudgetWarning(message.finalSpend, message.limit, true);
           break;
 
         case "toolCompleted": {
-          const found = subagentMessages.updateSubagentToolStatus(message.toolUseId, "completed", message.result);
+          const found = subagentStore.updateSubagentToolStatus(message.toolUseId, "completed", message.result);
           if (!found) {
-            updateToolStatus(message.toolUseId, "completed", message.result);
+            streamingStore.updateToolStatus(message.toolUseId, "completed", message.result);
           }
-          if (message.toolName === "Task" && subagentMessages.hasSubagent(message.toolUseId)) {
-            subagentMessages.completeSubagent(message.toolUseId);
+          if (message.toolName === "Task" && subagentStore.hasSubagent(message.toolUseId)) {
+            subagentStore.completeSubagent(message.toolUseId);
             try {
               const parsed = JSON.parse(message.result);
               const contentItems = parsed.content as Array<{ type: string; text?: string }> | undefined;
@@ -481,7 +325,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
                   ?.filter((item) => item.type === "text" && item.text)
                   .map((item) => item.text)
                   .join("\n") || "";
-              subagentMessages.setSubagentResult(message.toolUseId, {
+              subagentStore.setSubagentResult(message.toolUseId, {
                 content: contentText,
                 totalDurationMs: parsed.totalDurationMs,
                 totalTokens: parsed.totalTokens,
@@ -492,53 +336,48 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               console.warn("[useMessageHandler] Failed to parse Task tool result");
             }
           }
-          currentRunningTool.value = null;
+          uiStore.setCurrentRunningTool(null);
           break;
         }
 
         case "toolFailed": {
-          const found = subagentMessages.updateSubagentToolStatus(message.toolUseId, "failed", undefined, message.error);
+          const found = subagentStore.updateSubagentToolStatus(message.toolUseId, "failed", undefined, message.error);
           if (!found) {
-            updateToolStatus(message.toolUseId, "failed", undefined, message.error);
+            streamingStore.updateToolStatus(message.toolUseId, "failed", undefined, message.error);
           }
-          if (message.toolName === "Task" && subagentMessages.hasSubagent(message.toolUseId)) {
-            subagentMessages.failSubagent(message.toolUseId);
+          if (message.toolName === "Task" && subagentStore.hasSubagent(message.toolUseId)) {
+            subagentStore.failSubagent(message.toolUseId);
           }
-          currentRunningTool.value = null;
+          uiStore.setCurrentRunningTool(null);
           break;
         }
 
         case "toolAbandoned": {
-          const found = subagentMessages.updateSubagentToolStatus(message.toolUseId, "abandoned");
+          const found = subagentStore.updateSubagentToolStatus(message.toolUseId, "abandoned");
           if (!found) {
-            updateToolStatus(message.toolUseId, "abandoned");
+            streamingStore.updateToolStatus(message.toolUseId, "abandoned");
           }
           break;
         }
 
         case "subagentStart":
-          subagentMessages.startSubagent(message.agentId, message.agentType);
+          subagentStore.startSubagent(message.agentId, message.agentType);
           break;
 
         case "subagentStop":
-          subagentMessages.stopSubagent(message.agentId);
+          subagentStore.stopSubagent(message.agentId);
           break;
 
         case "sessionCancelled":
-          subagentMessages.cancelRunningSubagents();
+          subagentStore.cancelRunningSubagents();
           break;
 
         case "compactBoundary":
-          compactMarkers.value.push({
-            id: generateId(),
-            timestamp: Date.now(),
-            trigger: message.trigger,
-            preTokens: message.preTokens,
-          });
+          sessionStore.addCompactMarker(message.trigger, message.preTokens);
           break;
 
         case "checkpointInfo":
-          checkpointMessages.value = new Set(message.checkpoints.map((cp: { userMessageId: string }) => cp.userMessageId));
+          sessionStore.setCheckpointMessages(message.checkpoints.map((cp: { userMessageId: string }) => cp.userMessageId));
           break;
 
         case "rewindComplete":
@@ -550,19 +389,18 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
 
         case "userReplay":
-          addUserMessage(message.content, true);
+          streamingStore.addUserMessage(message.content, true);
           break;
 
         case "assistantReplay": {
           if (message.tools) {
             for (const tool of message.tools) {
               if (tool.name === "Task") {
-                subagentMessages.restoreSubagentFromHistory(tool.id, tool.input, tool.result, tool.agentToolCalls, tool.agentModel, tool.sdkAgentId);
+                subagentStore.restoreSubagentFromHistory(tool.id, tool.input, tool.result, tool.agentToolCalls, tool.agentModel, tool.sdkAgentId);
               }
             }
           }
-          messages.value.push({
-            id: generateId(),
+          streamingStore.addMessage({
             role: "assistant",
             content: message.content,
             thinking: message.thinking,
@@ -574,8 +412,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         }
 
         case "errorReplay": {
-          messages.value.push({
-            id: generateId(),
+          streamingStore.addMessage({
             role: "error",
             content: message.content,
             timestamp: Date.now(),
@@ -585,9 +422,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         }
 
         case "historyChunk": {
-          loadingMoreHistory.value = false;
-          hasMoreHistory.value = message.hasMore;
-          nextHistoryOffset.value = message.nextOffset;
+          sessionStore.updateHistoryPagination(message.hasMore, message.nextOffset);
 
           if (message.messages.length > 0) {
             const container = messageContainerRef.value;
@@ -597,7 +432,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               if (msg.tools) {
                 for (const tool of msg.tools) {
                   if (tool.name === "Task") {
-                    subagentMessages.restoreSubagentFromHistory(
+                    subagentStore.restoreSubagentFromHistory(
                       tool.id,
                       tool.input,
                       tool.result,
@@ -611,7 +446,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             }
 
             const olderMessages: ChatMessage[] = message.messages.map((msg: HistoryMessage) => ({
-              id: generateId(),
+              id: streamingStore.generateId(),
               role: msg.type,
               content: msg.content,
               thinking: msg.thinking,
@@ -620,7 +455,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               isReplay: true,
             }));
 
-            prependMessages(olderMessages);
+            streamingStore.prependMessages(olderMessages);
 
             nextTick(() => {
               if (container) {
@@ -633,11 +468,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         }
 
         case "sessionStart":
-          // Could show a subtle indicator based on message.source
           break;
 
         case "sessionEnd":
-          isProcessing.value = false;
+          uiStore.setProcessing(false);
           break;
 
         case "panelFocused":
@@ -647,7 +481,6 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           return;
       }
 
-      // Scroll to bottom on new messages
       nextTick(() => {
         const container = messageContainerRef.value;
         if (container) {
@@ -656,10 +489,8 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
       });
     });
 
-    // Notify extension that webview is ready
     postMessage({ type: "ready" });
 
-    // Auto-focus the chat input when panel opens
     nextTick(() => {
       chatInputRef.value?.focus();
     });

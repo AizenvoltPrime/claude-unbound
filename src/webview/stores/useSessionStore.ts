@@ -47,8 +47,6 @@ export const useSessionStore = defineStore('session', () => {
     return files[files.length - 1].path;
   });
 
-  const filesArray = computed(() => Object.values(accessedFiles.value));
-
   function setCurrentSession(id: string | null) {
     currentSessionId.value = id;
   }
@@ -178,7 +176,6 @@ export const useSessionStore = defineStore('session', () => {
     sessionStats,
     selectedSession,
     lastAccessedFile,
-    filesArray,
     setCurrentSession,
     setSelectedSession,
     setResumedSession,
