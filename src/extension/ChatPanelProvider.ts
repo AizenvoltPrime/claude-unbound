@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { ClaudeSession } from "./ClaudeSession";
+import { ClaudeSession } from "./claude-session";
 import { PermissionHandler } from "./PermissionHandler";
 import { SlashCommandService } from "./SlashCommandService";
 import { extractSlashCommandDisplay } from "../shared/utils";

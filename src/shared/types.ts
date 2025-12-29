@@ -414,7 +414,7 @@ export type ExtensionToWebviewMessage =
   | { type: "mcpServerStatus"; servers: McpServerStatusInfo[] }
   // New: File checkpointing
   | { type: "checkpointInfo"; checkpoints: MessageCheckpoint[] }
-  | { type: "rewindComplete"; rewindToMessageId: string; option: RewindOption }
+  | { type: "rewindComplete"; rewindToMessageId: string; option: RewindOption; fileRewindWarning?: string }
   | { type: "rewindError"; message: string }
   // New: Tool lifecycle
   | { type: "toolStreaming"; messageId: string; tool: { id: string; name: string; input: Record<string, unknown> }; parentToolUseId?: string | null }

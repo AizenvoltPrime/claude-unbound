@@ -35,10 +35,10 @@ npm run package       # Package for distribution
 ├───────────┼────────────────────────────────────┼────────────┤
 │           ▼                                    ▼            │
 │                      Webview (Vue 3 + Pinia)                │
-│  ┌─────────────────────────────────────────────────────┐   │
+│  ┌─────────────────────────────────────────────────────────┐   │
 │  │  App.vue ─── Pinia Stores ─── Components            │   │
 │  │  useMessageHandler (composable) handles all events  │   │
-│  └─────────────────────────────────────────────────────┘   │
+│  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,11 +46,28 @@ npm run package       # Package for distribution
 
 | File | Purpose |
 |------|---------|
-| `src/extension/ClaudeSession.ts` | Claude Agent SDK integration, message streaming, tool hooks |
-| `src/extension/ChatPanelProvider.ts` | Creates/manages webview panels, routes messages |
+| `src/extension/claude-session/` | Claude Agent SDK integration (see module breakdown below) |
+| `src/extension/ChatPanelProvider.ts` | Creates/manages webview panels, routes messages, session list |
 | `src/extension/PermissionHandler.ts` | Intercepts Edit/Write tools, shows diff for approval |
+| `src/extension/DiffManager.ts` | Manages concurrent diff views for file changes |
+| `src/extension/SlashCommandService.ts` | Discovers and executes custom slash commands |
+| `src/extension/ripgrep.ts` | Fast workspace file listing for @ mention autocomplete |
 | `src/extension/session/` | Session persistence module (see Session Storage below) |
 | `src/shared/types.ts` | All TypeScript types for extension↔webview communication |
+
+### ClaudeSession Module (`claude-session/`)
+
+The SDK integration is modularized into focused managers wired together via dependency injection:
+
+| File | Responsibility |
+|------|----------------|
+| `index.ts` | Thin facade exposing public API, wires managers together |
+| `query-manager.ts` | SDK lifecycle, streaming query creation, model/permission config |
+| `streaming-manager.ts` | Message processing, content accumulation, turn management |
+| `tool-manager.ts` | Permission handling, tool use correlation, result tracking |
+| `checkpoint-manager.ts` | File checkpointing, rewind operations, cost tracking |
+| `types.ts` | Interfaces, agent definitions (`AGENT_DEFINITIONS`) |
+| `utils.ts` | Shared utility functions |
 
 ### Webview State (Pinia Stores)
 
