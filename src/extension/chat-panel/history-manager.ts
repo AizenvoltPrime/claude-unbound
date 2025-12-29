@@ -65,7 +65,7 @@ export class HistoryManager {
       log(`[HistoryManager] no compactInfo found`);
     }
 
-    const messages = await this.convertEntriesToMessages(result.entries);
+    const messages = await this.convertEntriesToMessages(result.entries, result.injectedUuids);
 
     for (const msg of messages) {
       if (msg.type === "user") {
@@ -74,6 +74,7 @@ export class HistoryManager {
           content: msg.content,
           isSynthetic: false,
           sdkMessageId: msg.sdkMessageId,
+          isInjected: msg.isInjected,
         });
       } else if (msg.type === "error") {
         this.postMessage(panel, {
@@ -124,7 +125,7 @@ export class HistoryManager {
 
   async loadMoreHistory(sessionId: string, offset: number, panel: vscode.WebviewPanel): Promise<void> {
     const result = await readSessionEntriesPaginated(this.workspacePath, sessionId, offset, HISTORY_PAGE_SIZE);
-    const messages = await this.convertEntriesToMessages(result.entries);
+    const messages = await this.convertEntriesToMessages(result.entries, result.injectedUuids);
 
     this.postMessage(panel, {
       type: "historyChunk",
@@ -170,12 +171,12 @@ export class HistoryManager {
     return history.reverse();
   }
 
-  async convertEntriesToMessages(entries: ClaudeSessionEntry[]): Promise<HistoryMessage[]> {
+  async convertEntriesToMessages(entries: ClaudeSessionEntry[], injectedUuids?: Set<string>): Promise<HistoryMessage[]> {
     const toolResults = this.collectToolResults(entries);
     const taskToolAgents = this.collectTaskToolAgents(entries);
     const agentDataMap = await this.loadAgentDataForTools(taskToolAgents);
 
-    return this.buildMessages(entries, toolResults, taskToolAgents, agentDataMap);
+    return this.buildMessages(entries, toolResults, taskToolAgents, agentDataMap, injectedUuids);
   }
 
   private collectToolResults(entries: ClaudeSessionEntry[]): Map<string, ToolResultData> {
@@ -301,13 +302,16 @@ export class HistoryManager {
     entries: ClaudeSessionEntry[],
     toolResults: Map<string, ToolResultData>,
     taskToolAgents: Map<string, string>,
-    agentDataMap: Map<string, AgentData>
+    agentDataMap: Map<string, AgentData>,
+    injectedUuids?: Set<string>
   ): HistoryMessage[] {
     const messages: HistoryMessage[] = [];
 
     for (const entry of entries) {
       if (entry.type === "user" && entry.message && !entry.isMeta && !entry.isCompactSummary && !entry.isVisibleInTranscriptOnly) {
-        const userMessage = this.buildUserMessage(entry);
+        const isInjectedFromBranch = entry.uuid ? injectedUuids?.has(entry.uuid) : false;
+        const isInjected = entry.isInjected || isInjectedFromBranch;
+        const userMessage = this.buildUserMessage(entry, isInjected);
         if (userMessage) {
           messages.push(userMessage);
         }
@@ -322,7 +326,7 @@ export class HistoryManager {
     return messages;
   }
 
-  private buildUserMessage(entry: ClaudeSessionEntry): HistoryMessage | null {
+  private buildUserMessage(entry: ClaudeSessionEntry, isInjected?: boolean): HistoryMessage | null {
     const msgContent = entry.message?.content;
     let content = "";
 
@@ -347,7 +351,7 @@ export class HistoryManager {
     if (content.startsWith("<command-message>") || content.startsWith("<command-name>")) {
       const displayContent = extractSlashCommandDisplay(content);
       if (displayContent && displayContent.toLowerCase() !== "/compact") {
-        return { type: "user", content: displayContent, sdkMessageId };
+        return { type: "user", content: displayContent, sdkMessageId, isInjected };
       }
       return null;
     }
@@ -360,7 +364,7 @@ export class HistoryManager {
       return { type: "error", content: "Claude Code process aborted by user" };
     }
 
-    return { type: "user", content, sdkMessageId };
+    return { type: "user", content, sdkMessageId, isInjected };
   }
 
   private buildAssistantMessage(

@@ -26,6 +26,7 @@ export interface ClaudeSessionEntry {
   type: string;
   subtype?: string;
   operation?: string;
+  content?: string;
   parentUuid?: string | null;
   isSidechain?: boolean;
   userType?: string;
@@ -38,6 +39,7 @@ export interface ClaudeSessionEntry {
   isInterrupt?: boolean;
   isCompactSummary?: boolean;
   isVisibleInTranscriptOnly?: boolean;
+  isInjected?: boolean;
   compactMetadata?: {
     trigger: 'manual' | 'auto';
     preTokens: number;
@@ -110,6 +112,7 @@ export interface PaginatedSessionResult {
   hasMore: boolean;
   nextOffset: number;
   compactInfo?: CompactInfo;
+  injectedUuids?: Set<string>;
 }
 
 export interface PersistUserMessageOptions {

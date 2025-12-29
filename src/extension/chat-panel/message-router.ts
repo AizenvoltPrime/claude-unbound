@@ -5,6 +5,7 @@ import type { StorageManager } from "./storage-manager";
 import type { HistoryManager } from "./history-manager";
 import type { SettingsManager } from "./settings-manager";
 import type { WorkspaceManager } from "./workspace-manager";
+import { createQueuedMessage } from "./queue-manager";
 import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
@@ -91,16 +92,46 @@ export class MessageRouter {
         if (msg.type !== "sendMessage" || !msg.content.trim()) return;
 
         const isCompactCommand = msg.content.trim().toLowerCase() === "/compact";
+
         if (!isCompactCommand) {
           this.postMessage(ctx.panel, { type: "userMessage", content: msg.content });
         }
 
-        ctx.session.sendMessage(msg.content, msg.agentId);
+        // Broadcast to command history BEFORE awaiting - captures user intent immediately
         this.storageManager.broadcastCommandHistoryEntry(msg.content.trim());
+
+        await ctx.session.sendMessage(msg.content, msg.agentId);
       },
 
-      cancelSession: (msg, ctx) => {
+      cancelSession: (_msg, ctx) => {
         ctx.session.cancel();
+      },
+
+      queueMessage: async (msg, ctx) => {
+        if (msg.type !== "queueMessage" || !msg.content.trim()) return;
+
+        log("[MessageRouter] queueMessage: attempting SDK injection for panel", ctx.panelId);
+
+        const queuedMessage = createQueuedMessage(msg.content);
+        const injected = ctx.session.queueInput(msg.content, queuedMessage.id);
+
+        if (injected) {
+          log("[MessageRouter] queueMessage: SDK injection successful");
+          this.postMessage(ctx.panel, { type: "messageQueued", message: queuedMessage });
+          this.storageManager.broadcastCommandHistoryEntry(msg.content.trim());
+        } else {
+          log("[MessageRouter] queueMessage: SDK injection failed - no active streaming session");
+          this.postMessage(ctx.panel, {
+            type: "notification",
+            message: "Cannot send mid-stream message: no active streaming session",
+            notificationType: "error",
+          });
+        }
+      },
+
+      cancelQueuedMessage: async () => {
+        // SDK-injected messages cannot be cancelled - they're already in the SDK stream
+        log("[MessageRouter] cancelQueuedMessage: SDK-injected messages cannot be cancelled");
       },
 
       resumeSession: async (msg, ctx) => {
@@ -364,4 +395,5 @@ export class MessageRouter {
       },
     };
   }
+
 }

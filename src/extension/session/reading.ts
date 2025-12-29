@@ -22,7 +22,7 @@ import {
   extractPreviewText,
   extractTextFromSlashCommand,
 } from './parsing';
-import { getActiveBranchUuids } from './branches';
+import { getActiveBranchUuids, getInjectedMessageUuids } from './branches';
 
 async function parseSessionFile(filePath: string): Promise<{
   preview: string;
@@ -360,10 +360,13 @@ function extractCompactInfo(
 function filterDisplayableEntries(
   allEntries: ClaudeSessionEntry[],
   activeUuids: Set<string>,
+  injectedUuids: Set<string>,
   compactTimestamp: number | undefined
 ): ClaudeSessionEntry[] {
   return allEntries.filter(entry => {
-    if (!isDisplayableMessage(entry) || !entry.uuid || !activeUuids.has(entry.uuid)) return false;
+    if (!isDisplayableMessage(entry)) return false;
+    if (!entry.uuid) return false;
+    if (!activeUuids.has(entry.uuid) && !injectedUuids.has(entry.uuid)) return false;
     if (entry.isCompactSummary) return false;
     if (compactTimestamp !== undefined) {
       const entryTime = entry.timestamp ? new Date(entry.timestamp).getTime() : 0;
@@ -377,7 +380,8 @@ function paginateEntries(
   entries: ClaudeSessionEntry[],
   offset: number,
   limit: number,
-  compactInfo?: CompactInfo
+  compactInfo?: CompactInfo,
+  injectedUuids?: Set<string>
 ): PaginatedSessionResult {
   const totalCount = entries.length;
   const endIndex = totalCount - offset;
@@ -386,7 +390,7 @@ function paginateEntries(
   const hasMore = startIndex > 0;
   const nextOffset = offset + paginatedEntries.length;
 
-  return { entries: paginatedEntries, totalCount, hasMore, nextOffset, compactInfo };
+  return { entries: paginatedEntries, totalCount, hasMore, nextOffset, compactInfo, injectedUuids };
 }
 
 export async function readSessionEntriesPaginated(
@@ -406,6 +410,9 @@ export async function readSessionEntriesPaginated(
     const activeUuids = getActiveBranchUuids(allEntries);
     log(`[SessionStorage] readSessionEntriesPaginated: activeUuids=${activeUuids.size}`);
 
+    const injectedUuids = getInjectedMessageUuids(allEntries, activeUuids);
+    log(`[SessionStorage] readSessionEntriesPaginated: injectedUuids=${injectedUuids.size}`);
+
     const { compactInfo, compactEntry } = extractCompactInfo(allEntries, activeUuids);
     log(`[SessionStorage] compact_boundary search: found=${!!compactEntry}, uuid=${compactEntry?.uuid?.slice(0, 8) ?? 'none'}`);
 
@@ -416,11 +423,12 @@ export async function readSessionEntriesPaginated(
     const displayableEntries = filterDisplayableEntries(
       allEntries,
       activeUuids,
+      injectedUuids,
       compactInfo?.timestamp
     );
     log(`[SessionStorage] postCompactEntries=${displayableEntries.length}`);
 
-    return paginateEntries(displayableEntries, offset, limit, compactInfo);
+    return paginateEntries(displayableEntries, offset, limit, compactInfo, injectedUuids);
   } catch {
     return { entries: [], totalCount: 0, hasMore: false, nextOffset: 0 };
   }

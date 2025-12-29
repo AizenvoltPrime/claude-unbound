@@ -42,6 +42,36 @@ export function getActiveBranchUuids(allEntries: ClaudeSessionEntry[], customLea
   return activeUuids;
 }
 
+export function getInjectedMessageUuids(allEntries: ClaudeSessionEntry[], activeUuids: Set<string>): Set<string> {
+  const entryByUuid = new Map<string, ClaudeSessionEntry>();
+  for (const entry of allEntries) {
+    if (entry.uuid) {
+      entryByUuid.set(entry.uuid, entry);
+    }
+  }
+
+  const parentsInPath = new Set<string>();
+  for (const uuid of activeUuids) {
+    const entry = entryByUuid.get(uuid);
+    if (entry?.parentUuid) {
+      parentsInPath.add(entry.parentUuid);
+    }
+  }
+
+  const injectedUuids = new Set<string>();
+  for (const entry of allEntries) {
+    if (entry.type === 'user' && entry.uuid && !activeUuids.has(entry.uuid)) {
+      if (entry.isInjected && entry.parentUuid && activeUuids.has(entry.parentUuid)) {
+        injectedUuids.add(entry.uuid);
+      } else if (!entry.isInjected && entry.parentUuid && parentsInPath.has(entry.parentUuid)) {
+        injectedUuids.add(entry.uuid);
+      }
+    }
+  }
+
+  return injectedUuids;
+}
+
 export function extractActiveBranch(allEntries: ClaudeSessionEntry[]): ClaudeSessionEntry[] {
   const activeUuids = getActiveBranchUuids(allEntries);
   return allEntries.filter(entry =>

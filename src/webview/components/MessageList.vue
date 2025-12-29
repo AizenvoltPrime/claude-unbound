@@ -16,7 +16,7 @@ onMounted(() => {
 
 const props = defineProps<{
   messages: ChatMessage[];
-  streamingMessage?: ChatMessage | null;
+  streamingMessageId?: string | null;
   compactMarkers?: CompactMarkerType[];
   checkpointMessages?: Set<string>;
   subagents?: Record<string, SubagentState>;
@@ -28,13 +28,17 @@ const emit = defineEmits<{
   (e: "expandSubagent", subagentId: string): void;
 }>();
 
+function isStreamingMessage(message: ChatMessage): boolean {
+  return !!props.streamingMessageId && message.id === props.streamingMessageId;
+}
+
 function isTaskToolWithSubagent(toolId: string, toolName: string): boolean {
   return toolName === 'Task' && (props.subagents ? toolId in props.subagents : false);
 }
 
 function getMarkersBeforeMessage(messageTimestamp: number, messageIndex: number): CompactMarkerType[] {
   if (!props.compactMarkers) return [];
-  const prevTimestamp = messageIndex > 0 ? props.messages[messageIndex - 1].timestamp : 0;
+  const prevTimestamp = messageIndex > 0 ? props.messages[messageIndex - 1]?.timestamp : 0;
   return props.compactMarkers.filter((marker) => marker.timestamp > prevTimestamp && marker.timestamp <= messageTimestamp);
 }
 
@@ -60,9 +64,9 @@ function isTodoWriteTool(toolName: string): boolean {
 </script>
 
 <template>
-  <div class="p-4 space-y-4 bg-unbound-bg" :class="messages.length === 0 && !streamingMessage && !hasMarkersToShow() ? 'flex flex-col justify-center' : ''">
+  <div class="p-4 space-y-4 bg-unbound-bg" :class="messages.length === 0 && !hasMarkersToShow() ? 'flex flex-col justify-center' : ''">
     <!-- Welcome message - only show when no messages AND no compact markers -->
-    <div v-if="messages.length === 0 && !streamingMessage && !hasMarkersToShow()" class="text-center w-full px-4">
+    <div v-if="messages.length === 0 && !hasMarkersToShow()" class="text-center w-full px-4">
       <img :src="logoUri" alt="Claude Unbound" class="w-16 h-16 mx-auto mb-4" />
       <p class="text-xl mb-2 text-unbound-glow font-medium">Welcome to Claude Unbound</p>
       <p class="text-sm text-unbound-muted">
@@ -76,9 +80,8 @@ function isTodoWriteTool(toolName: string): boolean {
 
       <!-- User message -->
       <div v-if="message.role === 'user'" class="group relative animate-message-enter">
-        <!-- Rewind button -->
         <Button
-          v-if="canRewindTo(message)"
+          v-if="canRewindTo(message) && !message.isInjected"
           variant="ghost"
           size="icon-sm"
           class="absolute -left-6 top-2 opacity-0 group-hover:opacity-100 text-base text-unbound-cyan-400 hover:text-unbound-glow hover:bg-transparent"
@@ -88,7 +91,14 @@ function isTodoWriteTool(toolName: string): boolean {
           ⏪
         </Button>
 
-        <div class="rounded-lg px-4 py-3 border-l-2 border-unbound-cyan-500 bg-unbound-bg-card">
+        <div
+          class="rounded-lg px-4 py-3 border-l-2 bg-unbound-bg-card"
+          :class="message.isInjected || message.isQueued ? 'border-amber-500/70' : 'border-unbound-cyan-500'"
+        >
+          <div v-if="message.isInjected || message.isQueued" class="flex items-center gap-2 mb-2 text-xs text-amber-400/80">
+            <span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">↳ sent mid-stream</span>
+            <span v-if="message.isQueued" class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">queued</span>
+          </div>
           <MarkdownRenderer :content="message.content" class="text-unbound-text" />
         </div>
       </div>
@@ -96,11 +106,11 @@ function isTodoWriteTool(toolName: string): boolean {
       <!-- Error message (interrupts, failures) -->
       <div v-else-if="message.role === 'error'" class="pl-4 text-red-400 animate-message-enter">Error: {{ message.content }}</div>
 
-      <!-- Assistant message -->
-      <div v-else class="group relative space-y-3 animate-message-enter">
+      <!-- Assistant message (including streaming) -->
+      <div v-else class="group relative space-y-3" :class="isStreamingMessage(message) ? 'animate-fade-in' : 'animate-message-enter'">
         <ThinkingIndicator
-          v-if="message.thinking || message.isPartial || message.thinkingDuration"
-          :thinking="message.thinking"
+          v-if="message.thinking || message.thinkingContent || message.isPartial || message.thinkingDuration"
+          :thinking="message.thinking || message.thinkingContent"
           :is-streaming="message.isThinkingPhase"
           :duration="message.thinkingDuration"
         />
@@ -130,32 +140,5 @@ function isTodoWriteTool(toolName: string): boolean {
       :key="marker.id"
       :marker="marker"
     />
-
-    <!-- Streaming message (isolated from messages array to prevent flashing) -->
-    <div v-if="streamingMessage" class="group relative space-y-3 animate-fade-in">
-      <ThinkingIndicator
-        v-if="streamingMessage.thinking || streamingMessage.isPartial"
-        :thinking="streamingMessage.thinking"
-        :is-streaming="streamingMessage.isThinkingPhase"
-        :duration="streamingMessage.thinkingDuration"
-      />
-
-      <!-- Tool calls appear BEFORE text (Claude: think → use tools → respond) -->
-      <div v-if="streamingMessage.toolCalls?.length" class="pl-4 space-y-2">
-        <template v-for="tool in streamingMessage.toolCalls" :key="tool.id">
-          <SubagentCard
-            v-if="isTaskToolWithSubagent(tool.id, tool.name) && subagents?.[tool.id]"
-            :subagent="subagents[tool.id]"
-            @expand="emit('expandSubagent', tool.id)"
-          />
-          <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @interrupt="emit('interrupt', $event)" />
-        </template>
-      </div>
-
-      <!-- Final text response appears AFTER tools -->
-      <div v-if="streamingMessage.content" class="pl-4">
-        <MarkdownRenderer :content="streamingMessage.content" :class="streamingMessage.isPartial && 'opacity-80'" />
-      </div>
-    </div>
   </div>
 </template>

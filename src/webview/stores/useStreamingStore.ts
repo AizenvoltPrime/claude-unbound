@@ -1,9 +1,10 @@
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
 import type {
   ChatMessage,
   ToolCall,
   ContentBlock,
+  QueuedMessage,
 } from '@shared/types';
 
 export interface ToolStatusEntry {
@@ -14,39 +15,72 @@ export interface ToolStatusEntry {
 
 export const useStreamingStore = defineStore('streaming', () => {
   const messages = ref<ChatMessage[]>([]);
-  const streamingMessage = ref<ChatMessage | null>(null);
+  const streamingMessageId = ref<string | null>(null);
   const toolStatusCache = ref<Map<string, ToolStatusEntry>>(new Map());
+
+  const streamingMessage = computed<ChatMessage | null>(() => {
+    if (!streamingMessageId.value) return null;
+    return messages.value.find(m => m.id === streamingMessageId.value) ?? null;
+  });
 
   function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 
-  function finalizeStreamingMessage(): ChatMessage | null {
-    if (!streamingMessage.value) return null;
+  function getStreamingMessageIndex(): number {
+    if (!streamingMessageId.value) return -1;
+    return messages.value.findIndex(m => m.id === streamingMessageId.value);
+  }
 
-    const finalized = {
-      ...streamingMessage.value,
+  function updateStreamingMessage(updates: Partial<ChatMessage>): void {
+    const index = getStreamingMessageIndex();
+    if (index === -1) return;
+
+    const current = messages.value[index];
+    const updated = { ...current, ...updates };
+    const newMessages = [...messages.value];
+    newMessages[index] = updated;
+    messages.value = newMessages;
+  }
+
+  function finalizeStreamingMessage(): ChatMessage | null {
+    const msg = streamingMessage.value;
+    if (!msg) return null;
+
+    updateStreamingMessage({
       isPartial: false,
       isThinkingPhase: false,
-    };
-    messages.value = [...messages.value, finalized];
-    streamingMessage.value = null;
+    });
+
+    const finalized = streamingMessage.value;
+    streamingMessageId.value = null;
+
     return finalized;
   }
 
   function checkAndFinalizeForNewMessageId(newMsgId: string): boolean {
-    if (streamingMessage.value &&
-        streamingMessage.value.sdkMessageId &&
-        streamingMessage.value.sdkMessageId !== newMsgId) {
+    const current = streamingMessage.value;
+    if (current?.sdkMessageId && current.sdkMessageId !== newMsgId) {
       finalizeStreamingMessage();
       return true;
     }
     return false;
   }
 
+  function clearQueuedBadges(): void {
+    const hasQueued = messages.value.some(m => m.isQueued);
+    if (hasQueued) {
+      messages.value = messages.value.map(m =>
+        m.isQueued ? { ...m, isQueued: false } : m
+      );
+    }
+  }
+
   function ensureStreamingMessage(sdkMessageId?: string): ChatMessage {
-    if (!streamingMessage.value) {
-      streamingMessage.value = {
+    const current = streamingMessage.value;
+
+    if (!current) {
+      const newMsg: ChatMessage = {
         id: `streaming-${Date.now()}`,
         sdkMessageId,
         role: 'assistant',
@@ -55,20 +89,25 @@ export const useStreamingStore = defineStore('streaming', () => {
         isPartial: true,
         isThinkingPhase: !sdkMessageId,
       };
-    } else if (sdkMessageId && !streamingMessage.value.sdkMessageId) {
-      streamingMessage.value = {
-        ...streamingMessage.value,
-        sdkMessageId,
-      };
-    } else if (sdkMessageId && streamingMessage.value.sdkMessageId &&
-               streamingMessage.value.sdkMessageId !== sdkMessageId) {
+      messages.value = [...messages.value, newMsg];
+      streamingMessageId.value = newMsg.id;
+      return newMsg;
+    }
+
+    if (sdkMessageId && !current.sdkMessageId) {
+      updateStreamingMessage({ sdkMessageId });
+      return streamingMessage.value!;
+    }
+
+    if (sdkMessageId && current.sdkMessageId && current.sdkMessageId !== sdkMessageId) {
       console.warn(
         '[useStreamingStore] ID mismatch detected - caller should have called ' +
-        'checkAndFinalizeForNewMessageId() first. Current:', streamingMessage.value.sdkMessageId,
+        'checkAndFinalizeForNewMessageId() first. Current:', current.sdkMessageId,
         'New:', sdkMessageId
       );
     }
-    return streamingMessage.value;
+
+    return current;
   }
 
   function updateToolStatus(
@@ -78,24 +117,6 @@ export const useStreamingStore = defineStore('streaming', () => {
     errorMessage?: string
   ): void {
     toolStatusCache.value.set(toolUseId, { status, result, errorMessage });
-
-    if (streamingMessage.value?.toolCalls) {
-      const toolIndex = streamingMessage.value.toolCalls.findIndex(t => t.id === toolUseId);
-      if (toolIndex !== -1) {
-        const updatedToolCalls = [...streamingMessage.value.toolCalls];
-        updatedToolCalls[toolIndex] = {
-          ...updatedToolCalls[toolIndex],
-          status,
-          ...(result !== undefined && { result }),
-          ...(errorMessage !== undefined && { errorMessage }),
-        };
-        streamingMessage.value = {
-          ...streamingMessage.value,
-          toolCalls: updatedToolCalls,
-        };
-        return;
-      }
-    }
 
     for (let i = 0; i < messages.value.length; i++) {
       const msg = messages.value[i];
@@ -112,7 +133,7 @@ export const useStreamingStore = defineStore('streaming', () => {
           const newMessages = [...messages.value];
           newMessages[i] = { ...msg, toolCalls: updatedToolCalls };
           messages.value = newMessages;
-          break;
+          return;
         }
       }
     }
@@ -140,11 +161,10 @@ export const useStreamingStore = defineStore('streaming', () => {
       toolStatusCache.value.delete(tool.id);
     }
 
-    streamingMessage.value = {
-      ...msg,
+    updateStreamingMessage({
       toolCalls: [...existingToolCalls, newToolCall],
       isThinkingPhase: false,
-    };
+    });
   }
 
   function mergeToolCalls(existing: ToolCall[] | undefined, incoming: ToolCall[]): ToolCall[] {
@@ -219,7 +239,7 @@ export const useStreamingStore = defineStore('streaming', () => {
     return thinkingBlocks.map((block) => block.thinking).join('\n\n');
   }
 
-  function addUserMessage(content: string, isReplay = false, sdkMessageId?: string): ChatMessage {
+  function addUserMessage(content: string, isReplay = false, sdkMessageId?: string, isInjected?: boolean): ChatMessage {
     const msg: ChatMessage = {
       id: generateId(),
       sdkMessageId,
@@ -227,6 +247,7 @@ export const useStreamingStore = defineStore('streaming', () => {
       content,
       timestamp: Date.now(),
       isReplay,
+      isInjected,
     };
     messages.value = [...messages.value, msg];
     return msg;
@@ -247,14 +268,9 @@ export const useStreamingStore = defineStore('streaming', () => {
     messages.value = [...olderMessages, ...messages.value];
   }
 
-  /**
-   * Truncate all messages starting from the message with the given SDK message ID.
-   * Used for conversation rewind - removes the target message and all that came after.
-   * @param sdkMessageId The SDK message UUID to truncate from
-   * @returns The content of the removed message for prefilling input, or null if not found
-   */
   function truncateFromSdkMessageId(sdkMessageId: string): string | null {
     const index = messages.value.findIndex(m => m.sdkMessageId === sdkMessageId);
+
     if (index === -1) {
       console.warn('[useStreamingStore] Could not find message with SDK ID for truncation:', sdkMessageId);
       return null;
@@ -262,7 +278,7 @@ export const useStreamingStore = defineStore('streaming', () => {
     const removedMessage = messages.value[index];
     const content = removedMessage.content;
     messages.value = messages.value.slice(0, index);
-    streamingMessage.value = null;
+    streamingMessageId.value = null;
     return content;
   }
 
@@ -275,7 +291,7 @@ export const useStreamingStore = defineStore('streaming', () => {
   function assignSdkIdToLastUserMessage(sdkMessageId: string): void {
     for (let i = messages.value.length - 1; i >= 0; i--) {
       const msg = messages.value[i];
-      if (msg.role === 'user') {
+      if (msg.role === 'user' && !msg.isInjected) {
         if (msg.sdkMessageId !== sdkMessageId) {
           console.log('[useStreamingStore] Updating SDK ID for user message at index', i, 'from', msg.sdkMessageId, 'to', sdkMessageId);
           const newMessages = [...messages.value];
@@ -285,22 +301,75 @@ export const useStreamingStore = defineStore('streaming', () => {
         return;
       }
     }
-    console.warn('[useStreamingStore] No user message found to assign SDK ID');
+    console.warn('[useStreamingStore] No non-injected user message found to assign SDK ID');
+  }
+
+  function addQueuedMessage(message: QueuedMessage): void {
+    const chatMessage: ChatMessage = {
+      id: message.id,
+      sdkMessageId: message.id,
+      role: 'user',
+      content: message.content,
+      timestamp: message.timestamp,
+      isQueued: true,
+      isInjected: true,
+    };
+    messages.value = [...messages.value, chatMessage];
+  }
+
+  function markQueueProcessed(messageId: string): void {
+    const index = messages.value.findIndex(m => m.id === messageId);
+    if (index !== -1) {
+      const msg = messages.value[index];
+      const newMessages = messages.value.filter((_, i) => i !== index);
+      newMessages.push({ ...msg, isQueued: false });
+      messages.value = newMessages;
+    }
+  }
+
+  function removeQueuedMessage(messageId: string): void {
+    messages.value = messages.value.filter(m => m.id !== messageId);
+  }
+
+  function appendStreamingContent(text: string): void {
+    const current = streamingMessage.value;
+    if (!current) return;
+    updateStreamingMessage({
+      content: current.content + text,
+      isPartial: true,
+    });
+  }
+
+  function appendStreamingThinking(thinking: string): void {
+    const current = streamingMessage.value;
+    if (!current) return;
+    updateStreamingMessage({
+      thinkingContent: (current.thinkingContent || '') + thinking,
+      isThinkingPhase: true,
+    });
+  }
+
+  function setStreamingThinkingPhase(isThinking: boolean): void {
+    updateStreamingMessage({ isThinkingPhase: isThinking });
   }
 
   function $reset() {
     messages.value = [];
-    streamingMessage.value = null;
+    streamingMessageId.value = null;
     toolStatusCache.value = new Map();
   }
 
   return {
     messages,
     streamingMessage,
+    streamingMessageId,
     toolStatusCache,
     generateId,
+    getStreamingMessageIndex,
+    updateStreamingMessage,
     finalizeStreamingMessage,
     checkAndFinalizeForNewMessageId,
+    clearQueuedBadges,
     ensureStreamingMessage,
     updateToolStatus,
     addToolCall,
@@ -314,6 +383,12 @@ export const useStreamingStore = defineStore('streaming', () => {
     addMessage,
     truncateFromSdkMessageId,
     assignSdkIdToLastUserMessage,
+    addQueuedMessage,
+    markQueueProcessed,
+    removeQueuedMessage,
+    appendStreamingContent,
+    appendStreamingThinking,
+    setStreamingThinkingPhase,
     $reset,
   };
 });

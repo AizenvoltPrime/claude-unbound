@@ -129,7 +129,11 @@ export class PanelManager {
   }
 
   postMessageToPanel(panel: vscode.WebviewPanel, message: ExtensionToWebviewMessage): void {
-    panel.webview.postMessage(message);
+    try {
+      panel.webview.postMessage(message);
+    } catch {
+      // Panel was disposed - will be cleaned up by onDidDispose handler
+    }
   }
 
   broadcastToAllPanels(message: ExtensionToWebviewMessage): void {

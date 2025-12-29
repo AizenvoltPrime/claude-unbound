@@ -60,7 +60,6 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
 
         case "userMessageIdAssigned":
-          console.log('[useMessageHandler] Received userMessageIdAssigned:', message.sdkMessageId, 'messages count:', streamingStore.messages.length);
           streamingStore.assignSdkIdToLastUserMessage(message.sdkMessageId);
           break;
 
@@ -97,19 +96,23 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           }
 
           streamingStore.checkAndFinalizeForNewMessageId(msgId);
-          const msg = streamingStore.ensureStreamingMessage(msgId);
+          const currentMsg = streamingStore.ensureStreamingMessage(msgId);
 
+          const updates: Partial<ChatMessage> = {};
           if (textContent) {
-            msg.content = textContent;
+            updates.content = textContent;
           }
           if (thinkingContent) {
-            msg.thinking = thinkingContent;
+            updates.thinking = thinkingContent;
           }
           if (toolCalls.length > 0) {
-            msg.toolCalls = streamingStore.mergeToolCalls(msg.toolCalls, toolCalls);
+            updates.toolCalls = streamingStore.mergeToolCalls(currentMsg.toolCalls, toolCalls);
           }
           if (toolCalls.length > 0 || textContent) {
-            msg.isThinkingPhase = false;
+            updates.isThinkingPhase = false;
+          }
+          if (Object.keys(updates).length > 0) {
+            streamingStore.updateStreamingMessage(updates);
           }
 
           sessionStore.setCurrentSession(assistantMsg.session_id);
@@ -135,19 +138,23 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             streamingStore.checkAndFinalizeForNewMessageId(msgId);
           }
 
-          const msg = streamingStore.ensureStreamingMessage(msgId);
+          const currentMsg = streamingStore.ensureStreamingMessage(msgId);
 
+          const updates: Partial<ChatMessage> = {};
           if (partialData.streamingThinking !== undefined) {
-            msg.thinking = partialData.streamingThinking;
+            updates.thinking = partialData.streamingThinking;
           }
           if (partialData.streamingText !== undefined) {
-            msg.content = partialData.streamingText;
+            updates.content = partialData.streamingText;
           }
           if (partialData.thinkingDuration !== undefined) {
-            msg.thinkingDuration = partialData.thinkingDuration;
+            updates.thinkingDuration = partialData.thinkingDuration;
           }
-          if (!msg.toolCalls || msg.toolCalls.length === 0) {
-            msg.isThinkingPhase = partialData.isThinking ?? false;
+          if (!currentMsg.toolCalls || currentMsg.toolCalls.length === 0) {
+            updates.isThinkingPhase = partialData.isThinking ?? false;
+          }
+          if (Object.keys(updates).length > 0) {
+            streamingStore.updateStreamingMessage(updates);
           }
           break;
         }
@@ -169,7 +176,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
         case "processing":
           uiStore.setProcessing(message.isProcessing);
-          if (!message.isProcessing && streamingStore.streamingMessage) {
+          if (!message.isProcessing && streamingStore.streamingMessageId) {
             streamingStore.finalizeStreamingMessage();
           }
           break;
@@ -264,23 +271,14 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           if (parentToolUseId && subagentStore.hasSubagent(parentToolUseId)) {
             subagentStore.addToolCallToSubagent(parentToolUseId, toolCall);
           } else {
-            if (streamingStore.streamingMessage) {
-              if (!streamingStore.streamingMessage.toolCalls) {
-                streamingStore.streamingMessage.toolCalls = [];
-              }
-              if (!streamingStore.streamingMessage.toolCalls.find((t: ToolCall) => t.id === message.toolUseId)) {
-                streamingStore.streamingMessage.toolCalls.push(toolCall);
-              }
-            } else {
-              streamingStore.streamingMessage = {
-                id: `permission-${message.toolUseId}`,
-                role: "assistant",
-                content: "",
-                toolCalls: [toolCall],
-                timestamp: Date.now(),
-                isPartial: true,
-              };
-            }
+            // Add tool call to streaming message or create a new one
+            streamingStore.addToolCall({
+              id: toolCall.id,
+              name: toolCall.name,
+              input: toolCall.input,
+            });
+            // Update the tool status to awaiting_approval
+            streamingStore.updateToolStatus(toolCall.id, "awaiting_approval");
           }
 
           const agentDescription = parentToolUseId ? subagentStore.getSubagentDescription(parentToolUseId) : undefined;
@@ -398,7 +396,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         case "sessionCancelled":
           // Clear UI state when session is cancelled (ESC pressed)
           uiStore.setProcessing(false);
-          if (streamingStore.streamingMessage) {
+          if (streamingStore.streamingMessageId) {
             streamingStore.finalizeStreamingMessage();
           }
           subagentStore.cancelRunningSubagents();
@@ -458,7 +456,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
 
         case "userReplay":
-          streamingStore.addUserMessage(message.content, true, message.sdkMessageId);
+          streamingStore.addUserMessage(message.content, true, message.sdkMessageId, message.isInjected);
           break;
 
         case "assistantReplay": {
@@ -529,6 +527,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               toolCalls: convertHistoryTools(msg.tools),
               timestamp: Date.now(),
               isReplay: true,
+              isInjected: msg.isInjected,
             }));
 
             streamingStore.prependMessages(olderMessages);
@@ -555,6 +554,18 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             chatInputRef.value?.focus();
           });
           return;
+
+        case "messageQueued":
+          streamingStore.addQueuedMessage(message.message);
+          break;
+
+        case "queueProcessed":
+          streamingStore.markQueueProcessed(message.messageId);
+          break;
+
+        case "queueCancelled":
+          streamingStore.removeQueuedMessage(message.messageId);
+          break;
       }
 
       nextTick(() => {

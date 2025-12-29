@@ -1,5 +1,5 @@
 import { log } from '../logger';
-import { getLastMessageUuid } from '../session';
+import { persistQueuedMessage } from '../session';
 import type { SessionOptions, MessageCallbacks, RewindOption } from './types';
 import { ToolManager } from './tool-manager';
 import { StreamingManager, type CheckpointTracker } from './streaming-manager';
@@ -145,12 +145,15 @@ export class ClaudeSession {
 
   cancel(): void {
     this.checkpointManager.wasInterrupted = true;
+    this.streamingManager.silentAbort = true;
     this.queryManager.abort();
     this.streamingManager.processing = false;
   }
 
   reset(): void {
-    this.cancel();
+    this.streamingManager.silentAbort = true;
+    this.queryManager.abort();
+    this.streamingManager.processing = false;
     this.queryManager.reset();
     this.streamingManager.resetStreaming();
     this.streamingManager.sessionId = null;
@@ -159,7 +162,33 @@ export class ClaudeSession {
 
   async interrupt(): Promise<void> {
     this.checkpointManager.wasInterrupted = true;
+    this.streamingManager.silentAbort = true;
     await this.queryManager.interrupt();
+  }
+
+  /**
+   * Queue a message for injection at the next turn boundary via PostToolUse hook.
+   *
+   * The message is stored in a queue and injected as `additionalContext` in the
+   * PostToolUse hook. This makes it visible to Claude within the current turn,
+   * mimicking Claude Code CLI's h2A queue mechanism for mid-stream messages.
+   *
+   * Returns true if the message was queued, false if no active session.
+   */
+  queueInput(content: string, messageId?: string): boolean {
+    log('[ClaudeSession] queueInput called, queuing for PostToolUse injection');
+    const injected = this.queryManager.queueInput(content, messageId);
+
+    if (injected) {
+      const sessionId = this.currentSessionId;
+      if (sessionId) {
+        persistQueuedMessage(this.options.cwd, sessionId, content).catch(err => {
+          log('[ClaudeSession] Failed to persist queued message:', err);
+        });
+      }
+    }
+
+    return injected;
   }
 
   async setPermissionMode(mode: PermissionMode): Promise<void> {
@@ -190,7 +219,6 @@ export class ClaudeSession {
     const sessionId = this.streamingManager.sessionId;
     const needsFileRewind = option === 'code-and-conversation' || option === 'code-only';
 
-    // Ensure we have a query for file rewind operations
     if (needsFileRewind && sessionId && !this.queryManager.query) {
       await this.queryManager.ensureStreamingQuery(sessionId, null);
     }

@@ -23,6 +23,28 @@ export async function initializeSession(workspacePath: string, sessionId: string
   await fs.promises.writeFile(filePath, JSON.stringify(queueEntry) + '\n');
 }
 
+export async function persistQueuedMessage(
+  workspacePath: string,
+  sessionId: string,
+  content: string
+): Promise<string> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+  const messageUuid = crypto.randomUUID();
+
+  const queueEntry = {
+    type: 'queue-operation',
+    operation: 'enqueue',
+    timestamp: new Date().toISOString(),
+    sessionId,
+    content,
+    uuid: messageUuid,
+  };
+
+  await fs.promises.appendFile(filePath, JSON.stringify(queueEntry) + '\n');
+  return messageUuid;
+}
+
 export async function persistUserMessage(options: PersistUserMessageOptions): Promise<string> {
   const { workspacePath, sessionId, content, parentUuid, gitBranch } = options;
   const messageUuid = crypto.randomUUID();
@@ -67,6 +89,45 @@ export async function persistUserMessage(options: PersistUserMessageOptions): Pr
 
   const lines = [JSON.stringify(snapshotEntry), JSON.stringify(userEntry)].join('\n') + '\n';
   await fs.promises.appendFile(filePath, lines);
+
+  return messageUuid;
+}
+
+export interface PersistInjectedMessageOptions {
+  workspacePath: string;
+  sessionId: string;
+  content: string;
+  parentUuid: string | null;
+  gitBranch?: string;
+  uuid?: string;
+}
+
+export async function persistInjectedMessage(options: PersistInjectedMessageOptions): Promise<string> {
+  const { workspacePath, sessionId, content, parentUuid, gitBranch, uuid } = options;
+  const messageUuid = uuid ?? crypto.randomUUID();
+  const timestamp = new Date().toISOString();
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+
+  const userEntry = {
+    parentUuid,
+    isSidechain: false,
+    userType: 'external',
+    cwd: workspacePath,
+    sessionId,
+    version: EXTENSION_VERSION,
+    gitBranch: gitBranch ?? 'main',
+    type: 'user',
+    isInjected: true,
+    message: {
+      role: 'user',
+      content: [{ type: 'text', text: content }],
+    },
+    uuid: messageUuid,
+    timestamp,
+  };
+
+  await fs.promises.appendFile(filePath, JSON.stringify(userEntry) + '\n');
 
   return messageUuid;
 }

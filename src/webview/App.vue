@@ -104,7 +104,7 @@ const permissionStore = usePermissionStore();
 const { currentPermission, pendingCount: pendingPermissionCount } = storeToRefs(permissionStore);
 
 const streamingStore = useStreamingStore();
-const { messages, streamingMessage } = storeToRefs(streamingStore);
+const { messages, streamingMessageId } = storeToRefs(streamingStore);
 
 const subagentStore = useSubagentStore();
 const { subagents, expandedSubagent } = storeToRefs(subagentStore);
@@ -141,6 +141,10 @@ function handleSendMessage(content: string) {
   }
 
   postMessage({ type: 'sendMessage', content });
+}
+
+function handleQueueMessage(content: string) {
+  postMessage({ type: 'queueMessage', content });
 }
 
 function handleModeChange(mode: PermissionMode) {
@@ -575,7 +579,7 @@ const rewindMessagePreview = computed(() => {
 
         <MessageList
           :messages="messages"
-          :streaming-message="streamingMessage"
+          :streaming-message-id="streamingMessageId"
           :compact-markers="compactMarkersList"
           :checkpoint-messages="checkpointMessages"
           :subagents="subagents"
@@ -640,6 +644,7 @@ const rewindMessagePreview = computed(() => {
       :current-file="lastAccessedFile"
       :settings-open="showSettingsPanel"
       @send="handleSendMessage"
+      @queue="handleQueueMessage"
       @cancel="handleCancel"
       @change-mode="handleModeChange"
     />

@@ -37,6 +37,7 @@ export class StreamingManager {
   private _lastUserMessageId: string | null = null;
   private _isProcessing = false;
   private _onTurnComplete: TurnCompleteCallback | null = null;
+  private _silentAbort = false;
   private cwd: string;
 
   constructor(
@@ -86,6 +87,10 @@ export class StreamingManager {
 
   set onTurnComplete(callback: TurnCompleteCallback | null) {
     this._onTurnComplete = callback;
+  }
+
+  set silentAbort(value: boolean) {
+    this._silentAbort = value;
   }
 
   /** Flush accumulated assistant content to webview */
@@ -164,7 +169,10 @@ export class StreamingManager {
         this.processSDKMessage(message, budgetLimit);
       }
     } catch (err) {
-      if (err instanceof Error && err.name !== 'AbortError') {
+      const shouldReport = err instanceof Error &&
+        err.name !== 'AbortError' &&
+        !this._silentAbort;
+      if (shouldReport) {
         log('[StreamingManager] Query consumption error: %s\n%s', err.message, err.stack);
         this.callbacks.onMessage({
           type: 'error',
@@ -172,10 +180,9 @@ export class StreamingManager {
         });
       }
     } finally {
+      this._silentAbort = false;
       onComplete();
 
-      // Ensure turn completion is signaled even on error/abort paths
-      // (handleResultMessage handles the normal path when receivedResult=true)
       if (!receivedResult) {
         this._isProcessing = false;
         this.callbacks.onMessage({ type: 'processing', isProcessing: false });

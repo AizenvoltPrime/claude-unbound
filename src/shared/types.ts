@@ -107,6 +107,13 @@ export interface AgentDefinition {
   model?: "sonnet" | "opus" | "haiku" | "inherit";
 }
 
+// Queued message with unique ID for tracking (message queue injection)
+export interface QueuedMessage {
+  id: string;
+  content: string;
+  timestamp: number;
+}
+
 // ============================================================================
 // Session & Settings Types
 // ============================================================================
@@ -299,6 +306,7 @@ export interface HistoryMessage {
   thinking?: string;
   tools?: HistoryToolCall[]; // Tool calls for this message
   sdkMessageId?: string; // SDK's message UUID for rewind correlation
+  isInjected?: boolean; // True for messages sent mid-stream via SDK injection
 }
 
 // Serializable message types (subset of SDK types)
@@ -383,7 +391,10 @@ export type WebviewToExtensionMessage =
   // Open file in editor (from clickable file paths)
   | { type: "openFile"; filePath: string; line?: number }
   // Custom slash commands from .claude/commands/
-  | { type: "requestCustomSlashCommands" };
+  | { type: "requestCustomSlashCommands" }
+  // Message queue injection
+  | { type: "queueMessage"; content: string }
+  | { type: "cancelQueuedMessage"; messageId: string };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
@@ -439,7 +450,7 @@ export type ExtensionToWebviewMessage =
   // New: Rewind history for /rewind browser
   | { type: "rewindHistory"; prompts: RewindHistoryItem[] }
   // New: User message replay (for resumed sessions)
-  | { type: "userReplay"; content: string; isSynthetic?: boolean; sdkMessageId?: string }
+  | { type: "userReplay"; content: string; isSynthetic?: boolean; sdkMessageId?: string; isInjected?: boolean }
   // New: Assistant message replay (for resumed sessions)
   | { type: "assistantReplay"; content: string; thinking?: string; tools?: HistoryToolCall[] }
   // New: Error message replay (for interrupted sessions loaded from history)
@@ -467,7 +478,11 @@ export type ExtensionToWebviewMessage =
       parentToolUseId?: string | null;
     }
   // Custom slash commands from .claude/commands/
-  | { type: "customSlashCommands"; commands: SlashCommandItem[] };
+  | { type: "customSlashCommands"; commands: SlashCommandItem[] }
+  // Message queue injection
+  | { type: "messageQueued"; message: QueuedMessage }
+  | { type: "queueProcessed"; messageId: string }
+  | { type: "queueCancelled"; messageId: string };
 
 // Chat message for UI rendering
 export interface ChatMessage {
@@ -484,6 +499,8 @@ export interface ChatMessage {
   thinking?: string;
   thinkingDuration?: number; // Seconds spent in thinking phase
   parentToolUseId?: string | null; // Links to parent Task tool if from subagent
+  isQueued?: boolean; // True if message is queued, waiting to be processed
+  isInjected?: boolean; // True for messages sent mid-stream via SDK injection
 }
 
 export interface ToolCall {

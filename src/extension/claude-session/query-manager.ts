@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { log } from '../logger';
+import { persistInjectedMessage, findLastMessageInCurrentTurn } from '../session';
 import type {
   Query,
   SessionOptions,
@@ -45,6 +46,7 @@ export class QueryManager {
   private _currentModel: string | null = null;
   private cachedModels: ModelInfo[] | null = null;
   private maxBudgetUsd: number | null = null;
+  private _queuedMessages: Array<{ id: string | null; content: string }> = [];
 
   constructor(
     private options: SessionOptions,
@@ -229,17 +231,20 @@ export class QueryManager {
         }
       );
 
+      const controllerForThisQuery = this._streamingInputController;
+
       this.streamingManager.consumeQueryInBackground(
         result,
         this.maxBudgetUsd,
         this.abortController.signal,
         () => {
-          this._streamingInputController = null;
+          if (this._streamingInputController === controllerForThisQuery) {
+            this._streamingInputController = null;
+          }
           this.streamingManager.onTurnComplete = null;
         }
       ).catch(err => {
-        const msg = err instanceof Error ? err.message : String(err);
-        log('[QueryManager] Background query consumption error: %s', msg);
+        log('[QueryManager] Background query consumption error:', err);
       });
 
     } catch (err) {
@@ -267,6 +272,52 @@ export class QueryManager {
             const p = params as { tool_name?: string; tool_use_id?: string; tool_response?: unknown };
             const id = toolUseId ?? p.tool_use_id;
             this.toolManager.handlePostToolUse(p.tool_name, id, p.tool_response);
+
+            if (this._queuedMessages.length > 0) {
+              const queued = this._queuedMessages.splice(0);
+              const context = queued.map(m => `[User interjection]: ${m.content}`).join('\n\n');
+              log('[QueryManager] PostToolUse: injecting queued messages as additionalContext');
+
+              const sessionId = this.streamingManager.sessionId;
+              let parentUuid = this.streamingManager.lastUserMessageId;
+
+              if (sessionId) {
+                const lastMsgUuid = await findLastMessageInCurrentTurn(this.options.cwd, sessionId);
+                if (lastMsgUuid) {
+                  parentUuid = lastMsgUuid;
+                }
+              }
+
+              for (const msg of queued) {
+                if (sessionId) {
+                  try {
+                    await persistInjectedMessage({
+                      workspacePath: this.options.cwd,
+                      sessionId,
+                      content: msg.content,
+                      parentUuid,
+                      uuid: msg.id ?? undefined,
+                    });
+                    if (msg.id) {
+                      parentUuid = msg.id;
+                    }
+                  } catch (err) {
+                    log('[QueryManager] Failed to persist injected message:', err);
+                  }
+                }
+
+                if (msg.id) {
+                  this.callbacks.onMessage({ type: 'queueProcessed', messageId: msg.id });
+                }
+              }
+
+              return {
+                hookSpecificOutput: {
+                  hookEventName: 'PostToolUse',
+                  additionalContext: context,
+                },
+              };
+            }
             return {};
           },
         ],
@@ -372,6 +423,25 @@ export class QueryManager {
     });
   }
 
+  /**
+   * Queue a message for injection at the next turn boundary via PostToolUse hook.
+   *
+   * Unlike sendMessage(), this does NOT create a new turn. Instead, the message
+   * is injected as additionalContext in the PostToolUse hook, making it visible
+   * to Claude within the current turn.
+   *
+   * This mirrors Claude Code CLI's h2A queue mechanism for mid-stream messages.
+   */
+  queueInput(content: string, messageId?: string): boolean {
+    if (!this._streamingInputController) {
+      log('[QueryManager] queueInput: no active query');
+      return false;
+    }
+    log('[QueryManager] queueInput: queuing message for PostToolUse injection');
+    this._queuedMessages.push({ id: messageId ?? null, content });
+    return true;
+  }
+
   /** Abort the current query */
   abort(): void {
     if (this.abortController) {
@@ -404,6 +474,7 @@ export class QueryManager {
     this._currentQuery = null;
     this.abortController = null;
     this._sessionInitializing = false;
+    this._queuedMessages = [];
   }
 
   /** Full reset including cached data */

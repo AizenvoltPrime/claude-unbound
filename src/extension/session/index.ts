@@ -44,12 +44,17 @@ export {
   persistUserMessage,
   persistPartialAssistant,
   persistInterruptMarker,
+  persistQueuedMessage,
+  persistInjectedMessage,
   renameSession,
   deleteSession,
 } from './writing';
 
+export type { PersistInjectedMessageOptions } from './writing';
+
 export {
   getActiveBranchUuids,
+  getInjectedMessageUuids,
   extractActiveBranch,
   getLastMessageUuid,
   getMessageParentUuid,

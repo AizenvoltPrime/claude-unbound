@@ -26,6 +26,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   send: [content: string];
+  queue: [content: string];
   cancel: [];
   changeMode: [mode: PermissionMode];
 }>();
@@ -67,35 +68,12 @@ function adjustTextareaHeight() {
   textarea.style.overflowY = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
 }
 
-let measureCtx: CanvasRenderingContext2D | null = null;
-
-function getMeasureContext(): CanvasRenderingContext2D | null {
-  if (!measureCtx) {
-    measureCtx = document.createElement('canvas').getContext('2d');
-  }
-  return measureCtx;
+function isCursorAtStart(textarea: HTMLTextAreaElement): boolean {
+  return textarea.selectionStart === 0;
 }
 
-function isCursorOnFirstVisualLine(textarea: HTMLTextAreaElement): boolean {
-  const textBeforeCursor = textarea.value.slice(0, textarea.selectionStart);
-  if (textBeforeCursor.includes('\n')) return false;
-  const ctx = getMeasureContext();
-  if (!ctx) return true;
-  const style = window.getComputedStyle(textarea);
-  ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-  const contentWidth = textarea.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-  return ctx.measureText(textBeforeCursor).width <= contentWidth;
-}
-
-function isCursorOnLastVisualLine(textarea: HTMLTextAreaElement): boolean {
-  const textAfterCursor = textarea.value.slice(textarea.selectionStart);
-  if (textAfterCursor.includes('\n')) return false;
-  const ctx = getMeasureContext();
-  if (!ctx) return true;
-  const style = window.getComputedStyle(textarea);
-  ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-  const contentWidth = textarea.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-  return ctx.measureText(textAfterCursor).width <= contentWidth;
+function isCursorAtEnd(textarea: HTMLTextAreaElement): boolean {
+  return textarea.selectionStart === textarea.value.length;
 }
 
 const {
@@ -162,10 +140,23 @@ function handleSend() {
   if (!canSend.value) return;
   const message = inputText.value.trim();
   addEntry(message);
-  // Send raw message - SDK handles slash command expansion
-  emit('send', message);
+
+  if (props.isProcessing) {
+    emit('queue', message);
+  } else {
+    emit('send', message);
+  }
+
   inputText.value = '';
   resetHistory();
+}
+
+function handleButtonClick() {
+  if (canSend.value) {
+    handleSend();
+  } else if (props.isProcessing) {
+    handleCancel();
+  }
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -197,8 +188,9 @@ function handleKeydown(event: KeyboardEvent) {
   }
 
   if (event.key === 'ArrowUp') {
+    event.stopPropagation();
     const textarea = textareaRef.value;
-    if (textarea && (textarea.value === '' || isCursorOnFirstVisualLine(textarea))) {
+    if (textarea && (textarea.value === '' || isCursorAtStart(textarea))) {
       event.preventDefault();
       captureOriginal(inputText.value);
       navigateUp();
@@ -207,11 +199,13 @@ function handleKeydown(event: KeyboardEvent) {
   }
 
   if (event.key === 'ArrowDown') {
+    event.stopPropagation();
     const textarea = textareaRef.value;
-    if (isNavigating.value && textarea && isCursorOnLastVisualLine(textarea)) {
+    if (isNavigating.value && textarea && isCursorAtEnd(textarea)) {
       event.preventDefault();
       navigateDown();
     }
+    return;
   }
 }
 
@@ -283,12 +277,10 @@ const displayFile = computed(() => {
         <textarea
           ref="textareaRef"
           v-model="inputText"
-          :disabled="isProcessing"
-          placeholder="ctrl+esc to focus or unfocus Claude"
+          :placeholder="isProcessing ? 'Type to queue next message...' : 'ctrl+esc to focus or unfocus Claude'"
           rows="1"
           class="w-full p-3 bg-transparent text-unbound-text resize-none overflow-hidden
-                 focus:outline-none placeholder:text-unbound-muted
-                 disabled:opacity-50"
+                 focus:outline-none placeholder:text-unbound-muted"
           :style="{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }"
           @keydown="handleKeydown"
           @input="handleInput"
@@ -322,15 +314,23 @@ const displayFile = computed(() => {
             <span class="text-xs text-unbound-muted">+</span>
             <span class="text-xs text-unbound-muted">/</span>
 
+            <!-- Queue indicator when processing and has input -->
+            <span
+              v-if="isProcessing && canSend"
+              class="text-xs text-unbound-cyan-400"
+            >
+              Will queue
+            </span>
+
             <!-- Send/Stop button -->
             <Button
               :disabled="!canSend && !isProcessing"
               size="icon"
               class="w-8 h-8 rounded-lg"
-              :class="isProcessing ? 'bg-red-500 hover:bg-red-600 border-red-500' : ''"
-              @click="isProcessing ? handleCancel() : handleSend()"
+              :class="isProcessing && !canSend ? 'bg-red-500 hover:bg-red-600 border-red-500' : ''"
+              @click="handleButtonClick"
             >
-              <span v-if="isProcessing" class="w-3.5 h-3.5 bg-white rounded" />
+              <span v-if="isProcessing && !canSend" class="w-3.5 h-3.5 bg-white rounded" />
               <IconPlay v-else :size="14" />
             </Button>
           </div>
