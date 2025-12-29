@@ -1,7 +1,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, type Ref } from 'vue';
 import { Fzf, byLengthAsc } from 'fzf';
 import { useVSCode } from './useVSCode';
-import type { ExtensionToWebviewMessage, CustomSlashCommandInfo } from '@shared/types';
+import type { ExtensionToWebviewMessage, SlashCommandItem } from '@shared/types';
 
 const MAX_VISIBLE_ITEMS = 10;
 
@@ -15,7 +15,7 @@ export function useSlashCommandAutocomplete(
   const query = ref('');
   const slashStartIndex = ref(-1);
   const selectedIndex = ref(0);
-  const commands = ref<CustomSlashCommandInfo[]>([]);
+  const commands = ref<SlashCommandItem[]>([]);
   const isLoading = ref(false);
   const commandsLoaded = ref(false);
 
@@ -152,7 +152,7 @@ export function useSlashCommandAutocomplete(
     }
   }
 
-  function insertCommand(command: CustomSlashCommandInfo) {
+  function insertCommand(command: SlashCommandItem) {
     const textarea = textareaRef.value;
     if (!textarea) return;
 

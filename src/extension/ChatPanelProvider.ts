@@ -5,6 +5,7 @@ import { ClaudeSession } from "./ClaudeSession";
 import { PermissionHandler } from "./PermissionHandler";
 import { SlashCommandService } from "./SlashCommandService";
 import { extractSlashCommandDisplay } from "../shared/utils";
+import { BUILTIN_SLASH_COMMANDS } from "../shared/slashCommands";
 import { log } from "./logger";
 import { listWorkspaceFiles } from "./ripgrep";
 import {
@@ -16,6 +17,7 @@ import {
   getSessionMetadata,
   ensureSessionDir,
   readSessionEntries,
+  readActiveBranchEntries,
   readSessionEntriesPaginated,
   readAgentData,
   renameSession,
@@ -26,8 +28,8 @@ import {
   type StoredSession,
   type AgentData,
 } from "./SessionStorage";
-import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, McpServerConfig, ExtensionSettings, PermissionMode, HistoryMessage, HistoryToolCall } from "../shared/types";
-import type { JsonlContentBlock } from "./SessionStorage";
+import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, McpServerConfig, ExtensionSettings, PermissionMode, HistoryMessage, HistoryToolCall, RewindOption, RewindHistoryItem } from "../shared/types";
+import type { JsonlContentBlock, ClaudeSessionEntry } from "./SessionStorage";
 
 const SESSIONS_PAGE_SIZE = 20;
 const HISTORY_PAGE_SIZE = 30;
@@ -352,10 +354,14 @@ export class ChatPanelProvider {
 
       case "sendMessage":
         if (message.content.trim()) {
-          this.postMessageToPanel(panel, {
-            type: "userMessage",
-            content: message.content,
-          });
+          // Don't display /compact command in chat - it will be replaced by CompactMarker
+          const isCompactCommand = message.content.trim().toLowerCase() === '/compact';
+          if (!isCompactCommand) {
+            this.postMessageToPanel(panel, {
+              type: "userMessage",
+              content: message.content,
+            });
+          }
           // Send raw message to SDK - SDK handles slash command expansion
           // This matches CLI behavior: SDK creates XML wrapper + isMeta message
           session.sendMessage(message.content, message.agentId);
@@ -454,9 +460,39 @@ export class ChatPanelProvider {
         break;
       }
 
-      case "rewindToMessage":
-        await session.rewindFiles(message.userMessageId);
+      case "rewindToMessage": {
+        const option = message.option as RewindOption;
+        log('[ChatPanelProvider] Rewind requested:', { option, userMessageId: message.userMessageId });
+
+        // 'cancel' is handled in the webview - shouldn't reach here, but guard anyway
+        if (option === 'cancel') break;
+
+        // All other options are handled by ClaudeSession.rewindFiles():
+        // - 'code-and-conversation': Restore files + fork conversation
+        // - 'conversation-only': Fork conversation only (no file restore)
+        // - 'code-only': Restore files only (conversation stays linear)
+        await session.rewindFiles(message.userMessageId, option);
         break;
+      }
+
+      case "requestRewindHistory": {
+        const currentSessionId = session.currentSessionId;
+        if (!currentSessionId) {
+          this.postMessageToPanel(panel, { type: 'rewindHistory', prompts: [] });
+          break;
+        }
+
+        try {
+          // Pass conversation head to filter out rewound prompts
+          const conversationHead = session.conversationHead;
+          const history = await this.extractRewindHistory(currentSessionId, conversationHead);
+          this.postMessageToPanel(panel, { type: 'rewindHistory', prompts: history });
+        } catch (err) {
+          log('[ChatPanelProvider] Error extracting rewind history:', err);
+          this.postMessageToPanel(panel, { type: 'rewindHistory', prompts: [] });
+        }
+        break;
+      }
 
       case "interrupt":
         await session.interrupt();
@@ -609,11 +645,12 @@ export class ChatPanelProvider {
 
       case "requestCustomSlashCommands": {
         try {
-          const commands = await this.slashCommandService.getCommands();
-          this.postMessageToPanel(panel, { type: "customSlashCommands", commands });
+          const customCommands = await this.slashCommandService.getCommands();
+          const allCommands = [...BUILTIN_SLASH_COMMANDS, ...customCommands];
+          this.postMessageToPanel(panel, { type: "customSlashCommands", commands: allCommands });
         } catch (err) {
           log("[ChatPanelProvider] Error fetching custom slash commands:", err);
-          this.postMessageToPanel(panel, { type: "customSlashCommands", commands: [] });
+          this.postMessageToPanel(panel, { type: "customSlashCommands", commands: BUILTIN_SLASH_COMMANDS });
         }
         break;
       }
@@ -696,8 +733,66 @@ export class ChatPanelProvider {
     return text;
   }
 
+  private async extractRewindHistory(sessionId: string, conversationHead?: string | null): Promise<RewindHistoryItem[]> {
+    // Use active branch entries to exclude rewound/orphaned messages
+    // If conversationHead is provided, use it as the leaf for branch calculation
+    const entries = await readActiveBranchEntries(this.workspacePath, sessionId, conversationHead ?? undefined);
+    const history: RewindHistoryItem[] = [];
+
+    for (const entry of entries) {
+      if (entry.type !== 'user' || !entry.uuid || entry.isMeta || entry.isCompactSummary) continue;
+
+      const msgContent = entry.message?.content;
+      let content = '';
+
+      if (typeof msgContent === 'string') {
+        content = msgContent;
+      } else if (Array.isArray(msgContent)) {
+        const textBlock = findUserTextBlock(msgContent as JsonlContentBlock[]);
+        content = textBlock?.text ?? '';
+      }
+
+      if (!content || content.startsWith('<command-') || content.startsWith('<local-command-')) {
+        continue;
+      }
+
+      if (entry.isInterrupt || content === '[Request interrupted by user]') {
+        continue;
+      }
+
+      history.push({
+        messageId: entry.uuid,
+        content: content.slice(0, 200),
+        timestamp: entry.timestamp ? new Date(entry.timestamp).getTime() : Date.now(),
+        filesAffected: 0,
+      });
+    }
+
+    return history.reverse();
+  }
+
   private async loadSessionHistory(sessionId: string, panel: vscode.WebviewPanel): Promise<void> {
+    this.postMessageToPanel(panel, { type: "sessionCleared" });
+
+    log(`[ChatPanelProvider] loadSessionHistory: sessionId=${sessionId}`);
     const result = await readSessionEntriesPaginated(this.workspacePath, sessionId, 0, HISTORY_PAGE_SIZE);
+    log(`[ChatPanelProvider] readSessionEntriesPaginated result: entries=${result.entries.length}, hasCompactInfo=${!!result.compactInfo}`);
+
+    // If there was a compact, send the boundary marker first
+    // (compact detection and filtering is now done in readSessionEntriesPaginated)
+    if (result.compactInfo) {
+      log(`[ChatPanelProvider] sending compactBoundary: trigger=${result.compactInfo.trigger}, hasSummary=${!!result.compactInfo.summary}, summaryLength=${result.compactInfo.summary?.length ?? 0}`);
+      this.postMessageToPanel(panel, {
+        type: "compactBoundary",
+        preTokens: result.compactInfo.preTokens,
+        trigger: result.compactInfo.trigger,
+        summary: result.compactInfo.summary,
+        timestamp: result.compactInfo.timestamp,
+        isHistorical: true,
+      });
+    } else {
+      log(`[ChatPanelProvider] no compactInfo found`);
+    }
 
     const messages = await this.convertEntriesToMessages(result.entries);
 
@@ -707,6 +802,7 @@ export class ChatPanelProvider {
           type: "userReplay",
           content: msg.content,
           isSynthetic: false,
+          sdkMessageId: msg.sdkMessageId,
         });
       } else if (msg.type === "error") {
         this.postMessageToPanel(panel, {
@@ -748,17 +844,22 @@ export class ChatPanelProvider {
       // Stats extraction failed - session will load without stats
     }
 
+    // Notify webview if there are more entries to load
+    // (readSessionEntriesPaginated already filters to post-compact entries)
     if (result.hasMore) {
       this.postMessageToPanel(panel, {
         type: "historyChunk",
         messages: [],
-        hasMore: result.hasMore,
+        hasMore: true,
         nextOffset: result.nextOffset,
       });
     }
   }
 
   private async loadMoreHistory(sessionId: string, offset: number, panel: vscode.WebviewPanel): Promise<void> {
+    // Note: readSessionEntriesPaginated already filters to only entries after the last compact
+    // and includes compactInfo in the result. For loadMore, we don't need to send compactInfo
+    // again since it was sent in the initial load.
     const result = await readSessionEntriesPaginated(this.workspacePath, sessionId, offset, HISTORY_PAGE_SIZE);
 
     const messages = await this.convertEntriesToMessages(result.entries);
@@ -818,7 +919,8 @@ export class ChatPanelProvider {
 
     // Second pass: build messages with tool calls
     for (const entry of entries) {
-      if (entry.type === "user" && entry.message && !entry.isMeta) {
+      // Skip meta entries, compact summaries, and transcript-only entries
+      if (entry.type === "user" && entry.message && !entry.isMeta && !entry.isCompactSummary && !entry.isVisibleInTranscriptOnly) {
         const msgContent = entry.message.content;
         let content = "";
 
@@ -829,20 +931,25 @@ export class ChatPanelProvider {
           content = textBlock?.text ?? "";
         }
 
-        // Skip empty and system messages
+        // Skip empty, system messages, and /compact command (replaced by CompactMarker)
         if (
           !content ||
           content.startsWith("Unknown slash command:") ||
-          content.startsWith("Caveat:")
+          content.startsWith("Caveat:") ||
+          content.toLowerCase() === '/compact'
         ) {
           continue;
         }
 
+        // Get SDK message ID for rewind correlation
+        const sdkMessageId = entry.uuid;
+
         // Extract display format from slash command XML wrappers
         if (content.startsWith("<command-message>") || content.startsWith("<command-name>")) {
           const displayContent = extractSlashCommandDisplay(content);
-          if (displayContent) {
-            messages.push({ type: "user", content: displayContent });
+          // Skip /compact command - it's replaced by CompactMarker
+          if (displayContent && displayContent.toLowerCase() !== '/compact') {
+            messages.push({ type: "user", content: displayContent, sdkMessageId });
           }
           continue;
         }
@@ -858,7 +965,7 @@ export class ChatPanelProvider {
           continue;
         }
 
-        messages.push({ type: "user", content });
+        messages.push({ type: "user", content, sdkMessageId });
       } else if (entry.type === "assistant" && entry.message) {
         const msgContent = entry.message.content;
 

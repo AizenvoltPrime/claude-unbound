@@ -128,7 +128,15 @@ function focus() {
   textareaRef.value?.focus();
 }
 
-defineExpose({ focus });
+function setInput(value: string) {
+  inputText.value = value;
+  nextTick(() => {
+    adjustTextareaHeight();
+    textareaRef.value?.focus();
+  });
+}
+
+defineExpose({ focus, setInput });
 
 const canSend = computed(() => inputText.value.trim().length > 0);
 
@@ -183,6 +191,7 @@ function handleKeydown(event: KeyboardEvent) {
 
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
+    event.stopPropagation();
     handleSend();
     return;
   }

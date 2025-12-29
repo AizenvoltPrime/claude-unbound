@@ -13,11 +13,14 @@ import SubagentIndicator from './components/SubagentIndicator.vue';
 import SubagentOverlay from './components/SubagentOverlay.vue';
 import StatusBar from './components/StatusBar.vue';
 import BudgetWarning from './components/BudgetWarning.vue';
+import RewindBrowser from './components/RewindBrowser.vue';
 import RewindConfirmModal from './components/RewindConfirmModal.vue';
 import DeleteSessionModal from './components/DeleteSessionModal.vue';
 import PermissionPrompt from './components/PermissionPrompt.vue';
+import TodoListCard from './components/TodoListCard.vue';
 import { useVSCode } from './composables/useVSCode';
 import { useMessageHandler } from './composables/useMessageHandler';
+import { useDoubleKeyStroke } from './composables/useDoubleKeyStroke';
 import {
   useUIStore,
   useSettingsStore,
@@ -41,6 +44,7 @@ import type {
   ChatMessage,
   StoredSession,
   PermissionMode,
+  RewindOption,
 } from '@shared/types';
 
 const { postMessage } = useVSCode();
@@ -53,11 +57,18 @@ const {
   showMcpPanel,
   showSessionPicker,
   currentRunningTool,
+  showRewindTypeModal,
+  showRewindBrowser,
+  rewindHistoryItems,
+  rewindHistoryLoading,
+  selectedRewindItem,
   pendingRewindMessageId,
+  pendingRewindOption,
   renamingSessionId,
   renameInputValue,
   deletingSessionId,
   showDeleteModal,
+  todosPanelCollapsed,
 } = storeToRefs(uiStore);
 
 const settingsStore = useSettingsStore();
@@ -86,6 +97,7 @@ const {
   sessionStats,
   selectedSession,
   lastAccessedFile,
+  currentTodos,
 } = storeToRefs(sessionStore);
 
 const permissionStore = usePermissionStore();
@@ -109,7 +121,25 @@ useMessageHandler({
   chatInputRef,
 });
 
+useDoubleKeyStroke('Escape', () => {
+  if (!showRewindTypeModal.value &&
+      !showRewindBrowser.value &&
+      !showSettingsPanel.value &&
+      !showMcpPanel.value &&
+      !showDeleteModal.value) {
+    uiStore.openRewindTypeModal();
+  }
+});
+
 function handleSendMessage(content: string) {
+  const trimmed = content.trim();
+
+  // Intercept UI-only commands that should not go to the SDK
+  if (trimmed === '/rewind' || trimmed.startsWith('/rewind ')) {
+    uiStore.openRewindTypeModal();
+    return;
+  }
+
   postMessage({ type: 'sendMessage', content });
 }
 
@@ -304,17 +334,42 @@ function handleRefreshMcpStatus() {
 
 function handleRequestRewind(messageId: string) {
   uiStore.requestRewind(messageId);
+  uiStore.openRewindTypeModal();
 }
 
-function handleConfirmRewind() {
+function handleTypeSelected(option: RewindOption) {
+  if (option === 'cancel') {
+    uiStore.cancelRewind();
+    uiStore.closeRewindTypeModal();
+    return;
+  }
+
   if (pendingRewindMessageId.value) {
-    postMessage({ type: 'rewindToMessage', userMessageId: pendingRewindMessageId.value });
+    postMessage({ type: 'rewindToMessage', userMessageId: pendingRewindMessageId.value, option });
+    uiStore.cancelRewind();
+    uiStore.closeRewindTypeModal();
+  } else {
+    uiStore.selectRewindType(option);
+    postMessage({ type: 'requestRewindHistory' });
+  }
+}
+
+function handleRewindBrowserSelect(item: { messageId: string; content: string; timestamp: number; filesAffected: number; linesChanged?: { added: number; removed: number } }) {
+  if (pendingRewindOption.value) {
+    postMessage({ type: 'rewindToMessage', userMessageId: item.messageId, option: pendingRewindOption.value });
+    uiStore.closeRewindBrowser();
     uiStore.cancelRewind();
   }
 }
 
+function handleCloseRewindBrowser() {
+  uiStore.closeRewindBrowser();
+  uiStore.cancelRewind();
+}
+
 function handleCancelRewind() {
   uiStore.cancelRewind();
+  uiStore.closeRewindTypeModal();
 }
 
 function handlePermissionApproval(toolUseId: string, approved: boolean, options?: { acceptAll?: boolean; customMessage?: string }) {
@@ -545,6 +600,15 @@ const rewindMessagePreview = computed(() => {
       </Transition>
     </div>
 
+    <!-- Persistent Todo List Panel (always visible when todos exist) -->
+    <div v-if="currentTodos.length > 0" class="px-3 py-2 border-t border-unbound-cyan-900/30 bg-unbound-bg-light">
+      <TodoListCard
+        :todos="currentTodos"
+        :is-collapsed="todosPanelCollapsed"
+        @update:is-collapsed="uiStore.setTodosPanelCollapsed"
+      />
+    </div>
+
     <!-- Status Bar with witty phrases (above input) -->
     <StatusBar
       :is-processing="isProcessing"
@@ -605,12 +669,23 @@ const rewindMessagePreview = computed(() => {
       @refresh="handleRefreshMcpStatus"
     />
 
-    <!-- Rewind Confirmation Modal -->
+    <!-- Rewind Type Modal (pick rewind type first) -->
     <RewindConfirmModal
-      :visible="!!pendingRewindMessageId"
+      :visible="showRewindTypeModal"
       :message-preview="rewindMessagePreview"
-      @confirm="handleConfirmRewind"
+      :files-affected="selectedRewindItem?.filesAffected"
+      :lines-changed="selectedRewindItem?.linesChanged"
+      @confirm="handleTypeSelected"
       @cancel="handleCancelRewind"
+    />
+
+    <!-- Rewind Browser (pick which message to rewind to) -->
+    <RewindBrowser
+      :is-open="showRewindBrowser"
+      :prompts="rewindHistoryItems"
+      :is-loading="rewindHistoryLoading"
+      @select="handleRewindBrowserSelect"
+      @close="handleCloseRewindBrowser"
     />
 
     <!-- Delete Session Confirmation Modal -->

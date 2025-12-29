@@ -5,6 +5,7 @@ import type {
   FileEntry,
   CompactMarker,
   SessionStats,
+  TodoItem,
 } from '@shared/types';
 
 const DEFAULT_SESSION_STATS: SessionStats = {
@@ -35,6 +36,7 @@ export const useSessionStore = defineStore('session', () => {
   const checkpointMessages = ref<Set<string>>(new Set());
   const compactMarkers = ref<CompactMarker[]>([]);
   const sessionStats = ref<SessionStats>({ ...DEFAULT_SESSION_STATS });
+  const currentTodos = ref<TodoItem[]>([]);
 
   const selectedSession = computed(() => {
     if (!selectedSessionId.value) return null;
@@ -118,14 +120,29 @@ export const useSessionStore = defineStore('session', () => {
     checkpointMessages.value = new Set(messageIds);
   }
 
-  function addCompactMarker(trigger: 'manual' | 'auto', preTokens: number) {
+  function addCompactMarker(trigger: 'manual' | 'auto', preTokens: number, postTokens?: number, summary?: string, timestamp?: number) {
+    const ts = timestamp ?? Date.now();
     const marker: CompactMarker = {
-      id: `compact-${Date.now()}`,
-      timestamp: Date.now(),
+      id: `compact-${ts}`,
+      timestamp: ts,
       trigger,
       preTokens,
+      postTokens,
+      summary,
     };
     compactMarkers.value = [...compactMarkers.value, marker];
+  }
+
+  function updateLastCompactMarkerSummary(summary: string) {
+    if (compactMarkers.value.length === 0) return;
+    const markers = [...compactMarkers.value];
+    const lastIndex = markers.length - 1;
+    markers[lastIndex] = { ...markers[lastIndex], summary };
+    compactMarkers.value = markers;
+  }
+
+  function updateTodos(todos: TodoItem[]) {
+    currentTodos.value = todos;
   }
 
   function updateStats(updates: Partial<SessionStats>) {
@@ -137,6 +154,7 @@ export const useSessionStore = defineStore('session', () => {
     checkpointMessages.value = new Set();
     compactMarkers.value = [];
     sessionStats.value = { ...DEFAULT_SESSION_STATS };
+    currentTodos.value = [];
     hasMoreHistory.value = false;
     nextHistoryOffset.value = 0;
     loadingMoreHistory.value = false;
@@ -157,6 +175,7 @@ export const useSessionStore = defineStore('session', () => {
     checkpointMessages.value = new Set();
     compactMarkers.value = [];
     sessionStats.value = { ...DEFAULT_SESSION_STATS };
+    currentTodos.value = [];
   }
 
   return {
@@ -174,6 +193,7 @@ export const useSessionStore = defineStore('session', () => {
     checkpointMessages,
     compactMarkers,
     sessionStats,
+    currentTodos,
     selectedSession,
     lastAccessedFile,
     setCurrentSession,
@@ -186,6 +206,8 @@ export const useSessionStore = defineStore('session', () => {
     trackFileAccess,
     setCheckpointMessages,
     addCompactMarker,
+    updateLastCompactMarkerSummary,
+    updateTodos,
     updateStats,
     clearSessionData,
     $reset,

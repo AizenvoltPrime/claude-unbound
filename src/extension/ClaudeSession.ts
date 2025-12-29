@@ -9,7 +9,9 @@ import {
   findUserMessageInCurrentTurn,
   findLastMessageInCurrentTurn,
   getLastMessageUuid,
+  getMessageParentUuid,
   initializeSession,
+  readLatestCompactSummary,
 } from './SessionStorage';
 import type { PermissionHandler } from './PermissionHandler';
 import type {
@@ -99,6 +101,12 @@ interface StreamedToolInfo {
   parentToolUseId: string | null;
 }
 
+// Controller for streaming input mode - allows sending messages to an active query
+interface StreamingInputController {
+  sendMessage: (content: string) => void;
+  close: () => void;
+}
+
 export class ClaudeSession {
   private abortController: AbortController | null = null;
   private sessionId: string | null = null;
@@ -121,6 +129,16 @@ export class ClaudeSession {
   private currentPrompt: string | null = null;
   private currentModel: string | null = null;
   private wasInterrupted = false;
+  // Streaming input controller - used for ALL sessions (not just resumed)
+  // This keeps the query transport alive for rewindFiles() and other operations
+  private streamingInputController: StreamingInputController | null = null;
+  private sessionInitializing = false;
+  // Resolve function to signal when a message has been fully processed
+  private messageProcessedResolve: (() => void) | null = null;
+  // When set, the next query will fork from this message UUID via resumeSessionAt
+  // This is used for "code-and-conversation" rewind to fork the conversation tree
+  // Also exposed via conversationHead getter for rewind history filtering
+  private pendingResumeSessionAt: string | null = null;
 
   constructor(private options: SessionOptions) {}
 
@@ -130,6 +148,14 @@ export class ClaudeSession {
 
   get processing(): boolean {
     return this.isProcessing;
+  }
+
+  get canRewindFiles(): boolean {
+    return this.currentQuery !== null;
+  }
+
+  get conversationHead(): string | null {
+    return this.pendingResumeSessionAt;
   }
 
   private flushPendingAssistant(): void {
@@ -213,325 +239,155 @@ export class ClaudeSession {
   setResumeSession(sessionId: string | null): void {
     this.resumeSessionId = sessionId;
     this.sessionId = sessionId;
+    // For resumed sessions, initialize streaming query immediately so rewind is available
+    if (sessionId) {
+      this.ensureStreamingQuery(sessionId).catch(err => {
+        log('[ClaudeSession] Failed to initialize resumed session:', err);
+      });
+    }
   }
 
-  async sendMessage(prompt: string, agentId?: string): Promise<void> {
-    if (this.isProcessing) {
-      this.options.onMessage({
-        type: 'error',
-        message: 'A request is already in progress',
-      });
+  /**
+   * Ensure a streaming query exists for this session.
+   * Uses streaming input mode (AsyncIterable) so the query stays alive between messages.
+   * This is required for rewindFiles() and other Query methods to work.
+   *
+   * Per SDK docs: prompt can be `string | AsyncIterable<SDKUserMessage>`.
+   * Streaming input mode keeps the transport open, enabling methods like rewindFiles().
+   */
+  private async ensureStreamingQuery(resumeSessionId?: string): Promise<void> {
+    if (this.streamingInputController || this.sessionInitializing) {
       return;
     }
 
-    const query = await loadSDK();
-    if (!query) {
-      this.options.onMessage({
-        type: 'error',
-        message: 'Failed to load Claude Agent SDK',
-      });
+    this.sessionInitializing = true;
+
+    const queryFn = await loadSDK();
+    if (!queryFn) {
+      this.sessionInitializing = false;
       return;
     }
 
-    this.isProcessing = true;
-    this.abortController = new AbortController();
-    this.pendingAssistant = null;
-    this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null, parentToolUseId: null };
-    this.toolsUsedThisTurn = false;
-    this.currentPrompt = prompt;
-    this.wasInterrupted = false;
-    this.options.onMessage({ type: 'processing', isProcessing: true });
+    // Create a streaming input controller
+    let resolveNext: ((content: string | null) => void) | null = null;
+
+    // SDKUserMessage format for streaming input
+    type UserMessage = {
+      type: 'user';
+      message: { role: 'user'; content: string };
+      parent_tool_use_id: null;
+    };
+
+    // Async generator that yields user messages as they come in
+    // This keeps the query alive between messages
+    async function* inputStream(): AsyncGenerator<UserMessage, void, unknown> {
+      while (true) {
+        const content = await new Promise<string | null>(resolve => {
+          resolveNext = resolve;
+        });
+        if (content === null) {
+          break; // Stream closed
+        }
+        yield {
+          type: 'user',
+          message: { role: 'user', content },
+          parent_tool_use_id: null,
+        };
+      }
+    }
+
+    this.streamingInputController = {
+      sendMessage: (content: string) => {
+        if (resolveNext) {
+          resolveNext(content);
+        }
+      },
+      close: () => {
+        if (resolveNext) {
+          resolveNext(null);
+        }
+      },
+    };
+
+    // Build query options
+    const config = vscode.workspace.getConfiguration('claude-unbound');
+    const maxTurns = config.get<number>('maxTurns', 50);
+    const configuredModel = config.get<string>('model', '');
+    const model = configuredModel || 'claude-opus-4-5-20251101';
+    const maxBudgetUsd = config.get<number | null>('maxBudgetUsd', null);
+    const maxThinkingTokens = config.get<number | null>('maxThinkingTokens', null);
+    const betasEnabledRaw = config.get<string[]>('betasEnabled', []);
+    const betasEnabled = betasEnabledRaw.filter(
+      (b): b is 'context-1m-2025-08-07' => b === 'context-1m-2025-08-07'
+    );
+    const enableFileCheckpointing = config.get<boolean>('enableFileCheckpointing', true);
+    const sandboxConfig = config.get<SandboxConfig>('sandbox', { enabled: false });
+
+    const queryOptions: Record<string, unknown> = {
+      cwd: this.options.cwd,
+      abortController: new AbortController(),
+      includePartialMessages: true,
+      maxTurns,
+      model,
+      ...(maxBudgetUsd && { maxBudgetUsd }),
+      ...(maxThinkingTokens && { maxThinkingTokens }),
+      ...(betasEnabled.length > 0 && { betas: betasEnabled }),
+      enableFileCheckpointing,
+      ...(sandboxConfig?.enabled && {
+        sandbox: {
+          enabled: true,
+          autoAllowBashIfSandboxed: sandboxConfig.autoAllowBashIfSandboxed,
+          allowUnsandboxedCommands: sandboxConfig.allowUnsandboxedCommands,
+          ...(sandboxConfig.networkAllowedDomains?.length && {
+            network: {
+              allowLocalBinding: sandboxConfig.networkAllowLocalBinding,
+            },
+          }),
+        },
+      }),
+      ...(this.options.mcpServers && Object.keys(this.options.mcpServers).length > 0 && {
+        mcpServers: this.options.mcpServers,
+      }),
+      agents: AGENT_DEFINITIONS,
+      canUseTool: async (toolName: string, input: Record<string, unknown>, context: { signal: AbortSignal }) => {
+        return this.handleCanUseTool(toolName, input, context);
+      },
+      settingSources: ['project'],
+      systemPrompt: { type: 'preset', preset: 'claude_code' },
+      tools: { type: 'preset', preset: 'claude_code' },
+      hooks: this.buildHooks(),
+    };
+
+    // Resume existing session or start fresh
+    if (resumeSessionId) {
+      queryOptions.resume = resumeSessionId;
+    }
+
+    // Fork conversation from a specific message (used after "code-and-conversation" rewind)
+    // Per SDK docs: resumeSessionAt resumes session at a specific message UUID, creating a fork
+    if (this.pendingResumeSessionAt) {
+      queryOptions.resumeSessionAt = this.pendingResumeSessionAt;
+      this.pendingResumeSessionAt = null; // Clear after use
+    }
 
     try {
-      const config = vscode.workspace.getConfiguration('claude-unbound');
-      const maxTurns = config.get<number>('maxTurns', 50);
-      // Default to Opus 4.5 if no model is specified
-      const configuredModel = config.get<string>('model', '');
-      const model = configuredModel || 'claude-opus-4-5-20251101';
-      this.currentModel = model;
-      const maxBudgetUsd = config.get<number | null>('maxBudgetUsd', null);
-      const maxThinkingTokens = config.get<number | null>('maxThinkingTokens', null);
-      const betasEnabledRaw = config.get<string[]>('betasEnabled', []);
-      // Filter to only include valid beta values that the SDK accepts
-      const betasEnabled = betasEnabledRaw.filter(
-        (b): b is 'context-1m-2025-08-07' => b === 'context-1m-2025-08-07'
-      );
-      const enableFileCheckpointing = config.get<boolean>('enableFileCheckpointing', true);
-      const sandboxConfig = config.get<SandboxConfig>('sandbox', { enabled: false });
 
-      // Build query options with all SDK features
-      const queryOptions: Parameters<typeof query>[0]['options'] = {
-        cwd: this.options.cwd,
-        abortController: this.abortController,
-        includePartialMessages: true,
-        maxTurns,
-        // Model selection (defaults to Opus 4.5)
-        model,
-        // New: Budget limit
-        ...(maxBudgetUsd && { maxBudgetUsd }),
-        // New: Extended thinking
-        ...(maxThinkingTokens && { maxThinkingTokens }),
-        // New: Beta features (e.g., 1M context window)
-        ...(betasEnabled.length > 0 && { betas: betasEnabled }),
-        // New: File checkpointing for rewind
-        enableFileCheckpointing,
-        // New: Sandbox configuration
-        ...(sandboxConfig?.enabled && {
-          sandbox: {
-            enabled: true,
-            autoAllowBashIfSandboxed: sandboxConfig.autoAllowBashIfSandboxed,
-            allowUnsandboxedCommands: sandboxConfig.allowUnsandboxedCommands,
-            ...(sandboxConfig.networkAllowedDomains?.length && {
-              network: {
-                allowLocalBinding: sandboxConfig.networkAllowLocalBinding,
-              },
-            }),
-          },
-        }),
-        // New: MCP servers (loaded from .mcp.json)
-        ...(this.options.mcpServers && Object.keys(this.options.mcpServers).length > 0 && {
-          mcpServers: this.options.mcpServers,
-        }),
-        // New: Proper agent definitions (replacing systemPromptSuffix)
-        agents: AGENT_DEFINITIONS,
-        canUseTool: async (toolName, input, context) => {
-          // Flush any accumulated text/thinking content so it appears in the UI
-          // before the tool call. The tool call itself is sent via requestPermission.
-          this.flushPendingAssistant();
-
-          // SDK doesn't pass tool_use_id in canUseTool context, so we use FIFO queue correlation
-          // toolStreaming queues tool info, canUseTool dequeues it (tools are processed in order)
-          // This works because SDK awaits each canUseTool before processing the next tool
-          const toolQueue = this.pendingToolQueue.get(toolName) ?? [];
-          const queuedInfo = toolQueue.shift();
-          if (queuedInfo) {
-            this.pendingToolQueue.set(toolName, toolQueue);
-          } else {
-            log('[ClaudeSession] Warning: canUseTool called but no queued info for tool %s - timing mismatch?', toolName);
-          }
-          const toolUseId = queuedInfo?.toolUseId ?? null;
-          const parentToolUseId = queuedInfo?.parentToolUseId ?? null;
-
-          const extendedContext = { ...context, toolUseID: toolUseId, parentToolUseId };
-          const result = await this.options.permissionHandler.canUseTool(toolName, input, extendedContext);
-          if (result.behavior === 'allow') {
-            // Tool will execute - remove from orphan tracking
-            if (toolUseId) {
-              this.streamedToolIds.delete(toolUseId);
-            }
-            return {
-              behavior: 'allow' as const,
-              updatedInput: (result.updatedInput ?? input) as Record<string, unknown>,
-            };
-          }
-          // Tool was denied - send toolFailed since PostToolUseFailure won't fire
-          // (that hook only fires for execution failures, not permission denials)
-          if (toolUseId) {
-            this.streamedToolIds.delete(toolUseId);
-            log('[ClaudeSession] Tool denied, sending toolFailed:', toolName, toolUseId);
-            this.options.onMessage({
-              type: 'toolFailed',
-              toolUseId,
-              toolName,
-              error: result.message ?? 'Permission denied',
-              isInterrupt: false,
-              parentToolUseId,
-            });
-          }
-          return {
-            behavior: 'deny' as const,
-            message: result.message ?? 'Permission denied',
-          };
-        },
-        settingSources: ['project'],
-        systemPrompt: { type: 'preset', preset: 'claude_code' },
-        tools: { type: 'preset', preset: 'claude_code' },
-        hooks: {
-          // === PreToolUse: Tool is about to execute - mark as running ===
-          PreToolUse: [{
-            hooks: [
-              async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-                const p = params as { tool_name?: string; tool_input?: unknown };
-                if (p.tool_name) {
-                  this.toolsUsedThisTurn = true;
-                }
-                if (p.tool_name && toolUseId) {
-                  // Remove from orphan tracking - this tool IS executing
-                  this.streamedToolIds.delete(toolUseId);
-                  // Notify UI that tool is now running (not just pending)
-                  this.options.onMessage({
-                    type: 'toolPending',  // TODO: Consider adding 'toolRunning' message type
-                    toolName: p.tool_name,
-                    input: p.tool_input,
-                  });
-                }
-                return {};
-              },
-            ],
-          }],
-          // === PostToolUse: Track tool completion ===
-          PostToolUse: [{
-            hooks: [
-              async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-                const p = params as { tool_name?: string; tool_use_id?: string; tool_response?: unknown };
-                const id = toolUseId ?? p.tool_use_id;
-                if (p.tool_name && id) {
-                  const toolInfo = this.streamedToolIds.get(id);
-                  const parentToolUseId = toolInfo?.parentToolUseId ?? null;
-                  // Remove from orphan tracking (just in case PreToolUse didn't fire)
-                  this.streamedToolIds.delete(id);
-                  this.options.onMessage({
-                    type: 'toolCompleted',
-                    toolUseId: id,
-                    toolName: p.tool_name,
-                    result: this.serializeToolResult(p.tool_response),
-                    parentToolUseId,
-                  });
-                }
-                return {};
-              },
-            ],
-          }],
-          // === PostToolUseFailure: Handle tool failures ===
-          PostToolUseFailure: [{
-            hooks: [
-              async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-                const p = params as { tool_name?: string; tool_use_id?: string; error?: string; is_interrupt?: boolean };
-                const id = toolUseId ?? p.tool_use_id;
-                if (p.tool_name && id) {
-                  const toolInfo = this.streamedToolIds.get(id);
-                  const parentToolUseId = toolInfo?.parentToolUseId ?? null;
-                  // Remove from orphan tracking
-                  this.streamedToolIds.delete(id);
-                  this.options.onMessage({
-                    type: 'toolFailed',
-                    toolUseId: id,
-                    toolName: p.tool_name,
-                    error: p.error || 'Unknown error',
-                    isInterrupt: p.is_interrupt,
-                    parentToolUseId,
-                  });
-                }
-                return {};
-              },
-            ],
-          }],
-          // === Notification: Forward to webview ===
-          Notification: [{
-            hooks: [
-              async (params: unknown): Promise<Record<string, unknown>> => {
-                const p = params as { message?: string; type?: string };
-                if (p.message) {
-                  this.options.onMessage({
-                    type: 'notification',
-                    message: p.message,
-                    notificationType: p.type || 'info',
-                  } as ExtensionToWebviewMessage);
-                }
-                return {};
-              },
-            ],
-          }],
-          // === SessionStart: Track session lifecycle ===
-          SessionStart: [{
-            hooks: [
-              async (params: unknown): Promise<Record<string, unknown>> => {
-                const p = params as { source?: 'startup' | 'resume' | 'clear' | 'compact' };
-                this.options.onMessage({
-                  type: 'sessionStart',
-                  source: p.source || 'startup',
-                });
-                return {};
-              },
-            ],
-          }],
-          // === SessionEnd: Track session end ===
-          SessionEnd: [{
-            hooks: [
-              async (params: unknown): Promise<Record<string, unknown>> => {
-                const p = params as { reason?: string };
-                this.options.onMessage({
-                  type: 'sessionEnd',
-                  reason: p.reason || 'completed',
-                });
-                return {};
-              },
-            ],
-          }],
-          // === SubagentStart: Track subagent spawning ===
-          SubagentStart: [{
-            hooks: [
-              async (params: unknown): Promise<Record<string, unknown>> => {
-                const p = params as { agent_id?: string; agent_type?: string };
-                if (p.agent_id) {
-                  this.options.onMessage({
-                    type: 'subagentStart',
-                    agentId: p.agent_id,
-                    agentType: p.agent_type || 'unknown',
-                  });
-                }
-                return {};
-              },
-            ],
-          }],
-          // === SubagentStop: Track subagent completion ===
-          SubagentStop: [{
-            hooks: [
-              async (params: unknown): Promise<Record<string, unknown>> => {
-                const p = params as { agent_id?: string };
-                if (p.agent_id) {
-                  this.options.onMessage({
-                    type: 'subagentStop',
-                    agentId: p.agent_id,
-                  });
-                }
-                return {};
-              },
-            ],
-          }],
-          // === PreCompact: Notify before context compaction ===
-          PreCompact: [{
-            hooks: [
-              async (params: unknown): Promise<Record<string, unknown>> => {
-                const p = params as { trigger?: 'manual' | 'auto' };
-                this.options.onMessage({
-                  type: 'preCompact',
-                  trigger: p.trigger || 'auto',
-                });
-                return {};
-              },
-            ],
-          }],
-        },
-      };
-
-      // Handle session ID for new vs existing sessions
-      const isNewSession = !this.sessionId && !this.resumeSessionId;
-      if (!isNewSession) {
-        // For explicit resumes or continuations, pass the resume option
-        const sessionToResume = this.resumeSessionId || this.sessionId;
-        if (sessionToResume) {
-          (queryOptions as Record<string, unknown>).resume = sessionToResume;
-          if (this.resumeSessionId) {
-            this.resumeSessionId = null;
-          }
-        }
-      }
-
-      const result = query({
-        prompt,
-        options: queryOptions,
+      const result = queryFn({
+        prompt: inputStream() as unknown as string,
+        options: queryOptions as Parameters<typeof queryFn>[0]['options'],
       });
 
-      // Store query reference for control methods
       this.currentQuery = result;
+      this.abortController = queryOptions.abortController as AbortController;
+      this.currentModel = model;
+      this.sessionInitializing = false;
 
-      // SDK "streaming input mode" methods must be called AFTER the stream starts.
-      // We fire these off without awaiting - they'll execute once streaming begins.
+      // Set thinking tokens
       result.setMaxThinkingTokens(maxThinkingTokens).catch((err) => {
         log('[ClaudeSession] Failed to set thinking tokens:', err);
       });
 
+      // Get account info
       result.accountInfo().then(
         (account) => {
           this.options.onMessage({
@@ -548,438 +404,844 @@ export class ClaudeSession {
         }
       );
 
-      // Get budget settings for warning/exceeded checks
-      const budgetLimit = maxBudgetUsd;
+      // Start consuming messages in the background
+      this.consumeQueryInBackground(result, maxBudgetUsd).catch(err => {
+        log('[ClaudeSession] Background query consumption error:', err);
+      });
 
+    } catch (err) {
+      log('[ClaudeSession] Failed to create streaming query:', err);
+      this.sessionInitializing = false;
+      this.streamingInputController = null;
+    }
+  }
+
+  /**
+   * Build hooks configuration for the query.
+   */
+  private buildHooks() {
+    return {
+      PreToolUse: [{
+        hooks: [
+          async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
+            const p = params as { tool_name?: string; tool_input?: unknown };
+            if (p.tool_name) {
+              this.toolsUsedThisTurn = true;
+            }
+            if (p.tool_name && toolUseId) {
+              this.streamedToolIds.delete(toolUseId);
+              this.options.onMessage({
+                type: 'toolPending',
+                toolName: p.tool_name,
+                input: p.tool_input,
+              });
+            }
+            return {};
+          },
+        ],
+      }],
+      PostToolUse: [{
+        hooks: [
+          async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
+            const p = params as { tool_name?: string; tool_use_id?: string; tool_response?: unknown };
+            const id = toolUseId ?? p.tool_use_id;
+            if (p.tool_name && id) {
+              const toolInfo = this.streamedToolIds.get(id);
+              const parentToolUseId = toolInfo?.parentToolUseId ?? null;
+              this.streamedToolIds.delete(id);
+              this.options.onMessage({
+                type: 'toolCompleted',
+                toolUseId: id,
+                toolName: p.tool_name,
+                result: this.serializeToolResult(p.tool_response),
+                parentToolUseId,
+              });
+            }
+            return {};
+          },
+        ],
+      }],
+      PostToolUseFailure: [{
+        hooks: [
+          async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
+            const p = params as { tool_name?: string; tool_use_id?: string; error?: string; is_interrupt?: boolean };
+            const id = toolUseId ?? p.tool_use_id;
+            if (p.tool_name && id) {
+              const toolInfo = this.streamedToolIds.get(id);
+              const parentToolUseId = toolInfo?.parentToolUseId ?? null;
+              this.streamedToolIds.delete(id);
+              this.options.onMessage({
+                type: 'toolFailed',
+                toolUseId: id,
+                toolName: p.tool_name,
+                error: p.error || 'Unknown error',
+                isInterrupt: p.is_interrupt,
+                parentToolUseId,
+              });
+            }
+            return {};
+          },
+        ],
+      }],
+      Notification: [{
+        hooks: [
+          async (params: unknown): Promise<Record<string, unknown>> => {
+            const p = params as { message?: string; type?: string };
+            if (p.message) {
+              this.options.onMessage({
+                type: 'notification',
+                message: p.message,
+                notificationType: p.type || 'info',
+              } as ExtensionToWebviewMessage);
+            }
+            return {};
+          },
+        ],
+      }],
+      SessionStart: [{
+        hooks: [
+          async (params: unknown): Promise<Record<string, unknown>> => {
+            const p = params as { source?: 'startup' | 'resume' | 'clear' | 'compact' };
+            this.options.onMessage({
+              type: 'sessionStart',
+              source: p.source || 'startup',
+            });
+            return {};
+          },
+        ],
+      }],
+      SessionEnd: [{
+        hooks: [
+          async (params: unknown): Promise<Record<string, unknown>> => {
+            const p = params as { reason?: string };
+            this.options.onMessage({
+              type: 'sessionEnd',
+              reason: p.reason || 'completed',
+            });
+            return {};
+          },
+        ],
+      }],
+      SubagentStart: [{
+        hooks: [
+          async (params: unknown): Promise<Record<string, unknown>> => {
+            const p = params as { agent_id?: string; agent_type?: string };
+            if (p.agent_id) {
+              this.options.onMessage({
+                type: 'subagentStart',
+                agentId: p.agent_id,
+                agentType: p.agent_type || 'unknown',
+              });
+            }
+            return {};
+          },
+        ],
+      }],
+      SubagentStop: [{
+        hooks: [
+          async (params: unknown): Promise<Record<string, unknown>> => {
+            const p = params as { agent_id?: string };
+            if (p.agent_id) {
+              this.options.onMessage({
+                type: 'subagentStop',
+                agentId: p.agent_id,
+              });
+            }
+            return {};
+          },
+        ],
+      }],
+      PreCompact: [{
+        hooks: [
+          async (params: unknown): Promise<Record<string, unknown>> => {
+            const p = params as { trigger?: 'manual' | 'auto' };
+            this.options.onMessage({
+              type: 'preCompact',
+              trigger: p.trigger || 'auto',
+            });
+            return {};
+          },
+        ],
+      }],
+    };
+  }
+
+  /**
+   * Handle canUseTool callback for permission checking.
+   */
+  private async handleCanUseTool(
+    toolName: string,
+    input: Record<string, unknown>,
+    context: { signal: AbortSignal }
+  ): Promise<{ behavior: 'allow'; updatedInput: Record<string, unknown> } | { behavior: 'deny'; message: string }> {
+    // Flush any accumulated text/thinking content
+    this.flushPendingAssistant();
+
+    // Correlate with queued tool info
+    const toolQueue = this.pendingToolQueue.get(toolName) ?? [];
+    const queuedInfo = toolQueue.shift();
+    if (queuedInfo) {
+      this.pendingToolQueue.set(toolName, toolQueue);
+    } else {
+      log('[ClaudeSession] Warning: canUseTool called but no queued info for tool %s', toolName);
+    }
+    const toolUseId = queuedInfo?.toolUseId ?? null;
+    const parentToolUseId = queuedInfo?.parentToolUseId ?? null;
+
+    const extendedContext = { ...context, toolUseID: toolUseId, parentToolUseId };
+    const result = await this.options.permissionHandler.canUseTool(toolName, input, extendedContext);
+
+    if (result.behavior === 'allow') {
+      if (toolUseId) {
+        this.streamedToolIds.delete(toolUseId);
+      }
+      return {
+        behavior: 'allow' as const,
+        updatedInput: (result.updatedInput ?? input) as Record<string, unknown>,
+      };
+    }
+
+    // Tool was denied
+    if (toolUseId) {
+      this.streamedToolIds.delete(toolUseId);
+      log('[ClaudeSession] Tool denied, sending toolFailed:', toolName, toolUseId);
+      this.options.onMessage({
+        type: 'toolFailed',
+        toolUseId,
+        toolName,
+        error: result.message ?? 'Permission denied',
+        isInterrupt: false,
+        parentToolUseId,
+      });
+    }
+    return {
+      behavior: 'deny' as const,
+      message: result.message ?? 'Permission denied',
+    };
+  }
+
+  /**
+   * Consume query messages in the background (streaming input mode).
+   * Processes all SDK messages and routes them to the webview.
+   */
+  private async consumeQueryInBackground(result: Query, budgetLimit: number | null): Promise<void> {
+    try {
       for await (const message of result) {
         if (this.abortController?.signal.aborted) {
           break;
         }
 
-        switch (message.type) {
-          case 'assistant': {
-            const parentToolUseId = (message as { parent_tool_use_id?: string | null }).parent_tool_use_id ?? null;
-
-            if (this.sessionId !== message.session_id) {
-              this.sessionId = message.session_id;
-              this.options.onSessionIdChange?.(this.sessionId);
-            }
-
-            // If we have pending content from a DIFFERENT message, flush it first
-            // This ensures each distinct assistant message appears in UI as it completes
-            if (this.pendingAssistant && this.pendingAssistant.id !== message.message.id) {
-              this.flushPendingAssistant();
-              // Only reset streamingContent if not already set by message_start
-              if (this.streamingContent.messageId !== message.message.id) {
-                this.streamingContent = { messageId: message.message.id, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null, parentToolUseId };
-              }
-            } else if (!this.streamingContent.messageId) {
-              // Fallback: associate streaming content if message_start wasn't received
-              this.streamingContent.messageId = message.message.id;
-              this.streamingContent.parentToolUseId = parentToolUseId;
-            }
-
-            const serializedContent = this.serializeContent(message.message.content);
-
-            // Stream tool_use blocks immediately to UI (like partial does for thinking/text)
-            // This ensures tool cards appear in real-time as tools are invoked
-            // CRITICAL: Include messageId so webview associates tool with correct message
-            for (const block of serializedContent) {
-              if (block.type === 'tool_use') {
-                // Calculate thinking duration when transitioning from thinking to tools
-                const duration = this.calculateThinkingDurationIfNeeded();
-                if (duration !== null) {
-                  // Send a partial update with the duration before the first tool
-                  this.options.onMessage({
-                    type: 'partial',
-                    data: {
-                      type: 'partial',
-                      content: [],
-                      session_id: this.sessionId || '',
-                      messageId: this.streamingContent.messageId,
-                      streamingThinking: this.streamingContent.thinking,
-                      isThinking: false,
-                      thinkingDuration: duration,
-                    },
-                    parentToolUseId,
-                  });
-                }
-                // Mark that we've streamed tools - after this, thinking updates should NOT be sent
-                // This prevents the visual glitch of thinking text updating above tool cards
-                this.streamingContent.hasStreamedTools = true;
-                // Track this tool - if it never executes (no PreToolUse), it's "abandoned"
-                this.streamedToolIds.set(block.id, { toolName: block.name, messageId: message.message.id, parentToolUseId });
-                // Queue for canUseTool correlation (SDK doesn't pass tool_use_id in canUseTool context)
-                const toolQueue = this.pendingToolQueue.get(block.name) ?? [];
-                toolQueue.push({ toolUseId: block.id, parentToolUseId });
-                this.pendingToolQueue.set(block.name, toolQueue);
-                this.options.onMessage({
-                  type: 'toolStreaming',
-                  messageId: message.message.id,
-                  tool: {
-                    id: block.id,
-                    name: block.name,
-                    input: block.input,
-                  },
-                  parentToolUseId,
-                });
-              }
-            }
-
-            // Accumulate content within the same message ID
-            if (!this.pendingAssistant) {
-              this.pendingAssistant = {
-                id: message.message.id,
-                model: message.message.model,
-                stopReason: message.message.stop_reason,
-                content: serializedContent,
-                sessionId: message.session_id,
-                parentToolUseId,
-              };
-            } else {
-              // Append new content blocks to same message
-              this.pendingAssistant.content.push(...serializedContent);
-              this.pendingAssistant.stopReason = message.message.stop_reason;
-            }
-            break;
-          }
-
-          case 'stream_event': {
-            const streamParentToolUseId = (message as { parent_tool_use_id?: string | null }).parent_tool_use_id ?? null;
-            const event = message.event as {
-              type: string;
-              message?: { id: string };
-              delta?: { type: string; text?: string; thinking?: string };
-            };
-
-            // Handle message_start FIRST to capture the message ID before any deltas arrive
-            // This ensures all partial events have a valid messageId
-            if (event.type === 'message_start' && event.message?.id) {
-              if (this.streamingContent.messageId && this.streamingContent.messageId !== event.message.id) {
-                // New message starting - flush any pending content from previous message
-                this.flushPendingAssistant();
-              }
-              this.streamingContent = {
-                messageId: event.message.id,
-                thinking: '',
-                text: '',
-                isThinking: false,
-                hasStreamedTools: false,
-                thinkingStartTime: null,
-                thinkingDuration: null,
-                parentToolUseId: streamParentToolUseId,
-              };
-            }
-
-            if (event.type === 'content_block_delta') {
-              if (event.delta?.type === 'thinking_delta' && event.delta.thinking) {
-                // Start timing when first thinking delta arrives
-                if (!this.streamingContent.thinkingStartTime) {
-                  this.streamingContent.thinkingStartTime = Date.now();
-                }
-                // Always accumulate thinking content (for final message)
-                this.streamingContent.thinking += event.delta.thinking;
-                this.streamingContent.isThinking = true;
-                // Only send partial updates if we haven't streamed tools yet
-                // Once tools are visible, thinking content is "frozen" in the UI
-                if (!this.streamingContent.hasStreamedTools) {
-                  this.options.onMessage({
-                    type: 'partial',
-                    data: {
-                      type: 'partial',
-                      content: [],
-                      session_id: this.sessionId || '',
-                      messageId: this.streamingContent.messageId,
-                      streamingThinking: this.streamingContent.thinking,
-                      isThinking: true,
-                    },
-                    parentToolUseId: this.streamingContent.parentToolUseId,
-                  });
-                }
-              } else if (event.delta?.type === 'text_delta' && event.delta.text) {
-                // Calculate thinking duration when transitioning from thinking to text
-                this.calculateThinkingDurationIfNeeded();
-                // Always accumulate text content (for final message)
-                this.streamingContent.text += event.delta.text;
-                // ALWAYS stream text deltas - this is the final response and should appear in real-time
-                // (unlike thinking which is frozen once tools appear to avoid visual glitches above tool cards)
-                this.options.onMessage({
-                  type: 'partial',
-                  data: {
-                    type: 'partial',
-                    content: [],
-                    session_id: this.sessionId || '',
-                    messageId: this.streamingContent.messageId,
-                    streamingThinking: this.streamingContent.thinking,
-                    streamingText: this.streamingContent.text,
-                    isThinking: false,
-                    thinkingDuration: this.streamingContent.thinkingDuration ?? undefined,
-                  },
-                  parentToolUseId: this.streamingContent.parentToolUseId,
-                });
-              }
-            }
-            break;
-          }
-
-          case 'system': {
-            // Handle system messages (init, compact_boundary, etc.)
-            const sysMsg = message as { subtype?: string; [key: string]: unknown };
-            if (sysMsg.subtype === 'init') {
-              const initData: SystemInitData = {
-                model: (sysMsg.model as string) || '',
-                tools: (sysMsg.tools as string[]) || [],
-                mcpServers: (sysMsg.mcp_servers as { name: string; status: string }[]) || [],
-                permissionMode: (sysMsg.permissionMode as string) || 'default',
-                slashCommands: (sysMsg.slash_commands as string[]) || [],
-                apiKeySource: (sysMsg.apiKeySource as string) || '',
-                cwd: (sysMsg.cwd as string) || '',
-                outputStyle: sysMsg.output_style as string | undefined,
-              };
-              this.options.onMessage({ type: 'systemInit', data: initData });
-              // Also update account info with model
-              this.options.onMessage({
-                type: 'accountInfo',
-                data: { model: initData.model, apiKeySource: initData.apiKeySource } as AccountInfo,
-              });
-            } else if (sysMsg.subtype === 'compact_boundary') {
-              const metadata = sysMsg.compact_metadata as { trigger: 'manual' | 'auto'; pre_tokens: number } | undefined;
-              if (metadata) {
-                this.options.onMessage({
-                  type: 'compactBoundary',
-                  preTokens: metadata.pre_tokens,
-                  trigger: metadata.trigger,
-                });
-              }
-            }
-            break;
-          }
-
-          case 'user': {
-            // Handle user messages (including replays for resumed sessions)
-            const userMsg = message as { uuid?: string; message?: { content?: unknown }; isReplay?: boolean; isSynthetic?: boolean };
-            if (userMsg.uuid) {
-              this.lastUserMessageId = userMsg.uuid;
-            }
-            // Send replayed user messages to UI
-            if (userMsg.isReplay && userMsg.message?.content) {
-              const rawContent = Array.isArray(userMsg.message.content)
-                ? userMsg.message.content
-                    .filter((c): c is { type: 'text'; text: string } =>
-                      typeof c === 'object' && c !== null && 'type' in c && c.type === 'text')
-                    .map(c => c.text)
-                    .join('')
-                : typeof userMsg.message.content === 'string'
-                  ? userMsg.message.content
-                  : '';
-              const content = stripControlChars(rawContent);
-              if (content) {
-                this.options.onMessage({
-                  type: 'userReplay',
-                  content,
-                  isSynthetic: userMsg.isSynthetic,
-                });
-              }
-            }
-            break;
-          }
-
-          case 'result': {
-            const resultMsg = message as {
-              subtype?: string;
-              session_id: string;
-              is_error?: boolean;
-              total_cost_usd?: number;
-              usage?: {
-                input_tokens?: number;
-                output_tokens?: number;
-                cache_creation_input_tokens?: number;
-                cache_read_input_tokens?: number;
-              };
-              num_turns?: number;
-              modelUsage?: Record<string, { contextWindow?: number }>;
-            };
-
-            // Track accumulated cost
-            if (resultMsg.total_cost_usd) {
-              this.accumulatedCost = resultMsg.total_cost_usd;
-            }
-            // Check for budget exceeded
-            if (resultMsg.subtype === 'error_max_budget_usd' && budgetLimit) {
-              this.options.onMessage({
-                type: 'budgetExceeded',
-                finalSpend: resultMsg.total_cost_usd || 0,
-                limit: budgetLimit,
-              });
-            }
-            // Check for budget warning (>80%)
-            if (budgetLimit && resultMsg.total_cost_usd) {
-              const percentUsed = (resultMsg.total_cost_usd / budgetLimit) * 100;
-              if (percentUsed >= 80 && percentUsed < 100) {
-                this.options.onMessage({
-                  type: 'budgetWarning',
-                  currentSpend: resultMsg.total_cost_usd,
-                  limit: budgetLimit,
-                  percentUsed,
-                });
-              }
-            }
-            // Flush accumulated assistant message before signaling done
-            this.flushPendingAssistant();
-            // Extract context window size from modelUsage (first model's contextWindow)
-            const contextWindowSize = resultMsg.modelUsage
-              ? Object.values(resultMsg.modelUsage)[0]?.contextWindow ?? 200000
-              : 200000;
-
-            // When tools are used, the SDK sums context from multiple API requests:
-            // 1. First request: Claude decides to use tool(s)
-            // 2. Second request: Claude processes tool result(s)
-            // This causes ~2x inflation for single-tool turns. With N tools it's (N+1)x,
-            // but divide-by-2 is a reasonable approximation for the common single-tool case.
-            // TODO: Track actual tool count for more accurate normalization
-            // Note: Use turn-level tracking because streamingContent resets on new message IDs
-            const hadToolsThisTurn = this.toolsUsedThisTurn;
-            const divisor = hadToolsThisTurn ? 2 : 1;
-
-            const inputTokens = resultMsg.usage?.input_tokens ?? 0;
-            const cacheCreation = resultMsg.usage?.cache_creation_input_tokens ?? 0;
-            const cacheRead = resultMsg.usage?.cache_read_input_tokens ?? 0;
-
-            this.options.onMessage({
-              type: 'done',
-              data: {
-                type: 'result',
-                session_id: resultMsg.session_id,
-                is_done: !resultMsg.is_error,
-                total_cost_usd: resultMsg.total_cost_usd,
-                total_input_tokens: Math.round(inputTokens / divisor),
-                cache_creation_tokens: Math.round(cacheCreation / divisor),
-                cache_read_tokens: Math.round(cacheRead / divisor),
-                total_output_tokens: resultMsg.usage?.output_tokens,
-                num_turns: resultMsg.num_turns,
-                context_window_size: contextWindowSize,
-              },
-            });
-            break;
-          }
-        }
+        this.processSDKMessage(message, budgetLimit);
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '';
-      if (errorMessage) {
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        log('[ClaudeSession] Query consumption error:', err);
         this.options.onMessage({
           type: 'error',
-          message: errorMessage,
+          message: err.message,
         });
       }
     } finally {
-      // Flush any pending assistant content so partial responses are shown
+      // Clean up and signal message completion
+      this.streamingInputController = null;
+      if (this.messageProcessedResolve) {
+        this.messageProcessedResolve();
+        this.messageProcessedResolve = null;
+      }
+    }
+  }
+
+  /**
+   * Process a single SDK message and route it to the webview.
+   */
+  private processSDKMessage(message: unknown, budgetLimit: number | null): void {
+    const msg = message as { type: string; [key: string]: unknown };
+
+    switch (msg.type) {
+      case 'assistant': {
+        this.handleAssistantMessage(msg);
+        break;
+      }
+      case 'stream_event': {
+        this.handleStreamEvent(msg);
+        break;
+      }
+      case 'system': {
+        this.handleSystemMessage(msg);
+        break;
+      }
+      case 'user': {
+        this.handleUserMessage(msg);
+        break;
+      }
+      case 'result': {
+        this.handleResultMessage(msg, budgetLimit);
+        break;
+      }
+    }
+  }
+
+  /**
+   * Handle assistant message from SDK.
+   */
+  private handleAssistantMessage(message: Record<string, unknown>): void {
+    const msg = message as {
+      message: { id: string; content: unknown[]; model: string; stop_reason: string | null };
+      session_id: string;
+      parent_tool_use_id?: string | null;
+    };
+    const parentToolUseId = msg.parent_tool_use_id ?? null;
+
+    if (this.sessionId !== msg.session_id) {
+      this.sessionId = msg.session_id;
+      this.options.onSessionIdChange?.(this.sessionId);
+    }
+
+    // Filter out CLI internal output (e.g., callback completion messages)
+    // Same check as history loading in ChatPanelProvider
+    if (this.isLocalCommandOutput(msg.message.content)) {
+      log('[ClaudeSession] Filtering out local command output');
+      return;
+    }
+
+    // Flush pending content from a different message
+    if (this.pendingAssistant && this.pendingAssistant.id !== msg.message.id) {
       this.flushPendingAssistant();
+      if (this.streamingContent.messageId !== msg.message.id) {
+        this.streamingContent = {
+          messageId: msg.message.id,
+          thinking: '',
+          text: '',
+          isThinking: false,
+          hasStreamedTools: false,
+          thinkingStartTime: null,
+          thinkingDuration: null,
+          parentToolUseId,
+        };
+      }
+    } else if (!this.streamingContent.messageId) {
+      this.streamingContent.messageId = msg.message.id;
+      this.streamingContent.parentToolUseId = parentToolUseId;
+    }
 
-      // Handle interrupt persistence - ensure user message and interrupt marker are written
-      if (this.wasInterrupted && this.currentPrompt) {
-        try {
-          // If we don't have a session ID yet (interrupted before SDK sent one),
-          // generate one now and create the session file
-          if (!this.sessionId) {
-            this.sessionId = crypto.randomUUID();
-            await initializeSession(this.options.cwd, this.sessionId);
-            this.options.onSessionIdChange?.(this.sessionId);
-          }
+    const serializedContent = this.serializeContent(msg.message.content);
 
-          // Use FILE STATE as source of truth - SDK may write to file before we receive stream messages
-          // Wait for SDK file writes to settle with exponential backoff
-          let sdkUserMessage: { uuid: string; content: string } | null = null;
+    // Stream tool_use blocks immediately
+    for (const block of serializedContent) {
+      if (block.type === 'tool_use') {
+        const duration = this.calculateThinkingDurationIfNeeded();
+        if (duration !== null) {
+          this.options.onMessage({
+            type: 'partial',
+            data: {
+              type: 'partial',
+              content: [],
+              session_id: this.sessionId || '',
+              messageId: this.streamingContent.messageId,
+              streamingThinking: this.streamingContent.thinking,
+              isThinking: false,
+              thinkingDuration: duration,
+            },
+            parentToolUseId,
+          });
+        }
+        this.streamingContent.hasStreamedTools = true;
+        this.streamedToolIds.set(block.id, {
+          toolName: block.name,
+          messageId: msg.message.id,
+          parentToolUseId,
+        });
+        const toolQueue = this.pendingToolQueue.get(block.name) ?? [];
+        toolQueue.push({ toolUseId: block.id, parentToolUseId });
+        this.pendingToolQueue.set(block.name, toolQueue);
+        this.options.onMessage({
+          type: 'toolStreaming',
+          messageId: msg.message.id,
+          tool: {
+            id: block.id,
+            name: block.name,
+            input: block.input,
+          },
+          parentToolUseId,
+        });
+      }
+    }
 
-          for (let attempt = 0; attempt < 5; attempt++) {
-            sdkUserMessage = await findUserMessageInCurrentTurn(this.options.cwd, this.sessionId);
-            if (sdkUserMessage && sdkUserMessage.content.trim() === this.currentPrompt.trim()) break;
+    // Accumulate content
+    if (!this.pendingAssistant) {
+      this.pendingAssistant = {
+        id: msg.message.id,
+        model: msg.message.model,
+        stopReason: msg.message.stop_reason,
+        content: serializedContent,
+        sessionId: msg.session_id,
+        parentToolUseId,
+      };
+    } else {
+      this.pendingAssistant.content.push(...serializedContent);
+      this.pendingAssistant.stopReason = msg.message.stop_reason;
+    }
+  }
 
-            // Exponential backoff: 20ms, 40ms, 80ms, 160ms, 320ms
-            await new Promise(resolve => setTimeout(resolve, 20 * Math.pow(2, attempt)));
-          }
+  /**
+   * Handle stream_event from SDK.
+   */
+  private handleStreamEvent(message: Record<string, unknown>): void {
+    const streamParentToolUseId = (message.parent_tool_use_id as string | null) ?? null;
+    const event = message.event as {
+      type: string;
+      message?: { id: string };
+      delta?: { type: string; text?: string; thinking?: string };
+    };
 
-          const sdkWroteUserMessage = sdkUserMessage && sdkUserMessage.content.trim() === this.currentPrompt.trim();
+    if (event.type === 'message_start' && event.message?.id) {
+      if (this.streamingContent.messageId && this.streamingContent.messageId !== event.message.id) {
+        this.flushPendingAssistant();
+      }
+      this.streamingContent = {
+        messageId: event.message.id,
+        thinking: '',
+        text: '',
+        isThinking: false,
+        hasStreamedTools: false,
+        thinkingStartTime: null,
+        thinkingDuration: null,
+        parentToolUseId: streamParentToolUseId,
+      };
+    }
 
-          if (sdkWroteUserMessage && sdkUserMessage) {
-            // SDK wrote user message for this turn - find last message to chain interrupt to
-            const lastMsgUuid = await findLastMessageInCurrentTurn(this.options.cwd, this.sessionId);
+    if (event.type === 'content_block_delta') {
+      if (event.delta?.type === 'thinking_delta' && event.delta.thinking) {
+        if (!this.streamingContent.thinkingStartTime) {
+          this.streamingContent.thinkingStartTime = Date.now();
+        }
+        this.streamingContent.thinking += event.delta.thinking;
+        this.streamingContent.isThinking = true;
+        if (!this.streamingContent.hasStreamedTools) {
+          this.options.onMessage({
+            type: 'partial',
+            data: {
+              type: 'partial',
+              content: [],
+              session_id: this.sessionId || '',
+              messageId: this.streamingContent.messageId,
+              streamingThinking: this.streamingContent.thinking,
+              isThinking: true,
+            },
+            parentToolUseId: this.streamingContent.parentToolUseId,
+          });
+        }
+      } else if (event.delta?.type === 'text_delta' && event.delta.text) {
+        this.calculateThinkingDurationIfNeeded();
+        this.streamingContent.text += event.delta.text;
+        // Skip CLI internal output (e.g., callback completion messages)
+        if (this.isLocalCommandText(this.streamingContent.text)) {
+          log('[ClaudeSession] Filtering local command text from streaming');
+          return;
+        }
+        this.options.onMessage({
+          type: 'partial',
+          data: {
+            type: 'partial',
+            content: [],
+            session_id: this.sessionId || '',
+            messageId: this.streamingContent.messageId,
+            streamingThinking: this.streamingContent.thinking,
+            streamingText: this.streamingContent.text,
+            isThinking: false,
+            thinkingDuration: this.streamingContent.thinkingDuration ?? undefined,
+          },
+          parentToolUseId: this.streamingContent.parentToolUseId,
+        });
+      }
+    }
+  }
 
-            // Chain partial text (if any) and interrupt to the last SDK message
-            let lastUuidForChain = lastMsgUuid ?? sdkUserMessage.uuid;
+  /**
+   * Handle system message from SDK.
+   */
+  private handleSystemMessage(message: Record<string, unknown>): void {
+    const sysMsg = message as { subtype?: string; [key: string]: unknown };
+    if (sysMsg.subtype === 'init') {
+      const initData: SystemInitData = {
+        model: (sysMsg.model as string) || '',
+        tools: (sysMsg.tools as string[]) || [],
+        mcpServers: (sysMsg.mcp_servers as { name: string; status: string }[]) || [],
+        permissionMode: (sysMsg.permissionMode as string) || 'default',
+        slashCommands: (sysMsg.slash_commands as string[]) || [],
+        apiKeySource: (sysMsg.apiKeySource as string) || '',
+        cwd: (sysMsg.cwd as string) || '',
+        outputStyle: sysMsg.output_style as string | undefined,
+      };
+      this.options.onMessage({ type: 'systemInit', data: initData });
+      this.options.onMessage({
+        type: 'accountInfo',
+        data: { model: initData.model, apiKeySource: initData.apiKeySource } as AccountInfo,
+      });
+    } else if (sysMsg.subtype === 'compact_boundary') {
+      log('[ClaudeSession] Received compact_boundary system message');
+      const metadata = (sysMsg.compactMetadata ?? sysMsg.compact_metadata) as
+        | { trigger: 'manual' | 'auto'; preTokens?: number; pre_tokens?: number }
+        | undefined;
+      if (metadata) {
+        log('[ClaudeSession] Sending compactBoundary to webview: trigger=%s, preTokens=%d', metadata.trigger, metadata.preTokens ?? metadata.pre_tokens ?? 0);
+        this.options.onMessage({
+          type: 'compactBoundary',
+          preTokens: metadata.preTokens ?? metadata.pre_tokens ?? 0,
+          trigger: metadata.trigger,
+        });
 
-            if (this.streamingContent.text && lastUuidForChain) {
-              const partialUuid = await persistPartialAssistant({
-                workspacePath: this.options.cwd,
-                sessionId: this.sessionId,
-                parentUuid: lastUuidForChain,
-                text: this.streamingContent.text,
-                model: this.currentModel ?? undefined,
-              });
-              lastUuidForChain = partialUuid;
-            }
+        // SDK doesn't stream isCompactSummary during live compacts, read from JSONL
+        if (this.sessionId) {
+          readLatestCompactSummary(this.options.cwd, this.sessionId)
+            .then(summary => {
+              if (summary) {
+                log('[ClaudeSession] Read compact summary from JSONL, length=%d', summary.length);
+                this.options.onMessage({
+                  type: 'compactSummary',
+                  summary,
+                });
+              } else {
+                log('[ClaudeSession] No compact summary found in JSONL');
+              }
+            })
+            .catch(err => {
+              log('[ClaudeSession] Error reading compact summary: %s', err);
+            });
+        }
+      }
+    }
+  }
 
-            if (lastUuidForChain) {
-              const interruptUuid = await persistInterruptMarker({
-                workspacePath: this.options.cwd,
-                sessionId: this.sessionId,
-                parentUuid: lastUuidForChain,
-              });
-              this.lastUserMessageId = interruptUuid;
-            } else {
-              log('[ClaudeSession] Warning: Could not determine parent UUID for interrupt marker - SDK message chain may be corrupted');
-            }
+  /**
+   * Check if message content is a tool_result (not actual user input).
+   * The SDK uses type: "user" for both actual user messages and tool results.
+   */
+  private isToolResultMessage(content: unknown): boolean {
+    if (!Array.isArray(content)) return false;
+    return content.some(block =>
+      typeof block === 'object' &&
+      block !== null &&
+      'type' in block &&
+      (block as { type: string }).type === 'tool_result'
+    );
+  }
 
-          } else {
-            // SDK didn't write user message for this turn - write one ourselves
-            let parentUuid = this.lastUserMessageId;
-            if (!parentUuid) {
-              parentUuid = await getLastMessageUuid(this.options.cwd, this.sessionId);
-            }
+  /**
+   * Handle user message from SDK.
+   * Note: The SDK only emits type:"user" streaming events for:
+   *   - Replays (isReplay: true) when resuming a session
+   *   - Tool results (content contains tool_result blocks)
+   * For live messages, we read UUID from session file in sendMessage().
+   */
+  private handleUserMessage(message: Record<string, unknown>): void {
+    const userMsg = message as {
+      uuid?: string;
+      message?: { content?: unknown };
+      isReplay?: boolean;
+      isSynthetic?: boolean;
+      isCompactSummary?: boolean;
+    };
 
-            const userMessageUuid = await persistUserMessage({
+    // Track UUID for non-tool-result messages
+    if (userMsg.uuid && !this.isToolResultMessage(userMsg.message?.content)) {
+      this.lastUserMessageId = userMsg.uuid;
+    }
+
+    // Handle compact summary message (follows compact_boundary)
+    if (userMsg.isCompactSummary && userMsg.message?.content) {
+      log('[ClaudeSession] Received isCompactSummary message');
+      const rawContent = typeof userMsg.message.content === 'string'
+        ? userMsg.message.content
+        : '';
+      const summary = stripControlChars(rawContent);
+      log('[ClaudeSession] Compact summary length: %d', summary.length);
+      if (summary) {
+        log('[ClaudeSession] Sending compactSummary to webview');
+        this.options.onMessage({
+          type: 'compactSummary',
+          summary,
+        });
+      }
+      return;
+    }
+
+    // Handle replayed user messages (session resume)
+    if (userMsg.isReplay && userMsg.message?.content) {
+      const rawContent = Array.isArray(userMsg.message.content)
+        ? userMsg.message.content
+            .filter((c): c is { type: 'text'; text: string } =>
+              typeof c === 'object' && c !== null && 'type' in c && c.type === 'text')
+            .map(c => c.text)
+            .join('')
+        : typeof userMsg.message.content === 'string'
+          ? userMsg.message.content
+          : '';
+      const content = stripControlChars(rawContent);
+
+      // Skip local command wrappers (CLI internal) - matches history loading filter
+      if (content.startsWith('<local-command-')) {
+        log('[ClaudeSession] Skipping local command wrapper in userReplay: %s', content.substring(0, 50));
+        return;
+      }
+
+      if (content) {
+        this.options.onMessage({
+          type: 'userReplay',
+          content,
+          isSynthetic: userMsg.isSynthetic,
+          sdkMessageId: userMsg.uuid,
+        });
+      }
+    }
+  }
+
+  /**
+   * Handle result message from SDK.
+   */
+  private handleResultMessage(message: Record<string, unknown>, budgetLimit: number | null): void {
+    const resultMsg = message as {
+      subtype?: string;
+      session_id: string;
+      is_error?: boolean;
+      total_cost_usd?: number;
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+      };
+      num_turns?: number;
+      modelUsage?: Record<string, { contextWindow?: number }>;
+    };
+
+    if (resultMsg.total_cost_usd) {
+      this.accumulatedCost = resultMsg.total_cost_usd;
+    }
+
+    if (resultMsg.subtype === 'error_max_budget_usd' && budgetLimit) {
+      this.options.onMessage({
+        type: 'budgetExceeded',
+        finalSpend: resultMsg.total_cost_usd || 0,
+        limit: budgetLimit,
+      });
+    }
+
+    if (budgetLimit && resultMsg.total_cost_usd) {
+      const percentUsed = (resultMsg.total_cost_usd / budgetLimit) * 100;
+      if (percentUsed >= 80 && percentUsed < 100) {
+        this.options.onMessage({
+          type: 'budgetWarning',
+          currentSpend: resultMsg.total_cost_usd,
+          limit: budgetLimit,
+          percentUsed,
+        });
+      }
+    }
+
+    this.flushPendingAssistant();
+
+    const contextWindowSize = resultMsg.modelUsage
+      ? Object.values(resultMsg.modelUsage)[0]?.contextWindow ?? 200000
+      : 200000;
+
+    const hadToolsThisTurn = this.toolsUsedThisTurn;
+    const divisor = hadToolsThisTurn ? 2 : 1;
+
+    const inputTokens = resultMsg.usage?.input_tokens ?? 0;
+    const cacheCreation = resultMsg.usage?.cache_creation_input_tokens ?? 0;
+    const cacheRead = resultMsg.usage?.cache_read_input_tokens ?? 0;
+
+    this.options.onMessage({
+      type: 'done',
+      data: {
+        type: 'result',
+        session_id: resultMsg.session_id,
+        is_done: !resultMsg.is_error,
+        total_cost_usd: resultMsg.total_cost_usd,
+        total_input_tokens: Math.round(inputTokens / divisor),
+        cache_creation_tokens: Math.round(cacheCreation / divisor),
+        cache_read_tokens: Math.round(cacheRead / divisor),
+        total_output_tokens: resultMsg.usage?.output_tokens,
+        num_turns: resultMsg.num_turns,
+        context_window_size: contextWindowSize,
+      },
+    });
+
+    // Signal that message processing is complete
+    if (this.messageProcessedResolve) {
+      this.messageProcessedResolve();
+      this.messageProcessedResolve = null;
+    }
+
+    // Reset turn-level state for next message
+    this.toolsUsedThisTurn = false;
+    this.streamingContent = {
+      messageId: null,
+      thinking: '',
+      text: '',
+      isThinking: false,
+      hasStreamedTools: false,
+      thinkingStartTime: null,
+      thinkingDuration: null,
+      parentToolUseId: null,
+    };
+    this.streamedToolIds.clear();
+    this.pendingToolQueue.clear();
+    this.isProcessing = false;
+    this.options.onMessage({ type: 'processing', isProcessing: false });
+  }
+
+  /**
+   * Send a message to Claude using streaming input mode.
+   * This ensures the query stays alive for rewindFiles() and other operations.
+   *
+   * Per SDK docs: Using AsyncIterable<SDKUserMessage> as prompt enables streaming
+   * input mode, which keeps the query transport open between messages.
+   */
+  async sendMessage(prompt: string, agentId?: string): Promise<void> {
+    if (this.isProcessing) {
+      this.options.onMessage({
+        type: 'error',
+        message: 'A request is already in progress',
+      });
+      return;
+    }
+
+    // Determine if this is a fresh session or continuing/resuming
+    const sessionToResume = this.resumeSessionId || this.sessionId;
+
+    // Ensure streaming query exists
+    await this.ensureStreamingQuery(sessionToResume ?? undefined);
+
+    if (!this.streamingInputController) {
+      this.options.onMessage({
+        type: 'error',
+        message: 'Failed to initialize streaming query',
+      });
+      return;
+    }
+
+    // Clear resume ID since we've used it
+    if (this.resumeSessionId) {
+      this.resumeSessionId = null;
+    }
+
+    this.isProcessing = true;
+    this.pendingAssistant = null;
+    this.toolsUsedThisTurn = false;
+    this.currentPrompt = prompt;
+    this.wasInterrupted = false;
+    // Note: pendingResumeSessionAt is cleared in ensureStreamingQuery after being used
+    this.options.onMessage({ type: 'processing', isProcessing: true });
+
+    // Create a promise that will be resolved when the message is processed
+    const messageProcessed = new Promise<void>((resolve) => {
+      this.messageProcessedResolve = resolve;
+    });
+
+    // Send the message through the streaming input controller
+    this.streamingInputController.sendMessage(prompt);
+
+    // Wait for the message to be processed
+    await messageProcessed;
+
+    // Read and send the user message UUID from session file
+    // The SDK doesn't emit user message events during live streaming - only for replays/tool results
+    // So we must read the UUID from the persisted session file
+    if (this.currentPrompt && this.sessionId && !this.wasInterrupted) {
+      try {
+        let sdkUserMessage: { uuid: string; content: string } | null = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          sdkUserMessage = await findUserMessageInCurrentTurn(this.options.cwd, this.sessionId);
+          if (sdkUserMessage && sdkUserMessage.content.trim() === this.currentPrompt.trim()) break;
+          await new Promise(resolve => setTimeout(resolve, 20 * Math.pow(2, attempt)));
+        }
+
+        if (sdkUserMessage && sdkUserMessage.content.trim() === this.currentPrompt.trim()) {
+          this.lastUserMessageId = sdkUserMessage.uuid;
+          this.options.onMessage({
+            type: 'userMessageIdAssigned',
+            sdkMessageId: sdkUserMessage.uuid,
+          });
+        }
+      } catch (err) {
+        log('[ClaudeSession] Error reading user message UUID from session file:', err);
+      }
+    }
+
+    // Handle interrupt persistence if needed
+    if (this.wasInterrupted && this.currentPrompt && this.sessionId) {
+      try {
+        let sdkUserMessage: { uuid: string; content: string } | null = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          sdkUserMessage = await findUserMessageInCurrentTurn(this.options.cwd, this.sessionId);
+          if (sdkUserMessage && sdkUserMessage.content.trim() === this.currentPrompt.trim()) break;
+          await new Promise(resolve => setTimeout(resolve, 20 * Math.pow(2, attempt)));
+        }
+
+        const sdkWroteUserMessage = sdkUserMessage && sdkUserMessage.content.trim() === this.currentPrompt.trim();
+
+        if (sdkWroteUserMessage && sdkUserMessage) {
+          const lastMsgUuid = await findLastMessageInCurrentTurn(this.options.cwd, this.sessionId);
+          let lastUuidForChain = lastMsgUuid ?? sdkUserMessage.uuid;
+
+          if (this.streamingContent.text && lastUuidForChain) {
+            const partialUuid = await persistPartialAssistant({
               workspacePath: this.options.cwd,
               sessionId: this.sessionId,
-              content: this.currentPrompt,
-              parentUuid: parentUuid ?? undefined,
+              parentUuid: lastUuidForChain,
+              text: this.streamingContent.text,
+              model: this.currentModel ?? undefined,
             });
+            lastUuidForChain = partialUuid;
+          }
 
-            // Chain interrupt to user message (no partial since SDK never started)
+          if (lastUuidForChain) {
             const interruptUuid = await persistInterruptMarker({
               workspacePath: this.options.cwd,
               sessionId: this.sessionId,
-              parentUuid: userMessageUuid,
+              parentUuid: lastUuidForChain,
             });
             this.lastUserMessageId = interruptUuid;
           }
-        } catch (err) {
-          log('[ClaudeSession] Error persisting interrupt:', err);
-        }
-      } else if (this.sessionId) {
-        // Normal completion - sync our parent tracking with the SDK's chain
-        try {
-          const lastUuid = await getLastMessageUuid(this.options.cwd, this.sessionId);
-          if (lastUuid) {
-            this.lastUserMessageId = lastUuid;
+        } else {
+          let parentUuid = this.lastUserMessageId;
+          if (!parentUuid) {
+            parentUuid = await getLastMessageUuid(this.options.cwd, this.sessionId);
           }
-        } catch {
-          // Ignore read errors
+
+          const userMessageUuid = await persistUserMessage({
+            workspacePath: this.options.cwd,
+            sessionId: this.sessionId,
+            content: this.currentPrompt,
+            parentUuid: parentUuid ?? undefined,
+          });
+
+          const interruptUuid = await persistInterruptMarker({
+            workspacePath: this.options.cwd,
+            sessionId: this.sessionId,
+            parentUuid: userMessageUuid,
+          });
+          this.lastUserMessageId = interruptUuid;
         }
+      } catch (err) {
+        log('[ClaudeSession] Error persisting interrupt:', err);
       }
-
-      // Clear streaming state
-      this.currentPrompt = null;
-      this.streamingContent = { messageId: null, thinking: '', text: '', isThinking: false, hasStreamedTools: false, thinkingStartTime: null, thinkingDuration: null, parentToolUseId: null };
-      this.streamedToolIds.clear();
-      this.pendingToolQueue.clear();
-
-      if (this.wasInterrupted) {
-        this.options.onMessage({ type: 'sessionCancelled' });
+    } else if (this.sessionId) {
+      try {
+        const lastUuid = await getLastMessageUuid(this.options.cwd, this.sessionId);
+        if (lastUuid) {
+          this.lastUserMessageId = lastUuid;
+        }
+      } catch {
+        // Ignore read errors
       }
+    }
 
-      this.isProcessing = false;
-      this.abortController = null;
-      this.options.onMessage({ type: 'processing', isProcessing: false });
+    this.currentPrompt = null;
+    if (this.wasInterrupted) {
+      this.options.onMessage({ type: 'sessionCancelled' });
     }
   }
 
@@ -994,12 +1256,19 @@ export class ClaudeSession {
 
   reset(): void {
     this.cancel();
+    // Close the streaming input controller if active
+    if (this.streamingInputController) {
+      this.streamingInputController.close();
+      this.streamingInputController = null;
+    }
     this.sessionId = null;
     this.resumeSessionId = null;
     this.currentQuery = null;
     this.lastUserMessageId = null;
     this.messageCheckpoints.clear();
     this.accumulatedCost = 0;
+    this.sessionInitializing = false;
+    this.pendingResumeSessionAt = null;
   }
 
   // === Control Methods ===
@@ -1090,24 +1359,80 @@ export class ClaudeSession {
     return [];
   }
 
-  async rewindFiles(userMessageId: string): Promise<void> {
-    if (this.currentQuery) {
-      try {
+  /**
+   * Rewind to a specific message with various restore options.
+   *
+   * Per SDK docs (file-checkpointing.md):
+   * - rewindFiles() restores files on disk but does NOT rewind conversation
+   * - resumeSessionAt forks conversation from a specific message UUID
+   *
+   * Options:
+   * - 'code-and-conversation': Restore files + fork conversation (both)
+   * - 'conversation-only': Fork conversation only (no file restore)
+   * - 'code-only': Restore files only (conversation stays linear)
+   *
+   * IMPORTANT: Rewind uses REPLACE semantics - the target message and everything
+   * after it are removed. The new message replaces the target, not appends after it.
+   * To achieve this, we use the target's parentUuid for resumeSessionAt.
+   */
+  async rewindFiles(userMessageId: string, option: 'code-and-conversation' | 'conversation-only' | 'code-only' = 'code-only'): Promise<void> {
+    const needsFileRewind = option === 'code-and-conversation' || option === 'code-only';
+    const needsConversationFork = option === 'code-and-conversation' || option === 'conversation-only';
+
+    try {
+      if (needsFileRewind) {
+        if (!this.currentQuery) {
+          this.options.onMessage({
+            type: 'rewindError',
+            message: 'No active session to rewind files',
+          });
+          return;
+        }
         await this.currentQuery.rewindFiles(userMessageId);
-        this.options.onMessage({
-          type: 'rewindComplete',
-          rewindToMessageId: userMessageId,
-        });
-      } catch (error) {
-        this.options.onMessage({
-          type: 'rewindError',
-          message: error instanceof Error ? error.message : 'Rewind failed',
-        });
       }
-    } else {
+
+      if (needsConversationFork) {
+        if (!this.sessionId) {
+          this.options.onMessage({
+            type: 'rewindError',
+            message: 'No active session for conversation fork',
+          });
+          return;
+        }
+
+        const parentUuid = await getMessageParentUuid(this.options.cwd, this.sessionId, userMessageId);
+
+        if (!parentUuid) {
+          if (this.streamingInputController) {
+            this.streamingInputController.close();
+            this.streamingInputController = null;
+          }
+          this.currentQuery = null;
+          this.abortController = null;
+          this.sessionId = null;
+          this.resumeSessionId = null;
+          this.sessionInitializing = false;
+        } else {
+          this.pendingResumeSessionAt = parentUuid;
+          if (this.streamingInputController) {
+            this.streamingInputController.close();
+            this.streamingInputController = null;
+          }
+          this.currentQuery = null;
+          this.abortController = null;
+          this.sessionInitializing = false;
+        }
+      }
+
+      this.options.onMessage({
+        type: 'rewindComplete',
+        rewindToMessageId: userMessageId,
+        option,
+      });
+    } catch (error) {
       this.options.onMessage({
         type: 'rewindError',
-        message: 'No active session to rewind',
+        message: error instanceof Error ? error.message : 'Rewind failed',
       });
     }
   }
@@ -1132,6 +1457,19 @@ export class ClaudeSession {
     } catch {
       return String(result);
     }
+  }
+
+  private isLocalCommandOutput(content: unknown[]): boolean {
+    if (!Array.isArray(content) || content.length !== 1) return false;
+    const block = content[0] as { type?: string; text?: string };
+    if (block.type !== 'text' || typeof block.text !== 'string') return false;
+    // Match CLI internal output wrappers - same check as history loading
+    return block.text.trim().startsWith('<local-command-');
+  }
+
+  private isLocalCommandText(text: string): boolean {
+    // Match CLI internal output wrappers - same check as history loading
+    return text.trim().startsWith('<local-command-');
   }
 
   private serializeContent(content: unknown[]): ContentBlock[] {

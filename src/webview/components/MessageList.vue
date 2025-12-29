@@ -38,15 +38,31 @@ function getMarkersBeforeMessage(messageTimestamp: number, messageIndex: number)
   return props.compactMarkers.filter((marker) => marker.timestamp > prevTimestamp && marker.timestamp <= messageTimestamp);
 }
 
+function getTrailingMarkers(): CompactMarkerType[] {
+  if (!props.compactMarkers || props.compactMarkers.length === 0) return [];
+  const lastMsgTimestamp = props.messages.length > 0
+    ? props.messages[props.messages.length - 1].timestamp
+    : 0;
+  return props.compactMarkers.filter((marker) => marker.timestamp > lastMsgTimestamp);
+}
+
+function hasMarkersToShow(): boolean {
+  return (props.compactMarkers?.length ?? 0) > 0;
+}
+
 function canRewindTo(message: ChatMessage): boolean {
-  return message.role === "user" && (props.checkpointMessages?.has(message.id) ?? false);
+  return message.role === "user" && !!message.sdkMessageId && (props.checkpointMessages?.has(message.sdkMessageId) ?? false);
+}
+
+function isTodoWriteTool(toolName: string): boolean {
+  return toolName === 'TodoWrite';
 }
 </script>
 
 <template>
-  <div class="p-4 space-y-4 bg-unbound-bg" :class="messages.length === 0 && !streamingMessage ? 'flex flex-col justify-center' : ''">
-    <!-- Welcome message -->
-    <div v-if="messages.length === 0 && !streamingMessage" class="text-center w-full px-4">
+  <div class="p-4 space-y-4 bg-unbound-bg" :class="messages.length === 0 && !streamingMessage && !hasMarkersToShow() ? 'flex flex-col justify-center' : ''">
+    <!-- Welcome message - only show when no messages AND no compact markers -->
+    <div v-if="messages.length === 0 && !streamingMessage && !hasMarkersToShow()" class="text-center w-full px-4">
       <img :src="logoUri" alt="Claude Unbound" class="w-16 h-16 mx-auto mb-4" />
       <p class="text-xl mb-2 text-unbound-glow font-medium">Welcome to Claude Unbound</p>
       <p class="text-sm text-unbound-muted">
@@ -67,7 +83,7 @@ function canRewindTo(message: ChatMessage): boolean {
           size="icon-sm"
           class="absolute -left-6 top-2 opacity-0 group-hover:opacity-100 text-base text-unbound-cyan-400 hover:text-unbound-glow hover:bg-transparent"
           title="Undo file changes after this point"
-          @click="emit('rewind', message.id)"
+          @click="emit('rewind', message.sdkMessageId!)"
         >
           ⏪
         </Button>
@@ -97,7 +113,7 @@ function canRewindTo(message: ChatMessage): boolean {
               :subagent="subagents[tool.id]"
               @expand="emit('expandSubagent', tool.id)"
             />
-            <ToolCallCard v-else :tool-call="tool" @interrupt="emit('interrupt', $event)" />
+            <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @interrupt="emit('interrupt', $event)" />
           </template>
         </div>
 
@@ -107,6 +123,13 @@ function canRewindTo(message: ChatMessage): boolean {
         </div>
       </div>
     </template>
+
+    <!-- Trailing compact markers (after all messages, or when no messages exist) -->
+    <CompactMarker
+      v-for="marker in getTrailingMarkers()"
+      :key="marker.id"
+      :marker="marker"
+    />
 
     <!-- Streaming message (isolated from messages array to prevent flashing) -->
     <div v-if="streamingMessage" class="group relative space-y-3 animate-fade-in">
@@ -125,7 +148,7 @@ function canRewindTo(message: ChatMessage): boolean {
             :subagent="subagents[tool.id]"
             @expand="emit('expandSubagent', tool.id)"
           />
-          <ToolCallCard v-else :tool-call="tool" @interrupt="emit('interrupt', $event)" />
+          <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @interrupt="emit('interrupt', $event)" />
         </template>
       </div>
 

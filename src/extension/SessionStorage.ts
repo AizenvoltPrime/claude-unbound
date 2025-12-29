@@ -36,6 +36,7 @@ export function findUserTextBlock(
 
 export interface ClaudeSessionEntry {
   type: string;
+  subtype?: string;  // For system entries (e.g., 'compact_boundary', 'init')
   parentUuid?: string | null;
   isSidechain?: boolean;
   userType?: string;
@@ -46,6 +47,12 @@ export interface ClaudeSessionEntry {
   slug?: string;
   customTitle?: string;  // User-set name via /rename
   isInterrupt?: boolean;  // Marks user entries that are interrupt markers
+  isCompactSummary?: boolean;  // Marks user entries that contain compact summary
+  isVisibleInTranscriptOnly?: boolean;  // Marks entries that should not be displayed in UI
+  compactMetadata?: {  // For compact_boundary system entries
+    trigger: 'manual' | 'auto';
+    preTokens: number;
+  };
   message?: {
     role: string;
     content: string | JsonlContentBlock[];
@@ -472,6 +479,22 @@ export async function readSessionEntries(workspacePath: string, sessionId: strin
   }
 }
 
+/**
+ * Reads entries from the active branch only (excludes rewound/orphaned messages).
+ *
+ * After a rewind creates a fork, old branch messages remain in the file but are
+ * no longer part of the active conversation. This function walks the parentUuid
+ * chain from the most recent message to identify and return only active messages.
+ *
+ * @param customLeaf - Optional UUID to use as the leaf instead of finding the last message.
+ *                     Used after a rewind to show the correct branch before a new message is sent.
+ */
+export async function readActiveBranchEntries(workspacePath: string, sessionId: string, customLeaf?: string): Promise<ClaudeSessionEntry[]> {
+  const allEntries = await readSessionEntries(workspacePath, sessionId);
+  const activeUuids = getActiveBranchUuids(allEntries, customLeaf);
+  return allEntries.filter(entry => entry.uuid && activeUuids.has(entry.uuid));
+}
+
 export interface AgentToolCall {
   id: string;
   name: string;
@@ -631,6 +654,16 @@ export async function extractSessionStats(
 }
 
 /**
+ * Compact boundary info extracted from session.
+ */
+export interface CompactInfo {
+  trigger: 'manual' | 'auto';
+  preTokens: number;
+  summary?: string;
+  timestamp: number;
+}
+
+/**
  * Result of paginated session reading.
  */
 export interface PaginatedSessionResult {
@@ -638,6 +671,7 @@ export interface PaginatedSessionResult {
   totalCount: number;
   hasMore: boolean;
   nextOffset: number;
+  compactInfo?: CompactInfo;
 }
 
 /**
@@ -654,8 +688,80 @@ function isDisplayableMessage(entry: ClaudeSessionEntry): boolean {
 }
 
 /**
+ * Gets the set of UUIDs that belong to the active branch.
+ *
+ * The SDK uses a tree structure where each message has a parentUuid pointing to its parent.
+ * When you rewind and send a new message, that message's parentUuid points directly to the
+ * rewind target (the message you rewound TO), creating a fork. The old branch becomes orphaned.
+ *
+ * Example: After prompts 1→2→3, if you rewind to prompt 1 and send prompt 4:
+ *   - Prompt 4's parentUuid points to the end of prompt 1's turn
+ *   - Prompts 2 and 3 are orphaned (not in the path from leaf to root)
+ *
+ * This function finds the active branch by:
+ * 1. Finding the LAST message in the file (the actual current leaf), or using customLeaf if provided
+ * 2. Walking backwards through parentUuid to collect all message UUIDs in the active chain
+ *
+ * @param customLeaf - Optional UUID to use as the leaf instead of finding the last message.
+ *                     Used after a rewind to calculate the correct branch before a new message is sent.
+ */
+function getActiveBranchUuids(allEntries: ClaudeSessionEntry[], customLeaf?: string): Set<string> {
+  // Build uuid lookup map
+  const entryByUuid = new Map<string, ClaudeSessionEntry>();
+  for (const entry of allEntries) {
+    if (entry.uuid) {
+      entryByUuid.set(entry.uuid, entry);
+    }
+  }
+
+  // Use customLeaf if provided and valid, otherwise find the LAST message in the file
+  let leafUuid: string | null = null;
+  if (customLeaf && entryByUuid.has(customLeaf)) {
+    leafUuid = customLeaf;
+  } else {
+    for (let i = allEntries.length - 1; i >= 0; i--) {
+      const entry = allEntries[i];
+      if ((entry.type === 'user' || entry.type === 'assistant') && entry.uuid) {
+        leafUuid = entry.uuid;
+        break;
+      }
+    }
+  }
+
+  if (!leafUuid) {
+    return new Set();
+  }
+
+  // Walk backwards from leaf through parentUuid to collect the active chain
+  const activeUuids = new Set<string>();
+  let currentUuid: string | null = leafUuid;
+
+  while (currentUuid) {
+    activeUuids.add(currentUuid);
+    const entry = entryByUuid.get(currentUuid);
+    if (!entry) break;
+    currentUuid = entry.parentUuid ?? null;
+  }
+
+  return activeUuids;
+}
+
+/**
+ * Extracts displayable messages from the active branch only.
+ * Uses getActiveBranchUuids to determine which messages are in the active path,
+ * then filters to only displayable entries (user/assistant messages).
+ */
+function extractActiveBranch(allEntries: ClaudeSessionEntry[]): ClaudeSessionEntry[] {
+  const activeUuids = getActiveBranchUuids(allEntries);
+  return allEntries.filter(entry =>
+    isDisplayableMessage(entry) && entry.uuid && activeUuids.has(entry.uuid)
+  );
+}
+
+/**
  * Reads session entries with pagination, returning entries from newest to oldest.
  * Only counts and paginates displayable messages (user/assistant), not metadata.
+ * Filters to only the active branch (excludes rewound/orphaned messages).
  *
  * @param workspacePath - The workspace path
  * @param sessionId - The session ID (UUID)
@@ -675,21 +781,89 @@ export async function readSessionEntriesPaginated(
     const content = await fs.promises.readFile(filePath, 'utf-8');
     const lines = content.trim().split('\n');
 
-    // Parse all entries and filter to only displayable messages
-    const displayableEntries: ClaudeSessionEntry[] = [];
+    // Parse all entries
+    const allEntries: ClaudeSessionEntry[] = [];
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
-        const entry = parseSessionEntry(line);
-        if (isDisplayableMessage(entry)) {
-          displayableEntries.push(entry);
-        }
+        allEntries.push(parseSessionEntry(line));
       } catch {
         continue;
       }
     }
 
-    const totalCount = displayableEntries.length;
+    // Get active branch UUIDs (to filter out rewound/orphaned messages)
+    const activeUuids = getActiveBranchUuids(allEntries);
+
+    // Find the last compact_boundary in ALL entries (system entries are not "displayable")
+    // We need to search allEntries, not displayableEntries, because compact_boundary is a system entry
+    let lastCompactEntry: ClaudeSessionEntry | undefined;
+    for (let i = allEntries.length - 1; i >= 0; i--) {
+      const entry = allEntries[i];
+      if (entry.type === 'system' && entry.subtype === 'compact_boundary' && entry.uuid && activeUuids.has(entry.uuid)) {
+        lastCompactEntry = entry;
+        break;
+      }
+    }
+
+    log(`[SessionStorage] readSessionEntriesPaginated: allEntries=${allEntries.length}, activeUuids=${activeUuids.size}`);
+    log(`[SessionStorage] compact_boundary search: found=${!!lastCompactEntry}, uuid=${lastCompactEntry?.uuid?.slice(0, 8) ?? 'none'}`);
+
+    // Extract compact info and filter entries to only those after the compact
+    let compactInfo: CompactInfo | undefined;
+    let postCompactEntries: ClaudeSessionEntry[] = [];
+
+    if (lastCompactEntry) {
+      const metadata = lastCompactEntry.compactMetadata;
+      const timestamp = lastCompactEntry.timestamp ? new Date(lastCompactEntry.timestamp).getTime() : Date.now();
+      const compactUuid = lastCompactEntry.uuid;
+
+      log(`[SessionStorage] found compact: metadata=${JSON.stringify(metadata)}, timestamp=${timestamp}`);
+
+      // Find the index of the compact entry in allEntries to search for summary after it
+      const compactIndexInAll = allEntries.findIndex(e => e.uuid === compactUuid);
+
+      // Extract summary from the isCompactSummary entry that follows (in allEntries, not displayable)
+      let summary: string | undefined;
+      for (let i = compactIndexInAll + 1; i < allEntries.length; i++) {
+        const entry = allEntries[i];
+        if (entry.isCompactSummary && entry.message?.content) {
+          summary = typeof entry.message.content === 'string'
+            ? entry.message.content
+            : '';
+          log(`[SessionStorage] found summary at index ${i}, length=${summary.length}`);
+          break;
+        }
+      }
+
+      if (metadata) {
+        compactInfo = {
+          trigger: metadata.trigger,
+          preTokens: metadata.preTokens,
+          summary,
+          timestamp,
+        };
+        log(`[SessionStorage] compactInfo created: trigger=${compactInfo.trigger}, hasSummary=${!!compactInfo.summary}`);
+      }
+
+      // Filter to displayable entries after the compact (using timestamp or parentUuid chain)
+      // Entries after the compact have the compact's uuid in their ancestry
+      postCompactEntries = allEntries.filter(entry => {
+        if (!isDisplayableMessage(entry) || !entry.uuid || !activeUuids.has(entry.uuid)) return false;
+        if (entry.isCompactSummary) return false;
+        // Check if this entry comes after the compact by checking timestamp
+        const entryTime = entry.timestamp ? new Date(entry.timestamp).getTime() : 0;
+        return entryTime >= timestamp;
+      });
+      log(`[SessionStorage] postCompactEntries=${postCompactEntries.length}`);
+    } else {
+      // No compact found - return all displayable entries in active branch
+      postCompactEntries = allEntries.filter(entry =>
+        isDisplayableMessage(entry) && entry.uuid && activeUuids.has(entry.uuid)
+      );
+    }
+
+    const totalCount = postCompactEntries.length;
 
     // Calculate slice from end: if offset=0, limit=20, get last 20 messages
     // If offset=20, limit=20, get messages 20-40 from the end
@@ -697,14 +871,62 @@ export async function readSessionEntriesPaginated(
     const startIndex = Math.max(0, endIndex - limit);
 
     // Slice entries (returns in chronological order for display)
-    const entries = displayableEntries.slice(startIndex, endIndex);
+    const entries = postCompactEntries.slice(startIndex, endIndex);
     const hasMore = startIndex > 0;
     const nextOffset = offset + entries.length;
 
-    return { entries, totalCount, hasMore, nextOffset };
+    return { entries, totalCount, hasMore, nextOffset, compactInfo };
   } catch (err) {
     return { entries: [], totalCount: 0, hasMore: false, nextOffset: 0 };
   }
+}
+
+/**
+ * Reads the most recent compact summary from a session file.
+ * Searches backwards from the end of the file for an isCompactSummary entry.
+ * Includes retry logic since the SDK may write the summary asynchronously.
+ */
+export async function readLatestCompactSummary(
+  workspacePath: string,
+  sessionId: string,
+  maxRetries = 3,
+  retryDelayMs = 200
+): Promise<string | null> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (attempt > 0) {
+      await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+    }
+
+    try {
+      const filePath = await getSessionFilePath(workspacePath, sessionId);
+      const content = await fs.promises.readFile(filePath, 'utf-8');
+      const lines = content.trim().split('\n').reverse();
+
+      // Search backwards through recent entries (summary should be near the end)
+      for (let i = 0; i < Math.min(lines.length, 20); i++) {
+        try {
+          const entry = JSON.parse(lines[i]) as ClaudeSessionEntry;
+          if (entry.isCompactSummary && entry.message?.content) {
+            const summary = typeof entry.message.content === 'string'
+              ? entry.message.content
+              : '';
+            if (summary) {
+              log('[SessionStorage] readLatestCompactSummary: found summary at offset %d, length=%d', i, summary.length);
+              return summary;
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      log('[SessionStorage] readLatestCompactSummary: no summary found (attempt %d)', attempt + 1);
+    } catch (error) {
+      log('[SessionStorage] readLatestCompactSummary error: %s', error);
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -1037,6 +1259,31 @@ export async function getLastMessageUuid(workspacePath: string, sessionId: strin
   }
 }
 
+/**
+ * Gets the parentUuid of a given message.
+ *
+ * For rewind with "REPLACE" semantics, we need to resume at the message's
+ * parentUuid (the last assistant message of the PREVIOUS turn), so the new
+ * user message replaces the rewound message rather than being appended after it.
+ *
+ * @param workspacePath - The workspace path
+ * @param sessionId - The session ID
+ * @param messageUuid - The message UUID to find parent for
+ * @returns The parent message UUID, or null if not found
+ */
+export async function getMessageParentUuid(
+  workspacePath: string,
+  sessionId: string,
+  messageUuid: string
+): Promise<string | null> {
+  const entries = await readSessionEntries(workspacePath, sessionId);
+
+  const entry = entries.find(e => e.uuid === messageUuid);
+  if (!entry) return null;
+
+  return entry.parentUuid ?? null;
+}
+
 export async function findUserMessageInCurrentTurn(
   workspacePath: string,
   sessionId: string
@@ -1072,13 +1319,17 @@ export async function findUserMessageInCurrentTurn(
         const entry = parseSessionEntry(line);
 
         if (entry.type === 'user' && entry.uuid) {
-          const messageContent = Array.isArray(entry.message?.content)
-            ? entry.message.content
-                .filter((c): c is { type: 'text'; text: string } =>
-                  typeof c === 'object' && c !== null && 'type' in c && c.type === 'text')
-                .map(c => c.text)
-                .join('')
-            : '';
+          // Content can be a string (user prompt) or array (tool results with text blocks)
+          const rawContent = entry.message?.content;
+          const messageContent = typeof rawContent === 'string'
+            ? rawContent
+            : Array.isArray(rawContent)
+              ? rawContent
+                  .filter((c): c is { type: 'text'; text: string } =>
+                    typeof c === 'object' && c !== null && 'type' in c && c.type === 'text')
+                  .map(c => c.text)
+                  .join('')
+              : '';
 
           // Skip interrupt markers
           if (messageContent === INTERRUPT_MARKER) {

@@ -14,15 +14,18 @@
 - **Subagent Visualization**: Nested view of Task tool calls showing agent type, model, tool calls, and results
 - **Streaming Responses**: Watch Claude's responses as they're generated
 - **@ Mentions**: Type `@` to reference workspace files with fuzzy search autocomplete
-- **Slash Commands**: Type `/` to trigger custom command autocomplete from `.claude/commands/`
+- **Slash Commands**: Type `/` for built-in commands (`/clear`, `/compact`, `/rewind`, etc.) and custom commands from `.claude/commands/`
 - **Command History**: Navigate previous prompts with arrow keys (shell-style)
 - **Session Management**: Create, rename, resume, and delete sessions with confirmation
 - **Multi-Panel Sync**: Command history syncs across all open panels instantly
 - **Context Stats**: Live tracking of token usage, cache activity, context window %, and session cost
+- **Context Usage Panel**: Detailed breakdown of context window usage by category (`/context`)
 - **Session Logs**: Quick access button to open the raw JSONL session file (also works for subagent logs)
 - **Model Selection**: Switch between Opus 4.5, Sonnet 4.5, and Haiku 4.5
 - **Extended Thinking**: Toggle thinking mode on/off with adjustable token budget (1K-64K)
 - **Per-Panel Permission Mode**: Each panel can have its own permission mode independent of the global default
+- **File Checkpointing**: Track file changes and rewind to any previous state with the Rewind Browser (`/rewind`)
+- **Todo List**: Visual display of Claude's current task list with real-time progress tracking
 
 ## Installation
 
@@ -58,7 +61,25 @@
 - `Tab` / `Enter`: Insert selected command
 - `Escape`: Close popup
 
-Commands are loaded from `.claude/commands/*.md` (project) and `~/.claude/commands/*.md` (user).
+**Built-in commands:**
+
+| Command             | Description                        |
+| ------------------- | ---------------------------------- |
+| `/clear`            | Clear conversation history         |
+| `/compact`          | Compact conversation               |
+| `/context`          | Show context usage breakdown       |
+| `/cost`             | Show token usage and cost          |
+| `/rewind`           | Rewind conversation/code to a checkpoint |
+| `/export`           | Export conversation to file        |
+| `/review`           | Request code review                |
+| `/security-review`  | Security review of changes         |
+| `/init`             | Initialize CLAUDE.md               |
+| `/memory`           | Edit memory files                  |
+| `/mcp`              | Manage MCP servers                 |
+| `/permissions`      | View/update permissions            |
+| `/help`             | Get usage help                     |
+
+Custom commands are loaded from `.claude/commands/*.md` (project) and `~/.claude/commands/*.md` (user).
 
 ## Configuration
 

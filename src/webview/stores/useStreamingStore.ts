@@ -167,8 +167,10 @@ export const useStreamingStore = defineStore('streaming', () => {
 
     for (const tool of incoming) {
       const exists = merged.get(tool.id);
-      if (!exists || statusPriority[tool.status] >= statusPriority[exists.status]) {
+      if (!exists) {
         merged.set(tool.id, tool);
+      } else if (statusPriority[tool.status] >= statusPriority[exists.status]) {
+        merged.set(tool.id, { ...exists, ...tool });
       }
     }
 
@@ -217,9 +219,10 @@ export const useStreamingStore = defineStore('streaming', () => {
     return thinkingBlocks.map((block) => block.thinking).join('\n\n');
   }
 
-  function addUserMessage(content: string, isReplay = false): ChatMessage {
+  function addUserMessage(content: string, isReplay = false, sdkMessageId?: string): ChatMessage {
     const msg: ChatMessage = {
       id: generateId(),
+      sdkMessageId,
       role: 'user',
       content,
       timestamp: Date.now(),
@@ -244,10 +247,45 @@ export const useStreamingStore = defineStore('streaming', () => {
     messages.value = [...olderMessages, ...messages.value];
   }
 
+  /**
+   * Truncate all messages starting from the message with the given SDK message ID.
+   * Used for conversation rewind - removes the target message and all that came after.
+   * @param sdkMessageId The SDK message UUID to truncate from
+   * @returns The content of the removed message for prefilling input, or null if not found
+   */
+  function truncateFromSdkMessageId(sdkMessageId: string): string | null {
+    const index = messages.value.findIndex(m => m.sdkMessageId === sdkMessageId);
+    if (index === -1) {
+      console.warn('[useStreamingStore] Could not find message with SDK ID for truncation:', sdkMessageId);
+      return null;
+    }
+    const removedMessage = messages.value[index];
+    const content = removedMessage.content;
+    messages.value = messages.value.slice(0, index);
+    streamingMessage.value = null;
+    return content;
+  }
+
   function addMessage(message: Omit<ChatMessage, 'id'>): ChatMessage {
     const msg: ChatMessage = { id: generateId(), ...message };
     messages.value = [...messages.value, msg];
     return msg;
+  }
+
+  function assignSdkIdToLastUserMessage(sdkMessageId: string): void {
+    for (let i = messages.value.length - 1; i >= 0; i--) {
+      const msg = messages.value[i];
+      if (msg.role === 'user') {
+        if (msg.sdkMessageId !== sdkMessageId) {
+          console.log('[useStreamingStore] Updating SDK ID for user message at index', i, 'from', msg.sdkMessageId, 'to', sdkMessageId);
+          const newMessages = [...messages.value];
+          newMessages[i] = { ...msg, sdkMessageId };
+          messages.value = newMessages;
+        }
+        return;
+      }
+    }
+    console.warn('[useStreamingStore] No user message found to assign SDK ID');
   }
 
   function $reset() {
@@ -274,6 +312,8 @@ export const useStreamingStore = defineStore('streaming', () => {
     addErrorMessage,
     prependMessages,
     addMessage,
+    truncateFromSdkMessageId,
+    assignSdkIdToLastUserMessage,
     $reset,
   };
 });

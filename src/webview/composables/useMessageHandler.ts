@@ -11,13 +11,24 @@ import { useSubagentStore } from "@/stores/useSubagentStore";
 import type {
   ChatMessage,
   ToolCall,
+  TodoItem,
   HistoryMessage,
   HistoryToolCall,
 } from "@shared/types";
 
+function parseTodosFromInput(input: Record<string, unknown>): TodoItem[] | undefined {
+  const typed = input as { todos?: Array<{ content: string; status: string; activeForm: string }> };
+  if (!typed.todos) return undefined;
+  return typed.todos.map(t => ({
+    content: t.content,
+    status: t.status as TodoItem['status'],
+    activeForm: t.activeForm,
+  }));
+}
+
 export interface MessageHandlerOptions {
   messageContainerRef: Ref<HTMLElement | null>;
-  chatInputRef: Ref<ComponentPublicInstance<{ focus: () => void }> | null>;
+  chatInputRef: Ref<ComponentPublicInstance<{ focus: () => void; setInput: (value: string) => void }> | null>;
 }
 
 function convertHistoryTools(tools: HistoryToolCall[] | undefined): ToolCall[] | undefined {
@@ -46,6 +57,11 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
       switch (message.type) {
         case "userMessage":
           streamingStore.addUserMessage(message.content);
+          break;
+
+        case "userMessageIdAssigned":
+          console.log('[useMessageHandler] Received userMessageIdAssigned:', message.sdkMessageId, 'messages count:', streamingStore.messages.length);
+          streamingStore.assignSdkIdToLastUserMessage(message.sdkMessageId);
           break;
 
         case "assistant": {
@@ -164,6 +180,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
         case "sessionStarted":
           sessionStore.setCurrentSession(message.sessionId);
+          sessionStore.setSelectedSession(message.sessionId);
           break;
 
         case "storedSessions": {
@@ -184,6 +201,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           sessionStore.setCurrentSession(null);
           sessionStore.setSelectedSession(null);
           sessionStore.setResumedSession(null);
+          uiStore.setTodosPanelCollapsed(true);
           break;
 
         case "sessionRenamed":
@@ -200,6 +218,15 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               message.tool.id,
               message.tool.input as { description?: string; prompt?: string; subagent_type?: string }
             );
+          }
+
+          const parsedTodos = message.tool.name === "TodoWrite"
+            ? parseTodosFromInput(message.tool.input)
+            : undefined;
+
+          if (parsedTodos) {
+            sessionStore.updateTodos(parsedTodos);
+            uiStore.setTodosPanelCollapsed(false);
           }
 
           if (parentToolUseId && hasSubagent) {
@@ -369,27 +396,69 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
 
         case "sessionCancelled":
+          // Clear UI state when session is cancelled (ESC pressed)
+          uiStore.setProcessing(false);
+          if (streamingStore.streamingMessage) {
+            streamingStore.finalizeStreamingMessage();
+          }
           subagentStore.cancelRunningSubagents();
           break;
 
         case "compactBoundary":
-          sessionStore.addCompactMarker(message.trigger, message.preTokens);
+          // Only reset messages for live compacts, not historical ones
+          if (!message.isHistorical) {
+            streamingStore.$reset();
+          }
+          sessionStore.addCompactMarker(message.trigger, message.preTokens, message.postTokens, message.summary, message.timestamp);
+          break;
+
+        case "compactSummary":
+          sessionStore.updateLastCompactMarkerSummary(message.summary);
+          break;
+
+        case "todosUpdate":
+          sessionStore.updateTodos(message.todos);
           break;
 
         case "checkpointInfo":
           sessionStore.setCheckpointMessages(message.checkpoints.map((cp: { userMessageId: string }) => cp.userMessageId));
           break;
 
-        case "rewindComplete":
-          toast.success("Files rewound successfully");
+        case "rewindHistory":
+          uiStore.setRewindHistory(message.prompts);
           break;
+
+        case "rewindComplete": {
+          const option = message.option;
+          const truncateConversation = option === 'code-and-conversation' || option === 'conversation-only';
+
+          if (truncateConversation) {
+            const removedContent = streamingStore.truncateFromSdkMessageId(message.rewindToMessageId);
+            if (removedContent !== null) {
+              chatInputRef.value?.setInput(removedContent);
+              if (option === 'code-and-conversation') {
+                toast.success("Files and conversation rewound - edit your message and resend");
+              } else {
+                toast.success("Conversation rewound - edit your message and resend");
+              }
+            } else {
+              toast.warning("Could not truncate conversation history - message not found");
+              if (option === 'code-and-conversation') {
+                toast.success("Files were rewound successfully");
+              }
+            }
+          } else {
+            toast.success("Files rewound successfully");
+          }
+          break;
+        }
 
         case "rewindError":
           toast.error(`Rewind failed: ${message.message}`);
           break;
 
         case "userReplay":
-          streamingStore.addUserMessage(message.content, true);
+          streamingStore.addUserMessage(message.content, true, message.sdkMessageId);
           break;
 
         case "assistantReplay": {
@@ -397,6 +466,12 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             for (const tool of message.tools) {
               if (tool.name === "Task") {
                 subagentStore.restoreSubagentFromHistory(tool.id, tool.input, tool.result, tool.agentToolCalls, tool.agentModel, tool.sdkAgentId);
+              }
+              if (tool.name === "TodoWrite") {
+                const todos = parseTodosFromInput(tool.input);
+                if (todos) {
+                  sessionStore.updateTodos(todos);
+                }
               }
             }
           }
@@ -447,6 +522,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
             const olderMessages: ChatMessage[] = message.messages.map((msg: HistoryMessage) => ({
               id: streamingStore.generateId(),
+              sdkMessageId: msg.sdkMessageId,
               role: msg.type,
               content: msg.content,
               thinking: msg.thinking,

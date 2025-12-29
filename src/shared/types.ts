@@ -31,6 +31,17 @@ export interface CustomSlashCommandInfo {
   namespace?: string;
 }
 
+// Built-in slash command (hardcoded in extension)
+export interface BuiltinSlashCommandInfo {
+  name: string;
+  description: string;
+  argumentHint?: string;
+  source: "builtin";
+}
+
+// Union type for autocomplete - both custom and built-in commands
+export type SlashCommandItem = CustomSlashCommandInfo | BuiltinSlashCommandInfo;
+
 // System initialization data from SDK 'system' message (subtype: 'init')
 export interface SystemInitData {
   model: string;
@@ -153,13 +164,54 @@ export interface SubagentState {
   sdkAgentId?: string;
 }
 
+// Todo item from TodoWrite tool
+export interface TodoItem {
+  content: string;
+  status: "pending" | "in_progress" | "completed";
+  activeForm: string;
+}
+
 // Compaction marker for UI
 export interface CompactMarker {
   id: string;
   timestamp: number;
   trigger: "manual" | "auto";
   preTokens: number;
+  postTokens?: number;
+  summary?: string;
 }
+
+// Context usage breakdown for /context command
+export interface ContextUsageData {
+  model: string;
+  totalTokens: number;
+  maxTokens: number;
+  breakdown: {
+    systemPrompt: number;
+    systemTools: number;
+    customAgents: number;
+    memoryFiles: number;
+    messages: number;
+    freeSpace: number;
+  };
+  details: {
+    memoryFiles: { name: string; tokens: number }[];
+    skills: { name: string; tokens: number }[];
+    customAgents: { name: string; tokens: number }[];
+  };
+}
+
+// Rewind history item for /rewind browser
+export interface RewindHistoryItem {
+  messageId: string;
+  content: string;
+  timestamp: number;
+  filesAffected: number;
+  linesChanged?: { added: number; removed: number };
+}
+
+// Rewind option from confirmation modal
+export type RewindOption = 'code-and-conversation' | 'conversation-only' | 'code-only' | 'cancel';
 
 // Budget warning info
 export interface BudgetWarningInfo {
@@ -246,6 +298,7 @@ export interface HistoryMessage {
   content: string;
   thinking?: string;
   tools?: HistoryToolCall[]; // Tool calls for this message
+  sdkMessageId?: string; // SDK's message UUID for rewind correlation
 }
 
 // Serializable message types (subset of SDK types)
@@ -307,7 +360,8 @@ export type WebviewToExtensionMessage =
   | { type: "setPermissionMode"; mode: PermissionMode }
   | { type: "setDefaultPermissionMode"; mode: PermissionMode }
   // New: File rewind
-  | { type: "rewindToMessage"; userMessageId: string }
+  | { type: "rewindToMessage"; userMessageId: string; option: RewindOption }
+  | { type: "requestRewindHistory" }
   // New: Session control
   | { type: "interrupt" }
   | { type: "requestMcpStatus" }
@@ -337,6 +391,7 @@ export type ExtensionToWebviewMessage =
   | { type: "partial"; data: PartialMessage; parentToolUseId?: string | null }
   | { type: "done"; data: ResultMessage }
   | { type: "userMessage"; content: string }
+  | { type: "userMessageIdAssigned"; sdkMessageId: string }
   | { type: "toolPending"; toolName: string; input: unknown }
   | { type: "error"; message: string }
   | { type: "sessionStarted"; sessionId: string }
@@ -359,7 +414,7 @@ export type ExtensionToWebviewMessage =
   | { type: "mcpServerStatus"; servers: McpServerStatusInfo[] }
   // New: File checkpointing
   | { type: "checkpointInfo"; checkpoints: MessageCheckpoint[] }
-  | { type: "rewindComplete"; rewindToMessageId: string }
+  | { type: "rewindComplete"; rewindToMessageId: string; option: RewindOption }
   | { type: "rewindError"; message: string }
   // New: Tool lifecycle
   | { type: "toolStreaming"; messageId: string; tool: { id: string; name: string; input: Record<string, unknown> }; parentToolUseId?: string | null }
@@ -375,9 +430,16 @@ export type ExtensionToWebviewMessage =
   | { type: "sessionEnd"; reason: string }
   // New: Compaction
   | { type: "preCompact"; trigger: "manual" | "auto" }
-  | { type: "compactBoundary"; preTokens: number; trigger: "manual" | "auto" }
+  | { type: "compactBoundary"; preTokens: number; postTokens?: number; trigger: "manual" | "auto"; summary?: string; timestamp?: number; isHistorical?: boolean }
+  | { type: "compactSummary"; summary: string }
+  // New: Todos from TodoWrite tool
+  | { type: "todosUpdate"; todos: TodoItem[] }
+  // New: Context usage for /context command
+  | { type: "contextUsage"; data: ContextUsageData }
+  // New: Rewind history for /rewind browser
+  | { type: "rewindHistory"; prompts: RewindHistoryItem[] }
   // New: User message replay (for resumed sessions)
-  | { type: "userReplay"; content: string; isSynthetic?: boolean }
+  | { type: "userReplay"; content: string; isSynthetic?: boolean; sdkMessageId?: string }
   // New: Assistant message replay (for resumed sessions)
   | { type: "assistantReplay"; content: string; thinking?: string; tools?: HistoryToolCall[] }
   // New: Error message replay (for interrupted sessions loaded from history)
@@ -405,7 +467,7 @@ export type ExtensionToWebviewMessage =
       parentToolUseId?: string | null;
     }
   // Custom slash commands from .claude/commands/
-  | { type: "customSlashCommands"; commands: CustomSlashCommandInfo[] };
+  | { type: "customSlashCommands"; commands: SlashCommandItem[] };
 
 // Chat message for UI rendering
 export interface ChatMessage {

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { IconLoader, IconTerminal } from '@/components/icons';
-import type { CustomSlashCommandInfo } from '@shared/types';
+import type { SlashCommandItem } from '@shared/types';
 import { escapeHtml } from '@shared/utils';
 
 const props = defineProps<{
   isOpen: boolean;
-  commands: CustomSlashCommandInfo[];
+  commands: SlashCommandItem[];
   selectedIndex: number;
   anchorElement: HTMLElement | null;
   query: string;
@@ -14,7 +14,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  select: [command: CustomSlashCommandInfo];
+  select: [command: SlashCommandItem];
   close: [];
   'update:selectedIndex': [index: number];
 }>();
@@ -87,8 +87,9 @@ function highlightMatch(text: string): string {
   return `${escapedBefore}<span class="text-unbound-cyan-300 font-semibold">${escapedMatch}</span>${escapedAfter}`;
 }
 
-function getSourceBadge(command: CustomSlashCommandInfo): string | null {
-  if (command.namespace) {
+function getSourceBadge(command: SlashCommandItem): string | null {
+  if (command.source === 'builtin') return null;
+  if ('namespace' in command && command.namespace) {
     return command.namespace;
   }
   if (command.source === 'user') {
