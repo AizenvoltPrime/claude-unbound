@@ -47,7 +47,7 @@ npm run package       # Package for distribution
 | File | Purpose |
 |------|---------|
 | `src/extension/claude-session/` | Claude Agent SDK integration (see module breakdown below) |
-| `src/extension/ChatPanelProvider.ts` | Creates/manages webview panels, routes messages, session list |
+| `src/extension/chat-panel/` | Webview panel management (see module breakdown below) |
 | `src/extension/PermissionHandler.ts` | Intercepts Edit/Write tools, shows diff for approval |
 | `src/extension/DiffManager.ts` | Manages concurrent diff views for file changes |
 | `src/extension/SlashCommandService.ts` | Discovers and executes custom slash commands |
@@ -68,6 +68,22 @@ The SDK integration is modularized into focused managers wired together via depe
 | `checkpoint-manager.ts` | File checkpointing, rewind operations, cost tracking |
 | `types.ts` | Interfaces, agent definitions (`AGENT_DEFINITIONS`) |
 | `utils.ts` | Shared utility functions |
+
+### ChatPanel Module (`chat-panel/`)
+
+The webview panel management is modularized into focused managers:
+
+| File | Responsibility |
+|------|----------------|
+| `index.ts` | Public facade (ChatPanelProvider), wires managers together |
+| `panel-manager.ts` | Webview panel lifecycle, HTML generation, resource URIs |
+| `message-router.ts` | Handles all webview↔extension message routing |
+| `session-manager.ts` | ClaudeSession lifecycle, coordinates with claude-session module |
+| `settings-manager.ts` | Model/thinking/permission settings, MCP server management |
+| `history-manager.ts` | Session list, history pagination, session CRUD operations |
+| `storage-manager.ts` | Checkpoint persistence, rewind operations |
+| `workspace-manager.ts` | File indexing for @ mentions, workspace queries |
+| `types.ts` | Internal interfaces for manager communication |
 
 ### Webview State (Pinia Stores)
 
@@ -148,3 +164,10 @@ Sessions are stored in `~/.claude/projects/<encoded-workspace-path>/` as JSONL f
 - Use concise documentation comments for public APIs only
 - Prefer functional patterns over OOP
 - Use Tailwind instead of custom CSS
+
+### Architectural Patterns
+
+- **Vertical Sliced Architecture**: Group related functionality together (e.g., `claude-session/`, `chat-panel/`, `session/`)
+- **Data-oriented Programming**: Separate data structures from functions that operate on them
+- **Locality of Behavior**: Keep related code physically close together
+- **Dependency Injection**: Managers receive dependencies through constructor, wired in facade `index.ts`

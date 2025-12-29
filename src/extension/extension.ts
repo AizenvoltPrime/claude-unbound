@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { ChatPanelProvider } from "./ChatPanelProvider";
+import { ChatPanelProvider } from "./chat-panel";
 import { initLogger, log, showLog } from "./logger";
 
 let chatPanelProvider: ChatPanelProvider | undefined;
