@@ -54,9 +54,12 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
   onMounted(() => {
     onMessage((message) => {
+      let forceScrollToBottom = false;
+
       switch (message.type) {
         case "userMessage":
           streamingStore.addUserMessage(message.content);
+          forceScrollToBottom = true;
           break;
 
         case "userMessageIdAssigned":
@@ -171,6 +174,9 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             ...(resultData.num_turns !== undefined && { numTurns: resultData.num_turns }),
             ...(resultData.context_window_size !== undefined && { contextWindowSize: resultData.context_window_size }),
           });
+          if (resultData.session_id) {
+            sessionStore.setResumedSession(resultData.session_id);
+          }
           break;
         }
 
@@ -431,6 +437,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           const truncateConversation = option === 'code-and-conversation' || option === 'conversation-only';
 
           if (truncateConversation) {
+            subagentStore.$reset();
+            sessionStore.updateTodos([]);
+            uiStore.setTodosPanelCollapsed(true);
+
             const removedContent = streamingStore.truncateFromSdkMessageId(message.rewindToMessageId);
             if (removedContent !== null) {
               chatInputRef.value?.setInput(removedContent);
@@ -570,7 +580,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
       nextTick(() => {
         const container = messageContainerRef.value;
-        if (container) {
+        if (container && (forceScrollToBottom || uiStore.isAtBottom)) {
           container.scrollTop = container.scrollHeight;
         }
       });

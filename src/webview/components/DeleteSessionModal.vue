@@ -43,9 +43,9 @@ function handleCancel() {
         </AlertDialogDescription>
       </AlertDialogHeader>
 
-      <div v-if="sessionName" class="p-3 rounded bg-vscode-input-bg text-sm">
+      <div v-if="sessionName" class="p-3 rounded bg-vscode-input-bg text-sm overflow-hidden">
         <div class="text-xs opacity-50 mb-1">Session:</div>
-        <div class="truncate">{{ sessionName }}</div>
+        <div class="break-words">{{ sessionName }}</div>
       </div>
 
       <div class="flex justify-end gap-2 mt-4">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, nextTick, computed } from 'vue';
-import { onKeyStroke } from '@vueuse/core';
+import { onKeyStroke, useIntersectionObserver } from '@vueuse/core';
 import { storeToRefs } from 'pinia';
 import MessageList from './components/MessageList.vue';
 import ChatInput from './components/ChatInput.vue';
@@ -113,8 +113,20 @@ const messageContainerRef = ref<HTMLElement | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
 const renameInputRef = ref<HTMLInputElement | null>(null);
 const sessionPickerRef = ref<HTMLElement | null>(null);
+const historySentinelRef = ref<HTMLElement | null>(null);
 
 const compactMarkersList = computed(() => compactMarkers.value);
+
+useIntersectionObserver(
+  historySentinelRef,
+  ([entry]) => {
+    if (!entry) return;
+    if (entry.isIntersecting && hasMoreHistory.value && !loadingMoreHistory.value && currentResumedSessionId.value) {
+      loadMoreHistory();
+    }
+  },
+  { root: messageContainerRef, threshold: 0 }
+);
 
 useMessageHandler({
   messageContainerRef,
@@ -233,10 +245,6 @@ function loadMoreHistory() {
 function handleMessageScroll(event: Event) {
   const container = event.target as HTMLElement;
   if (!container) return;
-
-  if (container.scrollTop < 100 && hasMoreHistory.value && !loadingMoreHistory.value) {
-    loadMoreHistory();
-  }
 
   const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
   uiStore.setIsAtBottom(scrollBottom < 20);
@@ -555,23 +563,15 @@ const rewindMessagePreview = computed(() => {
         class="h-full overflow-y-auto message-container"
         @scroll="handleMessageScroll"
       >
-        <!-- Load more history indicator -->
+        <!-- Sentinel for infinite scroll (Intersection Observer target) -->
         <div
           v-if="hasMoreHistory || loadingMoreHistory"
-          class="text-center py-3"
+          ref="historySentinelRef"
+          class="h-4"
         >
-          <Button
-            v-if="!loadingMoreHistory"
-            variant="outline"
-            size="sm"
-            class="text-xs text-unbound-cyan-400 hover:text-unbound-glow rounded-full flex items-center gap-1"
-            @click="loadMoreHistory"
-          >
-            <IconChevronUp :size="12" /> Load earlier messages
-          </Button>
           <div
-            v-else
-            class="text-xs text-unbound-muted animate-pulse"
+            v-if="loadingMoreHistory"
+            class="text-center py-3 text-xs text-unbound-muted animate-pulse"
           >
             Loading history...
           </div>
