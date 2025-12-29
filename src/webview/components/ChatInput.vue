@@ -279,7 +279,7 @@ const displayFile = computed(() => {
 
     <!-- Input area -->
     <div class="p-3">
-      <div ref="cardRef" class="bg-unbound-bg-card rounded-lg border border-unbound-cyan-800/50 overflow-hidden">
+      <div ref="cardRef" class="bg-unbound-bg-card rounded-lg border border-unbound-cyan-800/50 overflow-hidden transition-colors focus-within:border-unbound-cyan-500">
         <textarea
           ref="textareaRef"
           v-model="inputText"

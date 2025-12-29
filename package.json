@@ -127,7 +127,7 @@
             ]
           },
           "default": [],
-          "description": "Enabled beta features (e.g., 1M context window for Sonnet 4/4.5)"
+          "description": "Enabled beta features (e.g., 1M context window for 4.5)"
         },
         "claude-unbound.enableFileCheckpointing": {
           "type": "boolean",

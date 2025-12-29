@@ -6,6 +6,34 @@ import type { PermissionHandler } from "../PermissionHandler";
 import type { ExtensionToWebviewMessage, McpServerConfig, ExtensionSettings, PermissionMode } from "../../shared/types";
 import { log } from "../logger";
 
+/**
+ * Updates a configuration value at the effective scope (workspace if set there, otherwise global).
+ * This ensures updates succeed regardless of where the current value is stored.
+ */
+async function updateConfigAtEffectiveScope<T>(
+  section: string,
+  key: string,
+  value: T
+): Promise<void> {
+  const config = vscode.workspace.getConfiguration(section);
+  const inspection = config.inspect<T>(key);
+  const target = inspection?.workspaceValue !== undefined
+    ? vscode.ConfigurationTarget.Workspace
+    : vscode.ConfigurationTarget.Global;
+
+  await config.update(key, value, target);
+}
+
+const CONTEXT_1M_BETA = 'context-1m-2025-08-07';
+
+/**
+ * Check if a model supports the 1M context window beta.
+ * Only Sonnet 4 and Sonnet 4.5 models support this feature.
+ */
+function modelSupports1MContext(model: string): boolean {
+  return /claude-sonnet-4/.test(model);
+}
+
 export interface SettingsManagerConfig {
   postMessage: (panel: vscode.WebviewPanel, message: ExtensionToWebviewMessage) => void;
 }
@@ -48,17 +76,29 @@ export class SettingsManager {
 
   sendCurrentSettings(panel: vscode.WebviewPanel, permissionHandler: PermissionHandler): void {
     const config = vscode.workspace.getConfiguration("claude-unbound");
+    const model = config.get<string>("model", "");
+    const betasEnabled = config.get<string[]>("betasEnabled", []);
+
+    // Filter out 1M beta if current model doesn't support it
+    const effectiveBetas = betasEnabled.filter(beta => {
+      if (beta === CONTEXT_1M_BETA && !modelSupports1MContext(model)) {
+        return false;
+      }
+      return true;
+    });
+
     const settings: ExtensionSettings = {
-      model: config.get<string>("model", ""),
+      model,
       maxTurns: config.get<number>("maxTurns", 50),
       maxBudgetUsd: config.get<number | null>("maxBudgetUsd", null),
       maxThinkingTokens: config.get<number | null>("maxThinkingTokens", null),
-      betasEnabled: config.get<string[]>("betasEnabled", []),
+      betasEnabled: effectiveBetas,
       permissionMode: permissionHandler.getPermissionMode(),
       defaultPermissionMode: config.get<PermissionMode>("permissionMode", "default"),
       enableFileCheckpointing: config.get<boolean>("enableFileCheckpointing", true),
       sandbox: config.get<{ enabled: boolean }>("sandbox", { enabled: false }),
     };
+    log('[Settings:Config] sendCurrentSettings:', JSON.stringify(settings));
     this.postMessage(panel, { type: "settingsUpdate", settings });
   }
 
@@ -84,29 +124,52 @@ export class SettingsManager {
   }
 
   async handleSetModel(session: ClaudeSession, model: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration("claude-unbound");
-    await config.update("model", model, vscode.ConfigurationTarget.Global);
+    log('[Settings:Config] setModel:', model);
+    await updateConfigAtEffectiveScope("claude-unbound", "model", model);
+
+    // Auto-disable 1M beta if new model doesn't support it
+    if (!modelSupports1MContext(model)) {
+      const config = vscode.workspace.getConfiguration("claude-unbound");
+      const currentBetas = config.get<string[]>("betasEnabled", []);
+      if (currentBetas.includes(CONTEXT_1M_BETA)) {
+        const newBetas = currentBetas.filter(b => b !== CONTEXT_1M_BETA);
+        log('[Settings:Config] Auto-disabling 1M beta (unsupported by', model + ')');
+        await updateConfigAtEffectiveScope("claude-unbound", "betasEnabled", newBetas);
+      }
+    }
+
     await session.setModel(model);
   }
 
   async handleSetMaxThinkingTokens(session: ClaudeSession, tokens: number | null): Promise<void> {
-    const config = vscode.workspace.getConfiguration("claude-unbound");
-    await config.update("maxThinkingTokens", tokens, vscode.ConfigurationTarget.Global);
+    log('[Settings:Config] setMaxThinkingTokens:', tokens);
+    await updateConfigAtEffectiveScope("claude-unbound", "maxThinkingTokens", tokens);
     await session.setMaxThinkingTokens(tokens);
   }
 
   async handleSetBudgetLimit(budgetUsd: number | null): Promise<void> {
-    const config = vscode.workspace.getConfiguration("claude-unbound");
-    await config.update("maxBudgetUsd", budgetUsd, vscode.ConfigurationTarget.Global);
+    log('[Settings:Config] setBudgetLimit:', budgetUsd);
+    await updateConfigAtEffectiveScope("claude-unbound", "maxBudgetUsd", budgetUsd);
   }
 
   async handleToggleBeta(beta: string, enabled: boolean): Promise<void> {
     const config = vscode.workspace.getConfiguration("claude-unbound");
     const currentBetas = config.get<string[]>("betasEnabled", []);
+
+    // Validate 1M beta is only enabled for supported models
+    if (beta === CONTEXT_1M_BETA && enabled) {
+      const model = config.get<string>("model", "");
+      if (!modelSupports1MContext(model)) {
+        log('[Settings:Config] toggleBeta: Blocked - 1M context not supported by', model);
+        return;
+      }
+    }
+
     const newBetas = enabled
-      ? [...currentBetas, beta]
+      ? (currentBetas.includes(beta) ? currentBetas : [...currentBetas, beta])
       : currentBetas.filter((b) => b !== beta);
-    await config.update("betasEnabled", newBetas, vscode.ConfigurationTarget.Global);
+    log('[Settings:Config] toggleBeta:', beta, enabled, '→', newBetas);
+    await updateConfigAtEffectiveScope("claude-unbound", "betasEnabled", newBetas);
   }
 
   async handleSetPermissionMode(
@@ -114,12 +177,13 @@ export class SettingsManager {
     permissionHandler: PermissionHandler,
     mode: PermissionMode
   ): Promise<void> {
+    log('[Settings:Config] setPermissionMode:', mode);
     permissionHandler.setPermissionMode(mode);
     await session.setPermissionMode(mode);
   }
 
   async handleSetDefaultPermissionMode(mode: PermissionMode): Promise<void> {
-    const config = vscode.workspace.getConfiguration("claude-unbound");
-    await config.update("permissionMode", mode, vscode.ConfigurationTarget.Global);
+    log('[Settings:Config] setDefaultPermissionMode:', mode);
+    await updateConfigAtEffectiveScope("claude-unbound", "permissionMode", mode);
   }
 }

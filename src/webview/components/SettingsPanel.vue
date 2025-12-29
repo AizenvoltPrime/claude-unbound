@@ -80,9 +80,20 @@ watch(() => props.settings, (newSettings) => {
   }
 }, { deep: true, immediate: true });
 
+const CONTEXT_1M_BETA = 'context-1m-2025-08-07';
+
+// Only Sonnet 4 and 4.5 support 1M context
+const modelSupports1MContext = computed(() => {
+  const model = localModel.value || '';
+  return /claude-sonnet-4/.test(model);
+});
+
 const is1MContextEnabled = computed({
-  get: () => props.settings.betasEnabled.includes('context-1m-2025-08-07'),
-  set: (enabled: boolean) => emit('toggleBeta', 'context-1m-2025-08-07', enabled)
+  get: () => props.settings.betasEnabled.includes(CONTEXT_1M_BETA),
+  set: (enabled: boolean) => {
+    if (enabled && !modelSupports1MContext.value) return;
+    emit('toggleBeta', CONTEXT_1M_BETA, enabled);
+  }
 });
 
 // Computed for Slider (needs array format)
@@ -226,16 +237,17 @@ const currentModelDisplayName = computed(() => {
       <div class="mb-5">
         <Label class="block mb-2">Beta Features</Label>
         <div class="flex items-center justify-between">
-          <Label for="context-1m" class="text-sm font-normal">
+          <Label for="context-1m" class="text-sm font-normal" :class="{ 'opacity-50': !modelSupports1MContext }">
             1M Context Window
           </Label>
           <Switch
             id="context-1m"
             v-model:checked="is1MContextEnabled"
+            :disabled="!modelSupports1MContext"
           />
         </div>
         <p class="text-xs opacity-50 mt-1">
-          Enable 1M token context for Sonnet 4/4.5 models
+          {{ modelSupports1MContext ? 'Extended context for Sonnet 4/4.5' : 'Only available for Sonnet models' }}
         </p>
       </div>
 
