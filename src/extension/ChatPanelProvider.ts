@@ -27,9 +27,10 @@ import {
   findUserTextBlock,
   type StoredSession,
   type AgentData,
-} from "./SessionStorage";
+  type JsonlContentBlock,
+  type ClaudeSessionEntry,
+} from "./session";
 import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, McpServerConfig, ExtensionSettings, PermissionMode, HistoryMessage, HistoryToolCall, RewindOption, RewindHistoryItem } from "../shared/types";
-import type { JsonlContentBlock, ClaudeSessionEntry } from "./SessionStorage";
 
 const SESSIONS_PAGE_SIZE = 20;
 const HISTORY_PAGE_SIZE = 30;

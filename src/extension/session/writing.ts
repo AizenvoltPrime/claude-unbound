@@ -1,0 +1,256 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as crypto from 'crypto';
+import { log } from '../logger';
+import type { PersistUserMessageOptions, PersistPartialAssistantOptions, PersistInterruptOptions } from './types';
+import { EXTENSION_VERSION, INTERRUPT_MARKER } from './types';
+import { getSessionDir, getSessionFilePath, isValidSessionId, buildSessionFilePath } from './paths';
+import { readSessionFileLines, parseSessionEntry } from './parsing';
+
+export async function initializeSession(workspacePath: string, sessionId: string): Promise<void> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+
+  await fs.promises.mkdir(sessionDir, { recursive: true });
+
+  const queueEntry = {
+    type: 'queue-operation',
+    operation: 'dequeue',
+    timestamp: new Date().toISOString(),
+    sessionId,
+  };
+
+  await fs.promises.writeFile(filePath, JSON.stringify(queueEntry) + '\n');
+}
+
+export async function persistUserMessage(options: PersistUserMessageOptions): Promise<string> {
+  const { workspacePath, sessionId, content, parentUuid, gitBranch } = options;
+  const messageUuid = crypto.randomUUID();
+  const normalizedContent = typeof content === 'string'
+    ? [{ type: 'text', text: content }]
+    : content;
+  const timestamp = new Date().toISOString();
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+
+  await fs.promises.mkdir(sessionDir, { recursive: true });
+
+  const snapshotEntry = {
+    type: 'file-history-snapshot',
+    messageId: messageUuid,
+    snapshot: {
+      messageId: messageUuid,
+      trackedFileBackups: {},
+      timestamp,
+    },
+    isSnapshotUpdate: false,
+  };
+
+  const userEntry = {
+    parentUuid: parentUuid ?? null,
+    isSidechain: false,
+    userType: 'external',
+    cwd: workspacePath,
+    sessionId,
+    version: EXTENSION_VERSION,
+    gitBranch: gitBranch ?? 'main',
+    type: 'user',
+    message: {
+      role: 'user',
+      content: normalizedContent,
+    },
+    uuid: messageUuid,
+    timestamp,
+    thinkingMetadata: { level: 'high', disabled: false, triggers: [] },
+    todos: [],
+  };
+
+  const lines = [JSON.stringify(snapshotEntry), JSON.stringify(userEntry)].join('\n') + '\n';
+  await fs.promises.appendFile(filePath, lines);
+
+  return messageUuid;
+}
+
+export async function persistPartialAssistant(options: PersistPartialAssistantOptions): Promise<string> {
+  const { workspacePath, sessionId, parentUuid, thinking, text, model, gitBranch } = options;
+
+  if (!thinking && !text) {
+    return parentUuid;
+  }
+
+  const messageUuid = crypto.randomUUID();
+  const timestamp = new Date().toISOString();
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+
+  const content: Array<{ type: string; text?: string; thinking?: string }> = [];
+  if (thinking) {
+    content.push({ type: 'thinking', thinking });
+  }
+  if (text) {
+    content.push({ type: 'text', text });
+  }
+
+  const assistantEntry = {
+    parentUuid,
+    isSidechain: false,
+    userType: 'external',
+    cwd: workspacePath,
+    sessionId,
+    version: EXTENSION_VERSION,
+    gitBranch: gitBranch ?? 'main',
+    type: 'assistant',
+    message: {
+      id: `partial-${messageUuid}`,
+      model: model ?? 'claude-opus-4-5-20251101',
+      type: 'message',
+      role: 'assistant',
+      content,
+      stop_reason: 'interrupted',
+    },
+    uuid: messageUuid,
+    timestamp,
+  };
+
+  await fs.promises.appendFile(filePath, JSON.stringify(assistantEntry) + '\n');
+
+  return messageUuid;
+}
+
+export async function persistInterruptMarker(options: PersistInterruptOptions): Promise<string> {
+  const { workspacePath, sessionId, parentUuid, gitBranch } = options;
+  const messageUuid = crypto.randomUUID();
+  const timestamp = new Date().toISOString();
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+
+  const interruptEntry = {
+    parentUuid,
+    isSidechain: false,
+    userType: 'external',
+    cwd: workspacePath,
+    sessionId,
+    version: EXTENSION_VERSION,
+    gitBranch: gitBranch ?? 'main',
+    type: 'user',
+    isInterrupt: true,
+    message: {
+      role: 'user',
+      content: [{ type: 'text', text: INTERRUPT_MARKER }],
+    },
+    uuid: messageUuid,
+    timestamp,
+  };
+
+  await fs.promises.appendFile(filePath, JSON.stringify(interruptEntry) + '\n');
+
+  return messageUuid;
+}
+
+export async function renameSession(workspacePath: string, sessionId: string, newName: string): Promise<void> {
+  const filePath = await getSessionFilePath(workspacePath, sessionId);
+
+  if (!newName.trim()) {
+    throw new Error('Session name cannot be empty');
+  }
+
+  const sanitizedName = newName.trim().replace(/[\x00-\x1F\x7F]/g, '');
+  if (!sanitizedName) {
+    throw new Error('Session name cannot contain only control characters');
+  }
+
+  const content = await fs.promises.readFile(filePath, 'utf-8');
+  const lines = content.split('\n').filter(line => line.trim());
+
+  const otherLines: string[] = [];
+  for (const line of lines) {
+    try {
+      const entry = parseSessionEntry(line);
+      if (entry.type !== 'custom-title') {
+        otherLines.push(line);
+      }
+    } catch {
+      otherLines.push(line);
+    }
+  }
+
+  const customTitleEntry = {
+    type: 'custom-title',
+    customTitle: sanitizedName,
+    sessionId: sessionId,
+  };
+
+  const newContent = [...otherLines, JSON.stringify(customTitleEntry)].join('\n') + '\n';
+  const tempPath = `${filePath}.tmp.${Date.now()}`;
+  try {
+    await fs.promises.writeFile(tempPath, newContent);
+    await fs.promises.rename(tempPath, filePath);
+  } catch (err) {
+    try {
+      await fs.promises.unlink(tempPath);
+    } catch {
+    }
+    throw err;
+  }
+}
+
+async function findAgentFilesForSession(sessionDir: string, sessionId: string): Promise<string[]> {
+  try {
+    const files = await fs.promises.readdir(sessionDir);
+    const agentFileNames = files.filter(file => file.startsWith('agent-') && file.endsWith('.jsonl'));
+
+    const results = await Promise.all(
+      agentFileNames.map(async (file): Promise<string | null> => {
+        const filePath = path.join(sessionDir, file);
+        try {
+          const handle = await fs.promises.open(filePath, 'r');
+          try {
+            const buffer = Buffer.alloc(4096);
+            const { bytesRead } = await handle.read(buffer, 0, 4096, 0);
+            const firstLine = buffer.toString('utf-8', 0, bytesRead).split('\n')[0];
+            const entry = JSON.parse(firstLine);
+            return entry.sessionId === sessionId ? filePath : null;
+          } finally {
+            await handle.close();
+          }
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    return results.filter((f): f is string => f !== null);
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteSession(workspacePath: string, sessionId: string): Promise<void> {
+  if (!isValidSessionId(sessionId)) {
+    throw new Error('Invalid session ID format');
+  }
+
+  const sessionDir = await getSessionDir(workspacePath);
+
+  const agentFiles = await findAgentFilesForSession(sessionDir, sessionId);
+  const deleteResults = await Promise.allSettled(
+    agentFiles.map(filePath => fs.promises.unlink(filePath))
+  );
+
+  for (let i = 0; i < deleteResults.length; i++) {
+    const result = deleteResults[i];
+    if (result.status === 'rejected' && (result.reason as NodeJS.ErrnoException).code !== 'ENOENT') {
+      log(`Warning: Failed to delete agent file ${agentFiles[i]}: ${result.reason}`);
+    }
+  }
+
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return;
+    }
+    throw err;
+  }
+}

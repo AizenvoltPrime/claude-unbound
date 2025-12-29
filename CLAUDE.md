@@ -49,6 +49,7 @@ npm run package       # Package for distribution
 | `src/extension/ClaudeSession.ts` | Claude Agent SDK integration, message streaming, tool hooks |
 | `src/extension/ChatPanelProvider.ts` | Creates/manages webview panels, routes messages |
 | `src/extension/PermissionHandler.ts` | Intercepts Edit/Write tools, shows diff for approval |
+| `src/extension/session/` | Session persistence module (see Session Storage below) |
 | `src/shared/types.ts` | All TypeScript types for extension↔webview communication |
 
 ### Webview State (Pinia Stores)
@@ -110,7 +111,17 @@ Configured in both tsconfig.json and vite.config.ts:
 
 ## Session Storage
 
-Sessions are stored in `~/.claude/projects/<encoded-workspace-path>/` as JSONL files. The `SessionStorage.ts` module handles path encoding, pagination, renaming, and history replay.
+Sessions are stored in `~/.claude/projects/<encoded-workspace-path>/` as JSONL files. The `session/` module handles persistence:
+
+| File | Responsibility |
+|------|----------------|
+| `paths.ts` | Path encoding, session directory resolution |
+| `types.ts` | JSONL entry types, session interfaces |
+| `reading.ts` | List sessions, read entries, extract stats |
+| `writing.ts` | Initialize sessions, persist messages, rename/delete |
+| `branches.ts` | Active branch resolution (handles conversation forks) |
+| `history.ts` | Command history extraction for up/down navigation |
+| `parsing.ts` | Parse content blocks from JSONL entries |
 
 ## Code Quality Standards
 

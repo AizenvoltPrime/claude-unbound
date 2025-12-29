@@ -12,7 +12,7 @@ import {
   getMessageParentUuid,
   initializeSession,
   readLatestCompactSummary,
-} from './SessionStorage';
+} from './session';
 import type { PermissionHandler } from './PermissionHandler';
 import type {
   ExtensionToWebviewMessage,

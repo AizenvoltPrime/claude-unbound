@@ -1,0 +1,194 @@
+import * as fs from 'fs';
+import type { ClaudeSessionEntry } from './types';
+import { INTERRUPT_MARKER } from './types';
+import { getSessionDir, buildSessionFilePath } from './paths';
+import { readSessionFileLines, parseSessionEntry, isDisplayableMessage } from './parsing';
+
+export function getActiveBranchUuids(allEntries: ClaudeSessionEntry[], customLeaf?: string): Set<string> {
+  const entryByUuid = new Map<string, ClaudeSessionEntry>();
+  for (const entry of allEntries) {
+    if (entry.uuid) {
+      entryByUuid.set(entry.uuid, entry);
+    }
+  }
+
+  let leafUuid: string | null = null;
+  if (customLeaf && entryByUuid.has(customLeaf)) {
+    leafUuid = customLeaf;
+  } else {
+    for (let i = allEntries.length - 1; i >= 0; i--) {
+      const entry = allEntries[i];
+      if ((entry.type === 'user' || entry.type === 'assistant') && entry.uuid) {
+        leafUuid = entry.uuid;
+        break;
+      }
+    }
+  }
+
+  if (!leafUuid) {
+    return new Set();
+  }
+
+  const activeUuids = new Set<string>();
+  let currentUuid: string | null = leafUuid;
+
+  while (currentUuid) {
+    activeUuids.add(currentUuid);
+    const entry = entryByUuid.get(currentUuid);
+    if (!entry) break;
+    currentUuid = entry.parentUuid ?? null;
+  }
+
+  return activeUuids;
+}
+
+export function extractActiveBranch(allEntries: ClaudeSessionEntry[]): ClaudeSessionEntry[] {
+  const activeUuids = getActiveBranchUuids(allEntries);
+  return allEntries.filter(entry =>
+    isDisplayableMessage(entry) && entry.uuid && activeUuids.has(entry.uuid)
+  );
+}
+
+export function findLastQueueOperationIndex(lines: string[]): number {
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    try {
+      const entry = parseSessionEntry(line);
+      if (entry.type === 'queue-operation' && entry.operation === 'dequeue') {
+        return i;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return -1;
+}
+
+export async function getLastMessageUuid(workspacePath: string, sessionId: string): Promise<string | null> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+
+  try {
+    const lines = await readSessionFileLines(filePath);
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      try {
+        const entry = parseSessionEntry(line);
+        if ((entry.type === 'user' || entry.type === 'assistant') && entry.uuid) {
+          return entry.uuid;
+        }
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getMessageParentUuid(
+  workspacePath: string,
+  sessionId: string,
+  messageUuid: string
+): Promise<string | null> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+
+  try {
+    const lines = await readSessionFileLines(filePath);
+
+    for (const line of lines) {
+      try {
+        const entry = parseSessionEntry(line);
+        if (entry.uuid === messageUuid) {
+          return entry.parentUuid ?? null;
+        }
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function findUserMessageInCurrentTurn(
+  workspacePath: string,
+  sessionId: string
+): Promise<{ uuid: string; content: string } | null> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+
+  try {
+    const lines = await readSessionFileLines(filePath);
+    const lastQueueOpIndex = findLastQueueOperationIndex(lines);
+
+    for (let i = lastQueueOpIndex + 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      try {
+        const entry = parseSessionEntry(line);
+
+        if (entry.type === 'user' && entry.uuid) {
+          const rawContent = entry.message?.content;
+          const messageContent = typeof rawContent === 'string'
+            ? rawContent
+            : Array.isArray(rawContent)
+              ? rawContent
+                  .filter((c): c is { type: 'text'; text: string } =>
+                    typeof c === 'object' && c !== null && 'type' in c && c.type === 'text')
+                  .map(c => c.text)
+                  .join('')
+              : '';
+
+          if (messageContent === INTERRUPT_MARKER) {
+            continue;
+          }
+
+          return { uuid: entry.uuid, content: messageContent };
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function findLastMessageInCurrentTurn(
+  workspacePath: string,
+  sessionId: string
+): Promise<string | null> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+
+  try {
+    const lines = await readSessionFileLines(filePath);
+    const lastQueueOpIndex = findLastQueueOperationIndex(lines);
+
+    for (let i = lines.length - 1; i > lastQueueOpIndex; i--) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      try {
+        const entry = parseSessionEntry(line);
+        if ((entry.type === 'user' || entry.type === 'assistant') && entry.uuid) {
+          return entry.uuid;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}

@@ -1,0 +1,87 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import { UUID_PATTERN } from './types';
+
+export function isValidSessionId(sessionId: string): boolean {
+  return UUID_PATTERN.test(sessionId);
+}
+
+export function getClaudeProjectsDir(): string {
+  const homeDir = os.homedir();
+  return path.join(homeDir, '.claude', 'projects');
+}
+
+export function encodeProjectPath(workspacePath: string): string {
+  if (workspacePath.includes('..')) {
+    throw new Error('Invalid workspace path: path traversal not allowed');
+  }
+
+  let normalized = workspacePath.replace(/\\/g, '/').replace(/\/$/, '');
+
+  if (/^[a-z]:/.test(normalized)) {
+    normalized = normalized[0].toUpperCase() + normalized.slice(1);
+  }
+
+  normalized = normalized.replace(/:/g, '-').replace(/\//g, '-');
+
+  return normalized;
+}
+
+export async function getSessionDir(workspacePath: string): Promise<string> {
+  const projectsDir = getClaudeProjectsDir();
+  const encodedPath = encodeProjectPath(workspacePath);
+  const primaryPath = path.join(projectsDir, encodedPath);
+
+  try {
+    await fs.promises.access(primaryPath, fs.constants.R_OK);
+    return primaryPath;
+  } catch {
+  }
+
+  const variations = [
+    encodedPath.replace(/_/g, '-'),
+  ];
+
+  for (const variant of variations) {
+    if (variant === encodedPath) continue;
+
+    const variantPath = path.join(projectsDir, variant);
+    try {
+      await fs.promises.access(variantPath, fs.constants.R_OK);
+      return variantPath;
+    } catch {
+    }
+  }
+
+  return primaryPath;
+}
+
+export function getSessionDirSync(workspacePath: string): string {
+  const projectsDir = getClaudeProjectsDir();
+  const encodedPath = encodeProjectPath(workspacePath);
+  return path.join(projectsDir, encodedPath);
+}
+
+export async function ensureSessionDir(workspacePath: string): Promise<string> {
+  const sessionDir = await getSessionDir(workspacePath);
+  await fs.promises.mkdir(sessionDir, { recursive: true });
+  return sessionDir;
+}
+
+export async function getSessionFilePath(workspacePath: string, sessionId: string): Promise<string> {
+  if (!isValidSessionId(sessionId)) {
+    throw new Error('Invalid session ID format');
+  }
+  const sessionDir = await getSessionDir(workspacePath);
+  return path.join(sessionDir, `${sessionId}.jsonl`);
+}
+
+export async function getAgentFilePath(workspacePath: string, agentId: string): Promise<string> {
+  const sessionDir = await getSessionDir(workspacePath);
+  return path.join(sessionDir, `agent-${agentId}.jsonl`);
+}
+
+export function buildSessionFilePath(sessionDir: string, sessionId: string): string {
+  return path.join(sessionDir, `${sessionId}.jsonl`);
+}
