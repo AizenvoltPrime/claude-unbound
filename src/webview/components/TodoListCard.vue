@@ -28,12 +28,12 @@ const hasInProgress = computed(() =>
 function getStatusIcon(status: TodoItem['status']) {
   switch (status) {
     case 'completed':
-      return { icon: IconCheck, class: 'text-green-500' };
+      return { icon: IconCheck, class: 'text-success' };
     case 'in_progress':
-      return { icon: IconCircleYellow, class: 'text-yellow-400 animate-pulse' };
+      return { icon: IconCircleYellow, class: 'text-warning animate-pulse' };
     case 'pending':
     default:
-      return { icon: null, class: 'text-unbound-muted' };
+      return { icon: null, class: 'text-muted-foreground' };
   }
 }
 
@@ -54,20 +54,20 @@ function getStatusEmoji(status: TodoItem['status']): string {
   <Collapsible
     :open="!isCollapsed"
     @update:open="emit('update:isCollapsed', !$event)"
-    class="border border-unbound-cyan-800/50 rounded-lg bg-unbound-bg-card"
+    class="border border-border rounded-lg bg-card overflow-hidden"
   >
-    <CollapsibleTrigger class="w-full px-3 py-2 flex items-center gap-2 hover:bg-unbound-cyan-900/20 transition-colors rounded-t-lg">
-      <IconClipboard :size="16" class="text-unbound-cyan-400" />
+    <CollapsibleTrigger class="w-full px-3 py-2 flex items-center gap-2 bg-foreground/5 hover:bg-foreground/10 transition-colors cursor-pointer">
+      <IconClipboard :size="16" class="text-primary" />
       <span class="font-medium text-sm">Current Tasks</span>
       <Badge
         variant="secondary"
         :class="[
           'ml-auto text-xs',
           completedCount === totalCount && totalCount > 0
-            ? 'bg-green-900/30 text-green-400'
+            ? 'bg-success/30 text-success'
             : hasInProgress
-              ? 'bg-yellow-900/30 text-yellow-400'
-              : 'bg-unbound-cyan-900/30 text-unbound-cyan-400'
+              ? 'bg-warning/30 text-warning'
+              : 'bg-primary/30 text-primary'
         ]"
       >
         {{ completedCount }}/{{ totalCount }}
@@ -75,7 +75,7 @@ function getStatusEmoji(status: TodoItem['status']): string {
       <component
         :is="isCollapsed ? IconChevronDown : IconChevronUp"
         :size="14"
-        class="text-unbound-muted"
+        class="text-muted-foreground"
       />
     </CollapsibleTrigger>
 
@@ -103,7 +103,7 @@ function getStatusEmoji(status: TodoItem['status']): string {
           <Badge
             v-if="todo.status === 'in_progress'"
             variant="outline"
-            class="text-[10px] px-1.5 py-0.5 bg-yellow-900/20 text-yellow-400 border-yellow-600/30 animate-pulse"
+            class="text-[10px] px-1.5 py-0.5 bg-warning/20 text-warning border-warning/30 animate-pulse"
           >
             in progress
           </Badge>
@@ -111,7 +111,7 @@ function getStatusEmoji(status: TodoItem['status']): string {
 
         <div
           v-if="todos.length === 0"
-          class="text-xs text-unbound-muted text-center py-2"
+          class="text-xs text-muted-foreground text-center py-2"
         >
           No tasks
         </div>

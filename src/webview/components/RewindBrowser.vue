@@ -124,30 +124,30 @@ onUnmounted(() => {
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
         @click.self="emit('close')"
       >
-        <div class="w-full max-w-lg bg-unbound-bg-card border border-unbound-cyan-800/50 rounded-lg shadow-xl overflow-hidden">
-          <div class="px-4 py-3 border-b border-unbound-cyan-800/30 flex items-center gap-2">
+        <div class="w-full max-w-lg bg-muted border border-border rounded-lg shadow-xl overflow-hidden">
+          <div class="px-4 py-3 border-b border-border/30 flex items-center gap-2">
             <span class="text-lg">⏪</span>
             <span class="font-medium">Rewind to Previous Prompt</span>
           </div>
 
-          <div class="p-3 border-b border-unbound-cyan-800/30">
+          <div class="p-3 border-b border-border/30">
             <div class="relative">
-              <IconSearch :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-unbound-muted" />
+              <IconSearch :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 ref="searchInputRef"
                 v-model="searchQuery"
                 type="text"
                 placeholder="Search prompts..."
-                class="w-full pl-9 pr-3 py-2 bg-unbound-bg-light border border-unbound-cyan-800/30 rounded text-sm focus:outline-none focus:border-unbound-cyan-500"
+                class="w-full pl-9 pr-3 py-2 bg-card border border-border/30 rounded text-sm focus:outline-none focus:border-primary"
               />
             </div>
           </div>
 
-          <div v-if="isLoading" class="p-8 text-center text-unbound-muted text-sm">
+          <div v-if="isLoading" class="p-8 text-center text-muted-foreground text-sm">
             Loading history...
           </div>
 
-          <div v-else-if="filteredPrompts.length === 0" class="p-8 text-center text-unbound-muted text-sm">
+          <div v-else-if="filteredPrompts.length === 0" class="p-8 text-center text-muted-foreground text-sm">
             No prompts found
           </div>
 
@@ -158,18 +158,18 @@ onUnmounted(() => {
               :ref="el => itemRefs[index] = el as HTMLDivElement"
               class="px-3 py-2 cursor-pointer transition-colors"
               :class="index === selectedIndex
-                ? 'bg-unbound-cyan-900/60'
-                : 'hover:bg-unbound-cyan-900/30'"
+                ? 'bg-primary/60'
+                : 'hover:bg-muted'"
               @click="emit('select', prompt)"
               @mouseenter="selectedIndex = index"
             >
               <div class="flex items-start gap-2">
-                <span class="text-unbound-cyan-500 mt-0.5">▸</span>
+                <span class="text-primary mt-0.5">▸</span>
                 <div class="flex-1 min-w-0">
                   <div class="text-sm truncate">
                     "{{ truncateContent(prompt.content) }}"
                   </div>
-                  <div class="text-xs text-unbound-muted mt-0.5">
+                  <div class="text-xs text-muted-foreground mt-0.5">
                     {{ formatRelativeTime(prompt.timestamp) }}
                   </div>
                 </div>
@@ -179,37 +179,37 @@ onUnmounted(() => {
 
           <div
             v-if="filteredPrompts.length > 0 && filteredPrompts[selectedIndex]"
-            class="px-4 py-3 border-t border-unbound-cyan-800/30 bg-unbound-bg-light/30"
+            class="px-4 py-3 border-t border-border/30 bg-card/30"
           >
-            <div class="flex items-center gap-2 text-xs text-unbound-muted">
+            <div class="flex items-center gap-2 text-xs text-muted-foreground">
               <IconFile :size="14" />
               <span>{{ filteredPrompts[selectedIndex].filesAffected }} files will be restored</span>
               <template v-if="filteredPrompts[selectedIndex].linesChanged">
-                <span class="text-green-500">
+                <span class="text-success">
                   +{{ filteredPrompts[selectedIndex].linesChanged.added }}
                 </span>
-                <span class="text-red-500">
+                <span class="text-error">
                   -{{ filteredPrompts[selectedIndex].linesChanged.removed }}
                 </span>
               </template>
             </div>
-            <div class="flex items-center gap-2 text-xs text-yellow-500 mt-1">
+            <div class="flex items-center gap-2 text-xs text-warning mt-1">
               <IconWarning :size="14" />
               <span>Does not affect manually edited files</span>
             </div>
           </div>
 
-          <div class="px-4 py-2 border-t border-unbound-cyan-800/30 bg-unbound-bg-light/50 text-xs text-unbound-muted flex items-center gap-4">
+          <div class="px-4 py-2 border-t border-border/30 bg-card/50 text-xs text-muted-foreground flex items-center gap-4">
             <span class="flex items-center gap-1">
-              <kbd class="px-1.5 py-0.5 bg-unbound-bg-light rounded text-[10px] font-mono">↑↓</kbd>
+              <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">↑↓</kbd>
               <span class="opacity-80">navigate</span>
             </span>
             <span class="flex items-center gap-1">
-              <kbd class="px-1.5 py-0.5 bg-unbound-bg-light rounded text-[10px] font-mono">Enter</kbd>
+              <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Enter</kbd>
               <span class="opacity-80">select</span>
             </span>
             <span class="flex items-center gap-1">
-              <kbd class="px-1.5 py-0.5 bg-unbound-bg-light rounded text-[10px] font-mono">Esc</kbd>
+              <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Esc</kbd>
               <span class="opacity-80">cancel</span>
             </span>
           </div>

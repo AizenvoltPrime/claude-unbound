@@ -26,7 +26,7 @@ const statusSummary = computed(() => {
     return {
       icon: null,
       label: `MCP: ${connected}/${total} connecting`,
-      color: 'text-yellow-500',
+      color: 'text-warning',
       text: '...',
     };
   }
@@ -35,7 +35,7 @@ const statusSummary = computed(() => {
     return {
       icon: IconExclamation,
       label: `MCP: ${connected}/${total} (${failed} failed)`,
-      color: 'text-red-500',
+      color: 'text-error',
       text: '',
     };
   }
@@ -43,7 +43,7 @@ const statusSummary = computed(() => {
   return {
     icon: IconCheck,
     label: `MCP: ${connected}/${total}`,
-    color: 'text-green-500',
+    color: 'text-success',
     text: '',
   };
 });
@@ -56,7 +56,7 @@ const hasServers = computed(() => props.servers.length > 0);
     v-if="hasServers"
     variant="ghost"
     size="sm"
-    class="h-auto py-1 px-2 text-xs"
+    class="h-auto py-1 px-2 text-xs hover:bg-muted hover:text-inherit"
     :title="statusSummary.label"
     @click="$emit('click')"
   >

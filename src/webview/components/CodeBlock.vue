@@ -26,8 +26,7 @@ const displayLanguage = computed(() => {
 async function highlight() {
   if (!isMounted.value) return;
 
-  const fallbackColor = getShikiTheme() === 'github-light' ? '#1f2328' : '#e6edf3';
-  const fallbackHtml = `<pre style="padding:0;margin:0;color:${fallbackColor};"><code class="hljs">${escapeHtml(props.code)}</code></pre>`;
+  const fallbackHtml = `<pre style="padding:0;margin:0;color:inherit;"><code class="hljs">${escapeHtml(props.code)}</code></pre>`;
 
   if (!isLanguageLoaded(normalizedLang.value)) {
     highlightedHtml.value = fallbackHtml;
@@ -44,8 +43,7 @@ async function highlight() {
       transformers: [
         {
           pre(node) {
-            const baseColor = theme === 'github-light' ? '#1f2328' : '#e6edf3';
-            node.properties.style = `padding:0;margin:0;background:transparent;color:${baseColor};`;
+            node.properties.style = 'padding:0;margin:0;background:transparent;color:inherit;';
             return node;
           },
           code(node) {
@@ -92,14 +90,14 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="code-block-container group my-2 rounded-md border border-[#30363d] overflow-hidden"
+    class="code-block-container group my-2 rounded-xl border border-border overflow-hidden"
     @mouseenter="isHovering = true"
     @mouseleave="isHovering = false"
   >
-    <div class="flex items-center justify-between px-3 py-1.5 bg-[#161b22] border-b border-[#30363d]">
+    <div class="flex items-center justify-between px-3 py-1.5 bg-muted border-b border-border">
       <span
         v-if="displayLanguage"
-        class="text-xs font-mono text-[#8b949e] select-none"
+        class="text-xs font-mono text-muted-foreground select-none"
       >
         {{ displayLanguage }}
       </span>
@@ -108,8 +106,8 @@ onUnmounted(() => {
       <Button
         variant="ghost"
         size="icon-sm"
-        class="opacity-0 group-hover:opacity-100 transition-opacity text-[#8b949e] hover:text-[#58a6ff] h-6 w-6 -mr-1"
-        :class="{ 'opacity-100 text-green-400': hasCopied }"
+        class="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary h-6 w-6 -mr-1"
+        :class="{ 'opacity-100 text-success': hasCopied }"
         title="Copy code"
         @click="handleCopy"
       >
@@ -123,10 +121,14 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.code-block-container {
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.25), 0 2px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
 .code-block-content {
-  background: var(--vscode-editor-background, #0d1117);
+  background: var(--vscode-textCodeBlock-background, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
   padding: 12px 16px;
-  color: #e6edf3;
+  color: var(--vscode-editor-foreground);
 }
 
 .code-block-content :deep(pre) {

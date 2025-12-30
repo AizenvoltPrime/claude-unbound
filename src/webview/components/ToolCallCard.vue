@@ -135,21 +135,21 @@ const statusIconComponent = computed((): Component | null => {
 const statusClass = computed(() => {
   switch (props.toolCall.status) {
     case 'pending':
-      return 'text-unbound-cyan-400';
+      return 'text-muted-foreground';
     case 'running':
-      return 'text-blue-500 animate-spin-slow';
+      return 'text-primary animate-spin-slow';
     case 'awaiting_approval':
-      return 'text-amber-500 animate-pulse';
+      return 'text-warning animate-pulse';
     case 'approved':
     case 'completed':
-      return 'text-green-500';
+      return 'text-success';
     case 'denied':
     case 'failed':
-      return 'text-red-500';
+      return 'text-error';
     case 'abandoned':
-      return 'text-gray-400';
+      return 'text-muted-foreground';
     default:
-      return 'text-gray-500';
+      return 'text-muted-foreground';
   }
 });
 
@@ -159,9 +159,9 @@ const isAbandoned = computed(() => props.toolCall.status === 'abandoned');
 const isAwaitingApproval = computed(() => props.toolCall.status === 'awaiting_approval');
 
 const cardClass = computed(() => {
-  if (isFailed.value) return 'border-red-500/50';
-  if (isAbandoned.value) return 'border-gray-500/50 opacity-60';
-  return 'border-unbound-cyan-800/50';
+  if (isFailed.value) return 'border-error/50';
+  if (isAbandoned.value) return 'border-muted/50 opacity-60';
+  return 'border-border';
 });
 
 const toolIconComponent = computed((): Component => {
@@ -203,10 +203,10 @@ function formatInput(input: Record<string, unknown>): string {
 
 <template>
   <Card class="text-sm overflow-hidden" :class="cardClass">
-    <CardHeader class="flex flex-row items-center gap-2 px-3 py-1.5 bg-unbound-bg-card border-b border-unbound-cyan-900/30 space-y-0">
-      <component :is="toolIconComponent" :size="18" class="text-unbound-cyan-400 shrink-0" />
-      <span class="text-unbound-cyan-400 font-medium">{{ toolCall.name }}</span>
-      <span v-if="isFileOperation && filePath" class="text-unbound-muted text-xs truncate max-w-[300px]">
+    <CardHeader class="flex flex-row items-center gap-2 px-3 py-1.5 bg-foreground/5 border-b border-border/50 space-y-0">
+      <component :is="toolIconComponent" :size="18" class="text-foreground shrink-0" />
+      <span class="text-foreground font-medium">{{ toolCall.name }}</span>
+      <span v-if="isFileOperation && filePath" class="text-muted-foreground text-xs truncate max-w-[300px]">
         {{ filePath }}
       </span>
       <LoadingSpinner v-if="isPending" :size="16" :class="statusClass" class="ml-auto shrink-0" />
@@ -216,7 +216,7 @@ function formatInput(input: Record<string, unknown>): string {
         v-if="isRunning"
         variant="destructive"
         size="sm"
-        class="h-6 px-2 text-xs bg-red-600/20 text-red-400 hover:bg-red-600/40"
+        class="h-6 px-2 text-xs bg-error/20 text-error hover:bg-error/40"
         @click="$emit('interrupt', toolCall.id)"
         title="Interrupt this tool"
       >
@@ -224,8 +224,8 @@ function formatInput(input: Record<string, unknown>): string {
       </Button>
     </CardHeader>
 
-    <CardContent v-if="isFileOperation && diffContent" class="bg-unbound-bg p-0">
-      <div class="px-3 py-2 text-xs text-unbound-muted">
+    <CardContent v-if="isFileOperation && diffContent" class="p-0">
+      <div class="px-3 py-2 text-xs text-muted-foreground">
         {{ diffSummary }}
       </div>
 
@@ -234,7 +234,7 @@ function formatInput(input: Record<string, unknown>): string {
         class="relative group cursor-pointer"
         @click="isDialogOpen = true"
       >
-        <div class="px-3 py-2 bg-unbound-bg-card/50 border-t border-unbound-cyan-900/20 overflow-hidden max-h-32">
+        <div class="px-3 py-2 bg-muted/50 border-t border-border/30 overflow-hidden max-h-32">
           <pre class="text-xs font-mono leading-relaxed m-0 p-0"><code><div
   v-for="(line, idx) in previewLines"
   :key="idx"
@@ -255,11 +255,11 @@ function formatInput(input: Record<string, unknown>): string {
 
       <div
         v-if="isFailed && toolCall.errorMessage"
-        class="px-3 py-2 border-t border-red-500/20 bg-red-950/30"
+        class="px-3 py-2 border-t border-error/20 bg-error/10"
       >
         <div class="flex items-start gap-2 text-xs">
-          <IconXCircle :size="14" class="text-red-400 shrink-0 mt-0.5" />
-          <span class="text-red-300">{{ toolCall.errorMessage }}</span>
+          <IconXCircle :size="14" class="text-error shrink-0 mt-0.5" />
+          <span class="text-error/80">{{ toolCall.errorMessage }}</span>
         </div>
       </div>
 
@@ -271,15 +271,15 @@ function formatInput(input: Record<string, unknown>): string {
         <AlertDescription class="text-amber-400">Please respond to the dialog</AlertDescription>
       </Alert>
 
-      <div v-if="isRunning" class="h-0.5 bg-unbound-bg-card rounded overflow-hidden mx-3 mb-2">
-        <div class="h-full bg-unbound-cyan-500 animate-progress"></div>
+      <div v-if="isRunning" class="h-0.5 bg-muted rounded overflow-hidden mx-3 mb-2">
+        <div class="h-full bg-primary animate-progress"></div>
       </div>
 
       <Dialog v-model:open="isDialogOpen">
-        <DialogContent class="max-w-4xl max-h-[80vh] p-0 bg-unbound-bg border-unbound-cyan-800/50">
-          <DialogHeader class="px-4 py-3 border-b border-unbound-cyan-900/30 flex flex-row items-center justify-between space-y-0">
-            <DialogTitle class="text-sm font-mono text-unbound-text">{{ filePath }}</DialogTitle>
-            <DialogClose class="text-unbound-muted hover:text-unbound-text" />
+        <DialogContent class="max-w-4xl max-h-[80vh] p-0 bg-card border-border">
+          <DialogHeader class="px-4 py-3 border-b border-border/50 flex flex-row items-center justify-between space-y-0">
+            <DialogTitle class="text-sm font-mono text-foreground">{{ filePath }}</DialogTitle>
+            <DialogClose class="text-muted-foreground hover:text-foreground" />
           </DialogHeader>
 
           <div class="p-0">
@@ -296,29 +296,29 @@ function formatInput(input: Record<string, unknown>): string {
       </Dialog>
     </CardContent>
 
-    <CardContent v-else class="bg-unbound-bg p-3 space-y-2">
+    <CardContent v-else class="p-3 space-y-2">
       <div class="flex items-start gap-2 text-xs">
-        <span class="text-unbound-cyan-500 font-medium shrink-0">IN</span>
-        <span class="font-mono text-unbound-muted truncate">{{ formatInput(toolCall.input) }}</span>
+        <span class="text-muted-foreground font-medium shrink-0">IN</span>
+        <span class="font-mono text-foreground/70 truncate">{{ formatInput(toolCall.input) }}</span>
       </div>
 
       <div
         v-if="isFailed && toolCall.errorMessage"
-        class="flex items-start gap-2 text-xs border-t border-red-500/20 pt-2 -mx-3 px-3 bg-red-950/30 -mb-3 pb-3"
+        class="flex items-start gap-2 text-xs border-t border-error/20 pt-2 -mx-3 px-3 bg-error/10 -mb-3 pb-3"
       >
-        <IconXCircle :size="14" class="text-red-400 shrink-0 mt-0.5" />
-        <span class="text-red-300">{{ toolCall.errorMessage }}</span>
+        <IconXCircle :size="14" class="text-error shrink-0 mt-0.5" />
+        <span class="text-error/80">{{ toolCall.errorMessage }}</span>
       </div>
 
       <div
         v-else-if="toolCall.result"
-        class="text-xs border-t border-unbound-cyan-900/30 pt-2"
+        class="text-xs border-t border-border/30 pt-2"
       >
         <div class="flex items-start gap-2">
-          <span class="text-unbound-cyan-500 font-medium shrink-0">OUT</span>
+          <span class="text-muted-foreground font-medium shrink-0">OUT</span>
           <span
             class="font-mono overflow-x-auto"
-            :class="toolCall.isError ? 'text-red-400' : 'text-unbound-accent'"
+            :class="toolCall.isError ? 'text-error' : 'text-foreground'"
           >
             {{ toolCall.result.slice(0, 200) }}{{ toolCall.result.length > 200 ? '...' : '' }}
           </span>
@@ -341,8 +341,8 @@ function formatInput(input: Record<string, unknown>): string {
         <AlertDescription class="text-gray-400">Claude changed course before running this tool</AlertDescription>
       </Alert>
 
-      <div v-if="isRunning" class="h-0.5 bg-unbound-bg-card rounded overflow-hidden">
-        <div class="h-full bg-unbound-cyan-500 animate-progress"></div>
+      <div v-if="isRunning" class="h-0.5 bg-muted rounded overflow-hidden">
+        <div class="h-full bg-primary animate-progress"></div>
       </div>
     </CardContent>
   </Card>

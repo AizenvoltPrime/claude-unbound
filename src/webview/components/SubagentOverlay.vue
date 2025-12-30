@@ -90,15 +90,15 @@ const agentIcon = computed((): Component => {
 const statusBadgeClass = computed(() => {
   switch (props.subagent.status) {
     case 'running':
-      return 'bg-blue-600/30 text-blue-300 border-blue-500/30';
+      return 'bg-primary/30 text-primary border-primary/30';
     case 'completed':
-      return 'bg-green-600/30 text-green-300 border-green-500/30';
+      return 'bg-success/30 text-success border-success/30';
     case 'failed':
-      return 'bg-red-600/30 text-red-300 border-red-500/30';
+      return 'bg-error/30 text-error border-error/30';
     case 'cancelled':
-      return 'bg-amber-600/30 text-amber-300 border-amber-500/30';
+      return 'bg-warning/30 text-warning border-warning/30';
     default:
-      return 'bg-unbound-cyan-600/30 text-unbound-cyan-300 border-unbound-cyan-500/30';
+      return 'bg-primary/30 text-primary border-primary/30';
   }
 });
 
@@ -159,24 +159,24 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
 </script>
 
 <template>
-  <div class="absolute inset-0 z-50 flex flex-col bg-unbound-bg overflow-hidden">
-    <header class="flex items-center gap-3 px-4 py-3 bg-unbound-bg-card border-b border-unbound-cyan-900/30 shrink-0">
+  <div class="absolute inset-0 z-50 flex flex-col bg-background overflow-hidden">
+    <header class="flex items-center gap-3 px-4 py-3 bg-muted border-b border-border/30 shrink-0">
       <Button
         variant="ghost"
         size="icon-sm"
-        class="text-unbound-muted hover:text-unbound-text hover:bg-unbound-bg shrink-0"
+        class="text-muted-foreground hover:text-foreground hover:bg-background shrink-0"
         @click="$emit('close')"
       >
         <IconArrowLeft :size="18" />
       </Button>
 
-      <component :is="agentIcon" :size="20" class="text-unbound-cyan-400 shrink-0" />
+      <component :is="agentIcon" :size="20" class="text-primary shrink-0" />
 
       <div class="flex-1 min-w-0">
-        <h2 class="text-sm font-medium text-unbound-text truncate">{{ subagent.description }}</h2>
-        <div class="flex items-center gap-1.5 text-xs text-unbound-muted leading-none">
+        <h2 class="text-sm font-medium text-foreground truncate">{{ subagent.description }}</h2>
+        <div class="flex items-center gap-1.5 text-xs text-muted-foreground leading-none">
           <template v-for="(item, index) in metadataItems" :key="index">
-            <span v-if="index > 0" class="text-unbound-muted/50">•</span>
+            <span v-if="index > 0" class="text-muted-foreground/50">•</span>
             <span>{{ item }}</span>
           </template>
         </div>
@@ -186,7 +186,7 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
         v-if="hasLogFile"
         variant="ghost"
         size="icon-sm"
-        class="text-unbound-muted hover:text-unbound-text hover:bg-unbound-bg shrink-0"
+        class="text-muted-foreground hover:text-foreground hover:bg-background shrink-0"
         title="Open agent log file"
         @click="$emit('openLog', subagent.sdkAgentId!)"
       >
@@ -208,7 +208,7 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
           <Button
             variant="ghost"
             size="sm"
-            class="h-auto py-1 px-2 gap-2 text-unbound-cyan-300 hover:text-unbound-cyan-200 hover:bg-unbound-bg-card"
+            class="h-auto py-1 px-2 gap-2 text-primary hover:text-primary/80 hover:bg-muted"
           >
             <IconChevronDown
               :size="14"
@@ -220,8 +220,8 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div class="mt-2 p-3 rounded-lg bg-unbound-bg-card border border-unbound-cyan-900/30 overflow-hidden max-h-48 overflow-y-auto">
-            <pre class="text-xs text-unbound-muted whitespace-pre-wrap font-mono leading-relaxed">{{ subagent.prompt }}</pre>
+          <div class="mt-2 py-2 px-3 border-l-2 border-border bg-muted/30 rounded-r-md overflow-hidden max-h-48 overflow-y-auto">
+            <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">{{ subagent.prompt }}</pre>
           </div>
         </CollapsibleContent>
       </Collapsible>
@@ -259,8 +259,8 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
       </div>
 
       <!-- Agent's final result summary -->
-      <div v-if="hasResult" class="mt-4 pt-4 border-t border-unbound-cyan-900/30">
-        <div class="flex items-center gap-2 mb-2 text-xs text-unbound-cyan-400 font-medium">
+      <div v-if="hasResult" class="mt-4 pt-4 border-t border-border/30">
+        <div class="flex items-center gap-2 mb-2 text-xs text-primary font-medium">
           <IconCheck :size="14" />
           <span>Result</span>
         </div>
@@ -269,7 +269,7 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
         </div>
       </div>
 
-      <div v-if="!hasStreamingContent && !hasResult && subagent.messages.length === 0 && subagent.toolCalls.length === 0" class="text-center text-unbound-muted text-sm py-8">
+      <div v-if="!hasStreamingContent && !hasResult && subagent.messages.length === 0 && subagent.toolCalls.length === 0" class="text-center text-muted-foreground text-sm py-8">
         <LoadingSpinner v-if="subagent.status === 'running'" :size="24" class="mx-auto mb-2" />
         <p>{{ subagent.status === 'running' ? 'Agent is working...' : 'No activity recorded' }}</p>
       </div>

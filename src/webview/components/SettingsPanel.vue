@@ -143,19 +143,19 @@ const currentModelDisplayName = computed(() => {
 
 <template>
   <Sheet :open="visible" @update:open="(open: boolean) => !open && emit('close')">
-    <SheetContent side="right" class="w-80 bg-unbound-bg-light border-l border-unbound-cyan-800/50 overflow-y-auto">
+    <SheetContent side="right" class="w-80 bg-card border-l border-border overflow-y-auto">
       <SheetHeader class="mb-6">
-        <SheetTitle>Settings</SheetTitle>
+        <SheetTitle class="text-foreground">Settings</SheetTitle>
       </SheetHeader>
 
       <!-- Default Permission Mode -->
       <div class="mb-5">
-        <Label class="block mb-2 text-unbound-cyan-300">Default Permission Mode</Label>
+        <Label class="block mb-2 text-primary font-medium">Default Permission Mode</Label>
         <Select :model-value="settings.defaultPermissionMode" @update:model-value="handleDefaultModeChange">
-          <SelectTrigger class="w-full bg-unbound-bg-card border-unbound-cyan-800/50">
+          <SelectTrigger class="w-full bg-input border-border">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent class="bg-unbound-bg-card border-unbound-cyan-800/50">
+          <SelectContent class="bg-popover border-border">
             <SelectItem
               v-for="option in permissionModeOptions"
               :key="option.value"
@@ -165,19 +165,19 @@ const currentModelDisplayName = computed(() => {
             </SelectItem>
           </SelectContent>
         </Select>
-        <p class="text-xs opacity-50 mt-1">
+        <p class="text-xs text-muted-foreground mt-1">
           Default mode for new chat panels. Each panel can override this.
         </p>
       </div>
 
       <!-- Model Selection -->
       <div class="mb-5">
-        <Label class="block mb-2 text-unbound-cyan-300">Model</Label>
+        <Label class="block mb-2 text-primary font-medium">Model</Label>
         <Select :model-value="localModel || 'claude-opus-4-5-20251101'" @update:model-value="handleModelChange">
-          <SelectTrigger class="w-full bg-unbound-bg-card border-unbound-cyan-800/50">
+          <SelectTrigger class="w-full bg-input border-border">
             <SelectValue :placeholder="currentModelDisplayName" />
           </SelectTrigger>
-          <SelectContent class="bg-unbound-bg-card border-unbound-cyan-800/50">
+          <SelectContent class="bg-popover border-border">
             <SelectItem
               v-for="model in modelOptions"
               :key="model.value"
@@ -191,17 +191,17 @@ const currentModelDisplayName = computed(() => {
 
       <!-- Budget Limit -->
       <div class="mb-5">
-        <Label class="block mb-2 text-unbound-cyan-300">Budget Limit (USD)</Label>
+        <Label class="block mb-2 text-primary font-medium">Budget Limit (USD)</Label>
         <Input
           type="number"
           :model-value="localBudgetLimit ?? ''"
           step="0.1"
           min="0"
           placeholder="Unlimited"
-          class="bg-unbound-bg-card border-unbound-cyan-800/50 placeholder:text-unbound-muted"
+          class="bg-input border-border placeholder:text-muted-foreground"
           @change="handleBudgetChange"
         />
-        <p class="text-xs opacity-50 mt-1">
+        <p class="text-xs text-muted-foreground mt-1">
           Leave empty for no limit. Warning shown at 80%.
         </p>
       </div>
@@ -209,7 +209,7 @@ const currentModelDisplayName = computed(() => {
       <!-- Extended Thinking -->
       <div class="mb-5">
         <div class="flex items-center justify-between mb-2">
-          <Label for="extended-thinking" class="text-unbound-cyan-300">
+          <Label for="extended-thinking" class="text-primary font-medium">
             Extended Thinking
           </Label>
           <Switch
@@ -225,9 +225,9 @@ const currentModelDisplayName = computed(() => {
             :step="1000"
             class="w-full"
           />
-          <div class="flex justify-between text-xs opacity-50 mt-1">
+          <div class="flex justify-between text-xs text-muted-foreground mt-1">
             <span>1K</span>
-            <span class="font-medium">{{ ((localMaxThinkingTokens ?? 10000) / 1000).toFixed(0) }}K tokens</span>
+            <span class="font-medium text-foreground">{{ ((localMaxThinkingTokens ?? 10000) / 1000).toFixed(0) }}K tokens</span>
             <span>~64K</span>
           </div>
         </div>
@@ -235,9 +235,9 @@ const currentModelDisplayName = computed(() => {
 
       <!-- Beta Features -->
       <div class="mb-5">
-        <Label class="block mb-2">Beta Features</Label>
+        <Label class="block mb-2 text-foreground font-medium">Beta Features</Label>
         <div class="flex items-center justify-between">
-          <Label for="context-1m" class="text-sm font-normal" :class="{ 'opacity-50': !modelSupports1MContext }">
+          <Label for="context-1m" class="text-sm font-normal text-foreground" :class="{ 'text-muted-foreground': !modelSupports1MContext }">
             1M Context Window
           </Label>
           <Switch
@@ -246,13 +246,13 @@ const currentModelDisplayName = computed(() => {
             :disabled="!modelSupports1MContext"
           />
         </div>
-        <p class="text-xs opacity-50 mt-1">
+        <p class="text-xs text-muted-foreground mt-1">
           {{ modelSupports1MContext ? 'Extended context for Sonnet 4/4.5' : 'Only available for Sonnet models' }}
         </p>
       </div>
 
       <!-- Divider -->
-      <Separator class="my-4" />
+      <Separator class="my-4 bg-border" />
 
       <!-- VS Code Settings Link -->
       <Button
@@ -263,7 +263,7 @@ const currentModelDisplayName = computed(() => {
       </Button>
 
       <!-- Info -->
-      <p class="text-xs opacity-50 mt-4 text-center">
+      <p class="text-xs text-muted-foreground mt-4 text-center">
         Changes apply to the current session and persist in workspace settings.
       </p>
     </SheetContent>

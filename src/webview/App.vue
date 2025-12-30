@@ -416,12 +416,12 @@ const rewindMessagePreview = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col flex-1 min-h-0 bg-unbound-bg text-unbound-text">
+  <div class="flex flex-col flex-1 min-h-0 bg-background text-foreground">
     <!-- Header bar with account info and controls -->
-    <div class="px-3 py-1.5 text-xs border-b border-unbound-cyan-900/50 flex items-center gap-2 bg-unbound-bg-light">
-      <div v-if="accountInfo" class="flex items-center gap-2 text-unbound-muted">
+    <div class="px-3 py-1.5 text-xs border-b border-border/50 flex items-center gap-2 bg-card">
+      <div v-if="accountInfo" class="flex items-center gap-2 text-muted-foreground">
         <span v-if="accountInfo.email">{{ accountInfo.email }}</span>
-        <span v-if="accountInfo.subscriptionType" class="px-1.5 py-0.5 rounded bg-unbound-cyan-900/50 text-unbound-cyan-300">
+        <span v-if="accountInfo.subscriptionType" class="px-1.5 py-0.5 rounded bg-primary/20 text-primary">
           {{ accountInfo.subscriptionType }}
         </span>
       </div>
@@ -438,7 +438,7 @@ const rewindMessagePreview = computed(() => {
       <Button
         variant="ghost"
         size="icon-sm"
-        class="text-unbound-cyan-400 hover:bg-unbound-cyan-900/30"
+        class="text-primary hover:bg-muted hover:text-primary"
         title="Settings"
         @click="uiStore.openSettingsPanel()"
       >
@@ -459,26 +459,26 @@ const rewindMessagePreview = computed(() => {
     <SubagentIndicator :subagents="subagents" @expand="subagentStore.expandSubagent" />
 
     <!-- Session picker dropdown (select-box style) -->
-    <div v-if="storedSessions.length > 0" class="px-3 py-2 border-b border-unbound-cyan-900/30 bg-unbound-bg-light">
+    <div v-if="storedSessions.length > 0" class="px-3 py-2 border-b border-border/30 bg-card">
       <Button
         variant="outline"
-        class="w-full h-auto justify-start text-xs text-unbound-cyan-400 hover:text-unbound-glow p-2"
+        class="w-full h-auto justify-start text-xs text-primary hover:text-foreground p-2"
         @click="toggleSessionPicker"
       >
         <IconClipboard :size="14" class="shrink-0" />
-        <span v-if="selectedSession" class="flex-1 text-left truncate text-unbound-text">
+        <span v-if="selectedSession" class="flex-1 text-left truncate text-foreground">
           {{ getSessionDisplayName(selectedSession) }}
         </span>
-        <span v-else class="flex-1 text-left text-unbound-muted">
+        <span v-else class="flex-1 text-left text-muted-foreground">
           Select a session ({{ storedSessions.length }})
         </span>
-        <component :is="showSessionPicker ? IconChevronUp : IconChevronDown" :size="12" class="text-unbound-muted shrink-0" />
+        <component :is="showSessionPicker ? IconChevronUp : IconChevronDown" :size="12" class="text-muted-foreground shrink-0" />
       </Button>
 
       <div
         v-if="showSessionPicker"
         ref="sessionPickerRef"
-        class="mt-2 space-y-1 max-h-64 overflow-y-auto border border-unbound-cyan-800/30 rounded bg-unbound-bg"
+        class="mt-2 space-y-1 max-h-64 overflow-y-auto border border-border/30 rounded bg-background"
         @scroll="handleSessionPickerScroll"
       >
         <div
@@ -487,12 +487,12 @@ const rewindMessagePreview = computed(() => {
           class="group relative"
         >
           <!-- Rename input mode -->
-          <div v-if="renamingSessionId === session.id" class="flex items-center gap-2 p-2 rounded bg-unbound-bg-card">
+          <div v-if="renamingSessionId === session.id" class="flex items-center gap-2 p-2 rounded bg-muted">
             <input
               ref="renameInputRef"
               v-model="renameInputValue"
               type="text"
-              class="flex-1 px-2 py-1 text-xs bg-unbound-bg border border-unbound-cyan-700 rounded text-unbound-text focus:outline-none focus:border-unbound-cyan-500"
+              class="flex-1 px-2 py-1 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:border-primary"
               placeholder="Enter new name..."
               @keyup.enter="submitRenameSession"
               @keyup.escape="cancelRenameSession"
@@ -504,20 +504,20 @@ const rewindMessagePreview = computed(() => {
           <div v-else class="flex items-center">
             <Button
               variant="ghost"
-              class="flex-1 h-auto justify-start text-left p-2 text-xs text-unbound-text"
+              class="flex-1 h-auto justify-start text-left p-2 text-xs text-foreground"
               :class="[
                 selectedSessionId === session.id
-                  ? 'bg-unbound-cyan-900/50 border-l-2 border-unbound-cyan-400'
+                  ? 'bg-primary/20 border-l-2 border-primary'
                   : ''
               ]"
               @click="handleResumeSession(session.id)"
             >
               <div class="w-full">
                 <div class="font-medium truncate flex items-center gap-1">
-                  <IconCheck v-if="selectedSessionId === session.id" :size="12" class="text-unbound-cyan-400 shrink-0" />
+                  <IconCheck v-if="selectedSessionId === session.id" :size="12" class="text-primary shrink-0" />
                   {{ getSessionDisplayName(session) }}
                 </div>
-                <div class="text-unbound-muted" :class="{ 'ml-4': selectedSessionId === session.id }">
+                <div class="text-muted-foreground" :class="{ 'ml-4': selectedSessionId === session.id }">
                   {{ formatSessionTime(session.timestamp) }}
                 </div>
               </div>
@@ -525,14 +525,14 @@ const rewindMessagePreview = computed(() => {
             <Button
               variant="ghost"
               size="icon-sm"
-              class="opacity-0 group-hover:opacity-100 text-unbound-muted hover:text-unbound-cyan-400"
+              class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary hover:bg-muted ml-2"
               title="Rename session"
               @click.stop="startRenameSession(session.id, getSessionDisplayName(session))"
             ><IconPencil :size="12" /></Button>
             <Button
               variant="ghost"
               size="icon-sm"
-              class="opacity-0 group-hover:opacity-100 text-unbound-muted hover:text-red-400"
+              class="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive hover:bg-destructive/20"
               title="Delete session"
               @click.stop="startDeleteSession(session.id)"
             ><IconTrash :size="12" /></Button>
@@ -544,12 +544,12 @@ const rewindMessagePreview = computed(() => {
             v-if="!loadingMoreSessions"
             variant="link"
             size="sm"
-            class="text-xs text-unbound-cyan-400 hover:text-unbound-glow flex items-center gap-1"
+            class="text-xs text-primary hover:text-foreground flex items-center gap-1"
             @click="loadMoreSessions"
           >
             <IconChevronDown :size="12" /> Load more sessions
           </Button>
-          <div v-else class="text-xs text-unbound-muted animate-pulse">
+          <div v-else class="text-xs text-muted-foreground animate-pulse">
             Loading...
           </div>
         </div>
@@ -571,7 +571,7 @@ const rewindMessagePreview = computed(() => {
         >
           <div
             v-if="loadingMoreHistory"
-            class="text-center py-3 text-xs text-unbound-muted animate-pulse"
+            class="text-center py-3 text-xs text-muted-foreground animate-pulse"
           >
             Loading history...
           </div>
@@ -595,7 +595,7 @@ const rewindMessagePreview = computed(() => {
           v-if="!isAtBottom"
           variant="default"
           size="icon"
-          class="absolute bottom-4 right-8 rounded-full bg-unbound-cyan-600 hover:bg-unbound-cyan-500 shadow-lg shadow-unbound-cyan-900/50 z-10"
+          class="absolute bottom-4 right-8 rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/50 z-10"
           title="Scroll to bottom"
           @click="scrollToBottom"
         >
@@ -605,7 +605,7 @@ const rewindMessagePreview = computed(() => {
     </div>
 
     <!-- Persistent Todo List Panel (always visible when todos exist) -->
-    <div v-if="currentTodos.length > 0" class="px-3 py-2 border-t border-unbound-cyan-900/30 bg-unbound-bg-light">
+    <div v-if="currentTodos.length > 0" class="px-3 py-2 border-t border-border/30 bg-card">
       <TodoListCard
         :todos="currentTodos"
         :is-collapsed="todosPanelCollapsed"

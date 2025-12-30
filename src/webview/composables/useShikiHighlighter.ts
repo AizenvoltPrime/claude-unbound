@@ -2,10 +2,21 @@ import {
   createHighlighter,
   type Highlighter,
   type BundledLanguage,
+  type BundledTheme,
   bundledLanguages,
 } from 'shiki';
 
 export type ExtendedLanguage = BundledLanguage | 'txt';
+
+const SUPPORTED_THEMES = [
+  'github-dark',
+  'github-light',
+  'solarized-dark',
+  'solarized-light',
+  'nord',
+  'min-dark',
+  'min-light',
+] as const satisfies readonly BundledTheme[];
 
 const languageAliases: Record<string, ExtendedLanguage> = {
   text: 'txt',
@@ -94,7 +105,7 @@ export async function getHighlighter(language?: string): Promise<Highlighter> {
   if (!state.initPromise) {
     state.initPromise = (async () => {
       const instance = await createHighlighter({
-        themes: ['github-dark', 'github-light'],
+        themes: [...SUPPORTED_THEMES],
         langs: initialLanguages,
       });
 
@@ -132,6 +143,25 @@ export async function getHighlighter(language?: string): Promise<Highlighter> {
   return instance;
 }
 
-export function getShikiTheme(): 'github-dark' | 'github-light' {
-  return document.body.className.toLowerCase().includes('light') ? 'github-light' : 'github-dark';
+type SupportedTheme = typeof SUPPORTED_THEMES[number];
+
+export function getShikiTheme(): SupportedTheme {
+  const bodyClass = document.body.className.toLowerCase();
+  const isLight = bodyClass.includes('light');
+
+  const themeName = (document.body.dataset.vscodeThemeName || '').toLowerCase();
+
+  if (themeName.includes('solarized')) {
+    return isLight ? 'solarized-light' : 'solarized-dark';
+  }
+
+  if (themeName.includes('nord')) {
+    return 'nord';
+  }
+
+  if (themeName.includes('min') || themeName.includes('minimal')) {
+    return isLight ? 'min-light' : 'min-dark';
+  }
+
+  return isLight ? 'github-light' : 'github-dark';
 }

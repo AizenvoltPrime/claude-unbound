@@ -115,30 +115,30 @@ watch(() => props.visible, (visible) => {
 <template>
   <div
     v-if="visible"
-    class="border-t border-unbound-cyan-800/50 bg-unbound-bg"
+    class="border-t border-border bg-background"
     role="region"
     aria-label="Permission request"
   >
     <!-- Header with agent badge and queue indicator -->
     <div class="px-4 pt-2 flex items-center gap-2">
-      <span v-if="agentDescription" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs bg-unbound-cyan-900/40 text-unbound-cyan-300 border border-unbound-cyan-800/50">
-        <span class="text-unbound-cyan-500">🤖</span>
+      <span v-if="agentDescription" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs bg-primary/20 text-primary border border-border">
+        <span class="text-primary">🤖</span>
         {{ agentDescription }}
       </span>
-      <span v-if="queueTotal && queueTotal > 1" class="ml-auto text-xs text-unbound-muted">
+      <span v-if="queueTotal && queueTotal > 1" class="ml-auto text-xs text-muted-foreground">
         {{ queuePosition }} of {{ queueTotal }} pending
       </span>
     </div>
 
     <!-- Header question -->
-    <div class="px-4 py-3 text-sm text-unbound-text">
+    <div class="px-4 py-3 text-sm text-foreground">
       <template v-if="isBash">
         <div>{{ actionLabel }}</div>
-        <div class="mt-2 p-2 bg-unbound-bg-light rounded font-mono text-xs text-unbound-cyan-300 break-all whitespace-pre-wrap">{{ command }}</div>
+        <div class="mt-2 p-2 bg-card rounded font-mono text-xs text-primary break-all whitespace-pre-wrap">{{ command }}</div>
       </template>
       <template v-else>
         {{ actionLabel }}
-        <span class="text-unbound-muted break-all">{{ filePath }}</span>?
+        <span class="text-muted-foreground break-all">{{ filePath }}</span>?
       </template>
     </div>
 
@@ -156,8 +156,8 @@ watch(() => props.visible, (visible) => {
           v-for="option in options"
           :key="option.value"
           :value="option.value"
-          class="flex items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors cursor-pointer outline-none data-[highlighted]:bg-unbound-cyan-600 data-[highlighted]:text-white data-[state=checked]:bg-unbound-cyan-600 data-[state=checked]:text-white hover:bg-unbound-bg-light"
-          :class="option.value === 'custom' ? 'border-t border-unbound-cyan-900/30 text-unbound-muted' : 'text-unbound-text'"
+          class="flex items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors cursor-pointer outline-none data-highlighted:bg-primary data-highlighted:text-primary-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground hover:bg-card"
+          :class="option.value === 'custom' ? 'border-t border-border/30 text-muted-foreground' : 'text-foreground'"
           @select="handleSelect(option.value)"
         >
           <span v-if="option.shortcut" class="font-medium w-4">{{ option.shortcut }}</span>
@@ -172,7 +172,7 @@ watch(() => props.visible, (visible) => {
       <Textarea
         ref="textareaRef"
         v-model="customMessage"
-        class="min-h-20 bg-unbound-bg-light border-unbound-cyan-800/50 resize-none focus:border-unbound-cyan-500 mb-3"
+        class="min-h-20 bg-card border-border resize-none focus:border-primary mb-3"
         placeholder="e.g., Use a different approach, rename the file, add error handling..."
         @keydown.enter.ctrl="handleCustomSubmit"
         @keydown.escape="handleCustomBack"

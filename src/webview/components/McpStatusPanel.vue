@@ -61,22 +61,22 @@ function getStatusLabel(status: McpServerStatusInfo['status']): string {
 function getStatusClass(status: McpServerStatusInfo['status']): string {
   switch (status) {
     case 'connected':
-      return 'text-green-500';
+      return 'text-success';
     case 'failed':
-      return 'text-red-500';
+      return 'text-error';
     case 'needs-auth':
-      return 'text-yellow-500';
+      return 'text-warning';
     case 'pending':
-      return 'text-unbound-cyan-400';
+      return 'text-primary';
     default:
-      return 'text-gray-500';
+      return 'text-muted-foreground';
   }
 }
 </script>
 
 <template>
   <Dialog :open="visible" @update:open="(open: boolean) => !open && emit('close')">
-    <DialogContent class="bg-vscode-bg border-vscode-border max-w-md max-h-96 overflow-hidden flex flex-col">
+    <DialogContent class="bg-card border-border max-w-md max-h-96 overflow-hidden flex flex-col">
       <DialogHeader class="flex flex-row items-center justify-between shrink-0">
         <div>
           <DialogTitle>MCP Servers</DialogTitle>
@@ -103,7 +103,7 @@ function getStatusClass(status: McpServerStatusInfo['status']): string {
           <Card
             v-for="server in servers"
             :key="server.name"
-            class="border-vscode-border"
+            class="border-border"
           >
             <CardContent class="p-3">
               <div class="flex items-center justify-between">
@@ -128,7 +128,7 @@ function getStatusClass(status: McpServerStatusInfo['status']): string {
         </div>
       </div>
 
-      <div class="text-xs opacity-50 text-center pt-2 border-t border-vscode-border shrink-0">
+      <div class="text-xs text-muted-foreground text-center pt-2 border-t border-border shrink-0">
         MCP servers are loaded from .mcp.json in your workspace
       </div>
     </DialogContent>

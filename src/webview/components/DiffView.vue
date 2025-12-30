@@ -123,25 +123,25 @@ onUnmounted(() => {
 <template>
   <div
     class="diff-view overflow-hidden"
-    :class="showHeader ? 'border border-vscode-border rounded' : ''"
+    :class="showHeader ? 'border border-border rounded' : ''"
     @mouseenter="isHovering = true"
     @mouseleave="isHovering = false"
   >
     <div
       v-if="showHeader"
-      class="diff-header bg-vscode-input-bg px-3 py-2 border-b border-vscode-border flex justify-between items-center gap-2"
+      class="diff-header bg-muted px-3 py-2 border-b border-border flex justify-between items-center gap-2"
     >
       <div class="flex items-center gap-2 min-w-0">
         <span class="font-medium text-sm truncate">{{ fileName }}</span>
-        <span class="text-xs text-unbound-muted shrink-0">{{ diffSummary }}</span>
+        <span class="text-xs text-muted-foreground shrink-0">{{ diffSummary }}</span>
       </div>
 
       <div class="flex items-center gap-2 shrink-0">
         <Button
           variant="ghost"
           size="icon-sm"
-          class="h-6 w-6 opacity-0 transition-opacity text-unbound-muted hover:text-unbound-text"
-          :class="{ 'opacity-100': isHovering || hasCopied, 'text-green-400': hasCopied }"
+          class="h-6 w-6 opacity-0 transition-opacity text-muted-foreground hover:text-foreground"
+          :class="{ 'opacity-100': isHovering || hasCopied, 'text-success': hasCopied }"
           title="Copy new content"
           @click="handleCopyNewContent"
         >
@@ -153,7 +153,7 @@ onUnmounted(() => {
           <Button variant="destructive" size="sm" @click="emit('reject')">
             Reject
           </Button>
-          <Button size="sm" class="bg-green-600 hover:bg-green-700" @click="emit('approve')">
+          <Button size="sm" class="bg-success hover:bg-success/80" @click="emit('approve')">
             Approve
           </Button>
         </template>
@@ -165,7 +165,7 @@ onUnmounted(() => {
         <tbody>
           <template v-for="(line, idx) in highlightedLines" :key="idx">
             <tr v-if="line.type === 'gap'" class="diff-gap-row">
-              <td colspan="4" class="text-center py-1 text-unbound-muted text-xs">
+              <td colspan="4" class="text-center py-1 text-muted-foreground text-xs">
                 <span v-if="line.hiddenCount">{{ line.hiddenCount }} hidden lines</span>
                 <span v-else>───</span>
               </td>
@@ -174,12 +174,12 @@ onUnmounted(() => {
               <td class="diff-line-num old-num select-none text-right pr-1 opacity-50 w-10">
                 {{ line.oldLineNum ?? '' }}
               </td>
-              <td class="diff-line-num new-num select-none text-right pr-2 opacity-50 w-10 border-r border-vscode-border">
+              <td class="diff-line-num new-num select-none text-right pr-2 opacity-50 w-10 border-r border-border">
                 {{ line.newLineNum ?? '' }}
               </td>
               <td class="diff-indicator select-none w-4 text-center">
                 <span
-                  :class="line.type === 'addition' ? 'text-green-400' : line.type === 'deletion' ? 'text-red-400' : 'opacity-0'"
+                  :class="line.type === 'addition' ? 'text-success' : line.type === 'deletion' ? 'text-error' : 'opacity-0'"
                 >{{ getLineIndicator(line.type) }}</span>
               </td>
               <td class="diff-content-cell pl-1 whitespace-pre">

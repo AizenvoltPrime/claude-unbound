@@ -67,15 +67,15 @@ const displayText = computed(() =>
 const badgeClass = computed(() => {
   switch (props.subagent.status) {
     case 'running':
-      return 'bg-blue-600/30 text-blue-300 border-blue-500/30 hover:bg-blue-600/50';
+      return 'bg-primary/30 text-primary border-primary/30 hover:bg-primary/50';
     case 'completed':
-      return 'bg-green-600/30 text-green-300 border-green-500/30 hover:bg-green-600/50';
+      return 'bg-success/30 text-success border-success/30 hover:bg-success/50';
     case 'failed':
-      return 'bg-red-600/30 text-red-300 border-red-500/30 hover:bg-red-600/50';
+      return 'bg-error/30 text-error border-error/30 hover:bg-error/50';
     case 'cancelled':
-      return 'bg-amber-600/30 text-amber-300 border-amber-500/30 hover:bg-amber-600/50';
+      return 'bg-warning/30 text-warning border-warning/30 hover:bg-warning/50';
     default:
-      return 'bg-unbound-cyan-600/30 text-unbound-cyan-300 border-unbound-cyan-500/30 hover:bg-unbound-cyan-600/50';
+      return 'bg-muted text-muted-foreground border-border hover:bg-muted/80';
   }
 });
 

@@ -84,7 +84,7 @@ function highlightMatch(text: string): string {
   const escapedMatch = escapeHtml(text.slice(index, index + props.query.length));
   const escapedAfter = escapeHtml(text.slice(index + props.query.length));
 
-  return `${escapedBefore}<span class="text-unbound-cyan-300 font-semibold">${escapedMatch}</span>${escapedAfter}`;
+  return `${escapedBefore}<span class="text-primary font-semibold">${escapedMatch}</span>${escapedAfter}`;
 }
 
 function getSourceBadge(command: SlashCommandItem): string | null {
@@ -113,18 +113,18 @@ function getSourceBadge(command: SlashCommandItem): string | null {
         v-if="isOpen"
         ref="popupRef"
         :style="popupStyle"
-        class="z-50 bg-unbound-bg-card border border-unbound-cyan-800/50 rounded-lg shadow-xl overflow-hidden origin-bottom flex flex-col max-h-80"
+        class="z-50 bg-muted border border-border rounded-lg shadow-xl overflow-hidden origin-bottom flex flex-col max-h-80"
       >
         <div class="flex-1 min-h-0 overflow-y-auto">
           <div class="p-1">
             <!-- Loading State -->
-            <div v-if="isLoading" class="px-3 py-4 flex items-center justify-center gap-2 text-sm text-unbound-muted">
-              <IconLoader :size="16" class="animate-spin text-unbound-cyan-400" />
+            <div v-if="isLoading" class="px-3 py-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <IconLoader :size="16" class="animate-spin text-primary" />
               <span>Loading commands...</span>
             </div>
 
             <!-- Empty State -->
-            <div v-else-if="commands.length === 0" class="px-3 py-4 text-center text-sm text-unbound-muted">
+            <div v-else-if="commands.length === 0" class="px-3 py-4 text-center text-sm text-muted-foreground">
               <div class="mb-1">No matching commands</div>
               <div class="text-xs opacity-70">Create commands in .claude/commands/</div>
             </div>
@@ -137,13 +137,13 @@ function getSourceBadge(command: SlashCommandItem): string | null {
               :ref="el => itemRefs[index] = el as HTMLDivElement"
               class="px-2 py-1.5 rounded cursor-pointer flex items-center gap-2 transition-all duration-75"
               :class="index === selectedIndex
-                ? 'bg-unbound-cyan-900/60 text-unbound-cyan-200'
-                : 'hover:bg-unbound-cyan-900/30 text-unbound-text'"
+                ? 'bg-primary/60 text-primary-foreground'
+                : 'hover:bg-muted text-foreground'"
               @click="emit('select', cmd)"
               @mouseenter="$emit('update:selectedIndex', index)"
             >
               <!-- Icon -->
-              <IconTerminal :size="16" class="shrink-0 text-unbound-cyan-500" />
+              <IconTerminal :size="16" class="shrink-0 text-primary" />
 
               <!-- Command info -->
               <div class="flex-1 min-w-0 flex flex-col">
@@ -156,20 +156,20 @@ function getSourceBadge(command: SlashCommandItem): string | null {
                   <!-- Argument hint -->
                   <span
                     v-if="cmd.argumentHint"
-                    class="text-xs text-unbound-muted/70 font-mono"
+                    class="text-xs text-muted-foreground/70 font-mono"
                   >
                     {{ cmd.argumentHint }}
                   </span>
                   <!-- Source badge -->
                   <span
                     v-if="getSourceBadge(cmd)"
-                    class="text-[10px] px-1.5 py-0.5 rounded bg-unbound-cyan-900/40 text-unbound-cyan-400/80"
+                    class="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary/80"
                   >
                     {{ getSourceBadge(cmd) }}
                   </span>
                 </div>
                 <!-- Description -->
-                <span class="text-xs text-unbound-muted truncate">
+                <span class="text-xs text-muted-foreground truncate">
                   {{ cmd.description }}
                 </span>
               </div>
@@ -178,17 +178,17 @@ function getSourceBadge(command: SlashCommandItem): string | null {
         </div>
 
         <!-- Footer hints -->
-        <div class="px-3 py-2 border-t border-unbound-cyan-900/30 bg-unbound-bg-light/30 text-xs text-unbound-muted flex items-center gap-4">
+        <div class="px-3 py-2 border-t border-border/30 bg-card/30 text-xs text-muted-foreground flex items-center gap-4">
           <span class="flex items-center gap-1">
-            <kbd class="px-1.5 py-0.5 bg-unbound-bg-light rounded text-[10px] font-mono">↑↓</kbd>
+            <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">↑↓</kbd>
             <span class="opacity-80">navigate</span>
           </span>
           <span class="flex items-center gap-1">
-            <kbd class="px-1.5 py-0.5 bg-unbound-bg-light rounded text-[10px] font-mono">Tab</kbd>
+            <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Tab</kbd>
             <span class="opacity-80">select</span>
           </span>
           <span class="flex items-center gap-1">
-            <kbd class="px-1.5 py-0.5 bg-unbound-bg-light rounded text-[10px] font-mono">Esc</kbd>
+            <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Esc</kbd>
             <span class="opacity-80">close</span>
           </span>
         </div>

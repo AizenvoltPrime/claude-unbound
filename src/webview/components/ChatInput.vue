@@ -246,7 +246,7 @@ const displayFile = computed(() => {
 </script>
 
 <template>
-  <div class="flex-shrink-0 bg-unbound-bg-light">
+  <div class="shrink-0 bg-card">
     <!-- @ Mention Autocomplete Popup -->
     <AtMentionPopup
       :is-open="atMentionOpen"
@@ -273,27 +273,27 @@ const displayFile = computed(() => {
 
     <!-- Input area -->
     <div class="p-3">
-      <div ref="cardRef" class="bg-unbound-bg-card rounded-lg border border-unbound-cyan-800/50 overflow-hidden transition-colors focus-within:border-unbound-cyan-500">
+      <div ref="cardRef" class="bg-input rounded-lg border border-border overflow-hidden transition-colors focus-within:border-primary">
         <textarea
           ref="textareaRef"
           v-model="inputText"
           :placeholder="isProcessing ? 'Type to queue next message...' : 'ctrl+esc to focus or unfocus Claude'"
           rows="1"
-          class="w-full p-3 bg-transparent text-unbound-text resize-none overflow-hidden
-                 focus:outline-none placeholder:text-unbound-muted"
+          class="w-full p-3 bg-transparent text-foreground resize-none overflow-hidden
+                 focus:outline-none placeholder:text-muted-foreground"
           :style="{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }"
           @keydown="handleKeydown"
           @input="handleInput"
         />
 
         <!-- Bottom bar inside input -->
-        <div class="flex items-center justify-between px-3 py-2 border-t border-unbound-cyan-900/30">
+        <div class="flex items-center justify-between px-3 py-2 border-t border-border/50 bg-foreground/5">
           <div class="flex items-center gap-3">
             <!-- Mode toggle button -->
             <Button
               variant="ghost"
               size="sm"
-              class="h-auto px-2 py-1 text-xs text-unbound-muted hover:text-unbound-cyan-300 flex items-center gap-1.5"
+              class="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
               :disabled="isProcessing"
               @click="cycleMode"
               :title="`Click to change mode. Current: ${currentModeConfig.label}`"
@@ -303,21 +303,21 @@ const displayFile = computed(() => {
             </Button>
 
             <!-- Current file indicator -->
-            <div v-if="displayFile" class="flex items-center gap-1.5 text-xs text-unbound-muted">
-              <span class="text-unbound-cyan-500">&lt;/&gt;</span>
+            <div v-if="displayFile" class="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span class="text-foreground">&lt;/&gt;</span>
               <span>{{ displayFile }}</span>
             </div>
           </div>
 
           <div class="flex items-center gap-3">
             <!-- Shortcut hint -->
-            <span class="text-xs text-unbound-muted">+</span>
-            <span class="text-xs text-unbound-muted">/</span>
+            <span class="text-xs text-muted-foreground">+</span>
+            <span class="text-xs text-muted-foreground">/</span>
 
             <!-- Queue indicator when processing and has input -->
             <span
               v-if="isProcessing && canSend"
-              class="text-xs text-unbound-cyan-400"
+              class="text-xs text-foreground"
             >
               Will queue
             </span>
@@ -327,10 +327,10 @@ const displayFile = computed(() => {
               :disabled="!canSend && !isProcessing"
               size="icon"
               class="w-8 h-8 rounded-lg"
-              :class="isProcessing && !canSend ? 'bg-red-500 hover:bg-red-600 border-red-500' : ''"
+              :class="isProcessing && !canSend ? 'bg-destructive hover:bg-destructive/80 border-destructive' : ''"
               @click="handleButtonClick"
             >
-              <span v-if="isProcessing && !canSend" class="w-3.5 h-3.5 bg-white rounded" />
+              <span v-if="isProcessing && !canSend" class="w-3.5 h-3.5 bg-destructive-foreground rounded" />
               <IconPlay v-else :size="14" />
             </Button>
           </div>

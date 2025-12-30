@@ -14,10 +14,10 @@ const operationIcons: Record<string, string> = {
 };
 
 const operationColors: Record<string, string> = {
-  read: 'text-blue-400',
-  edit: 'text-yellow-400',
-  write: 'text-green-400',
-  create: 'text-purple-400',
+  read: 'text-info',
+  edit: 'text-warning',
+  write: 'text-success',
+  create: 'text-primary',
 };
 
 function getFileName(path: string): string {
@@ -32,7 +32,7 @@ function getDirectory(path: string): string {
 </script>
 
 <template>
-  <div v-if="files.length > 0" class="border border-vscode-border rounded p-2">
+  <div v-if="files.length > 0" class="border border-border rounded p-2">
     <div class="text-xs font-medium mb-2 opacity-70">Files Accessed</div>
 
     <div class="space-y-1">

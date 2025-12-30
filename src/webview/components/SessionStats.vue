@@ -22,9 +22,9 @@ const contextPercentage = computed(() => {
 });
 
 const contextStatusColor = computed(() => {
-  if (contextPercentage.value >= 95) return { fill: '#f87171', text: 'text-red-400' };
-  if (contextPercentage.value >= 80) return { fill: '#facc15', text: 'text-yellow-400' };
-  return { fill: '#4ade80', text: 'text-green-400' };
+  if (contextPercentage.value >= 95) return { fill: 'var(--color-error, #f87171)', text: 'text-error' };
+  if (contextPercentage.value >= 80) return { fill: 'var(--color-warning, #facc15)', text: 'text-warning' };
+  return { fill: 'var(--color-success, #4ade80)', text: 'text-success' };
 });
 
 const hasCacheActivity = computed(() => {
@@ -46,7 +46,7 @@ function formatNumber(num: number): string {
 
 <template>
   <div
-    class="flex items-center justify-between px-3 pt-1.5 text-sm border-t border-unbound-cyan-900/30 bg-unbound-bg-light"
+    class="flex items-center justify-between px-3 pt-1.5 text-sm border-t border-border/30 bg-card"
   >
     <div class="flex items-center gap-3">
       <span
@@ -61,11 +61,11 @@ function formatNumber(num: number): string {
       </span>
 
       <span class="flex items-center gap-1.5" title="Session tokens (input / output)">
-        <IconChartBar :size="14" class="text-unbound-muted shrink-0" />
-        <span class="flex items-center gap-0.5 text-unbound-text">
+        <IconChartBar :size="14" class="text-muted-foreground shrink-0" />
+        <span class="flex items-center gap-0.5 text-foreground">
           {{ formatNumber(stats.totalInputTokens) }}<IconArrowDown :size="10" />
         </span>
-        <span class="flex items-center gap-0.5 text-unbound-text">
+        <span class="flex items-center gap-0.5 text-foreground">
           {{ formatNumber(stats.totalOutputTokens) }}<IconArrowUp :size="10" />
         </span>
       </span>
@@ -75,26 +75,26 @@ function formatNumber(num: number): string {
         class="flex items-center gap-1.5"
         title="Cache (write / read)"
       >
-        <IconDatabase :size="14" class="text-unbound-muted shrink-0" />
+        <IconDatabase :size="14" class="text-muted-foreground shrink-0" />
         <span class="flex items-center gap-0.5 text-purple-400">
           {{ formatNumber(stats.cacheCreationTokens) }}<IconArrowUp :size="10" />
         </span>
-        <span class="flex items-center gap-0.5 text-cyan-400">
+        <span class="flex items-center gap-0.5 text-info">
           {{ formatNumber(stats.cacheReadTokens) }}<IconArrowDown :size="10" />
         </span>
       </span>
     </div>
 
     <div class="flex items-center gap-3">
-      <span v-if="stats.numTurns > 0" class="text-unbound-muted" title="Conversation turns">
+      <span v-if="stats.numTurns > 0" class="text-muted-foreground" title="Conversation turns">
         {{ stats.numTurns }} turn{{ stats.numTurns !== 1 ? 's' : '' }}
       </span>
-      <span class="font-medium text-unbound-cyan-400" title="Session cost">
+      <span class="font-medium text-foreground" title="Session cost">
         {{ formatCost(stats.totalCostUsd) }}
       </span>
       <Button
         variant="ghost"
-        class="h-6 w-6 p-0 text-unbound-muted hover:text-unbound-text"
+        class="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
         title="Open session log file"
         @click="emit('openLog')"
       >

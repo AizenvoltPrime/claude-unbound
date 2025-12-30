@@ -21,15 +21,15 @@ const percentUsed = computed(() => {
 });
 
 const progressClass = computed(() => {
-  if (props.exceeded) return '[&>div]:bg-red-500';
-  if (percentUsed.value >= 90) return '[&>div]:bg-red-500';
-  if (percentUsed.value >= 80) return '[&>div]:bg-yellow-500';
-  return '[&>div]:bg-green-500';
+  if (props.exceeded) return '[&>div]:bg-error';
+  if (percentUsed.value >= 90) return '[&>div]:bg-error';
+  if (percentUsed.value >= 80) return '[&>div]:bg-warning';
+  return '[&>div]:bg-success';
 });
 
 const alertClass = computed(() => {
-  if (props.exceeded) return 'bg-red-900/30 border-red-600/50';
-  return 'bg-yellow-900/30 border-yellow-600/50';
+  if (props.exceeded) return 'bg-error/30 border-error/50';
+  return 'bg-warning/30 border-warning/50';
 });
 
 const iconComponent = computed((): Component => props.exceeded ? IconStop : IconWarning);
@@ -43,10 +43,10 @@ const iconComponent = computed((): Component => props.exceeded ? IconStop : Icon
     <component :is="iconComponent" :size="20" class="shrink-0" />
 
     <div class="flex-1 min-w-0">
-      <AlertTitle v-if="exceeded" class="font-medium text-red-400 mb-0">
+      <AlertTitle v-if="exceeded" class="font-medium text-error mb-0">
         Budget limit exceeded
       </AlertTitle>
-      <AlertTitle v-else class="font-medium text-yellow-400 mb-0">
+      <AlertTitle v-else class="font-medium text-warning mb-0">
         Approaching budget limit
       </AlertTitle>
 

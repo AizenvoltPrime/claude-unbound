@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { Button } from '@/components/ui/button';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { IconBrain, IconChevronDown } from '@/components/icons';
 
 const props = defineProps<{
   thinking?: string;
@@ -78,37 +78,63 @@ onUnmounted(() => {
   <Collapsible
     v-if="isStreaming || hasContent || duration"
     v-model:open="isExpanded"
-    class="text-sm"
+    class="thinking-indicator"
   >
-    <CollapsibleTrigger as-child>
-      <Button
-        variant="ghost"
-        size="sm"
-        class="h-auto p-0 gap-2 text-unbound-cyan-300 hover:text-unbound-cyan-200 hover:bg-transparent"
-        :disabled="!hasContent"
-      >
-        <!-- Pulsing indicator: pulses while streaming, static when complete -->
-        <span
-          class="w-2 h-2 rounded-full bg-unbound-cyan-400 shrink-0"
-          :class="{ 'animate-pulse': isStreaming }"
+    <CollapsibleTrigger
+      :class="[
+        'group flex items-center gap-2 py-1 px-2 -mx-2 rounded-md transition-colors',
+        hasContent ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default'
+      ]"
+      :disabled="!hasContent"
+    >
+      <!-- Brain icon with subtle animation -->
+      <div class="relative flex items-center justify-center">
+        <IconBrain
+          :size="14"
+          :class="[
+            'text-muted-foreground transition-all',
+            isStreaming && 'animate-pulse'
+          ]"
         />
-        <span class="italic">{{ isStreaming ? 'Thinking' : 'Thought' }}</span>
-        <span v-if="isStreaming || displaySeconds > 0" class="text-unbound-muted text-xs tabular-nums">
+      </div>
+
+      <!-- Label and duration -->
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-muted-foreground">
+          {{ isStreaming ? 'Thinking' : 'Thought' }}
+        </span>
+        <span
+          v-if="isStreaming || displaySeconds > 0"
+          class="text-xs text-muted-foreground/70 tabular-nums"
+        >
           {{ displaySeconds }}s
         </span>
-        <span v-if="hasContent" class="text-xs transition-transform duration-200" :class="{ 'rotate-90': isExpanded }">
-          ▶
-        </span>
-      </Button>
+      </div>
+
+      <!-- Chevron indicator -->
+      <IconChevronDown
+        v-if="hasContent"
+        :size="14"
+        :class="[
+          'text-muted-foreground/60 transition-transform duration-200',
+          isExpanded && '-rotate-180'
+        ]"
+      />
     </CollapsibleTrigger>
 
     <CollapsibleContent>
       <div
         v-if="hasContent"
-        class="mt-2 ml-4 p-3 rounded-lg bg-unbound-bg-card border border-unbound-cyan-900/30 overflow-hidden max-h-64 overflow-y-auto"
+        class="mt-2 py-2 px-3 border-l-2 border-border bg-muted/30 rounded-r-md overflow-hidden max-h-64 overflow-y-auto"
       >
-        <pre class="text-xs text-unbound-muted whitespace-pre-wrap font-mono leading-relaxed">{{ thinking }}</pre>
+        <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">{{ thinking }}</pre>
       </div>
     </CollapsibleContent>
   </Collapsible>
 </template>
+
+<style scoped>
+.thinking-indicator {
+  font-size: var(--vscode-font-size, 13px);
+}
+</style>

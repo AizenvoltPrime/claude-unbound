@@ -1,55 +1,110 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-success: var(--vscode-terminal-ansiGreen, #4caf50);
+  --color-warning: var(--vscode-editorWarning-foreground, #ff9800);
+  --color-error: var(--vscode-errorForeground, #f44336);
+  --color-info: var(--vscode-editorInfo-foreground, #2196f3);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-collapsible-down: collapsible-down 0.2s ease-out;
+  --animate-collapsible-up: collapsible-up 0.2s ease-out;
+  --animate-message-enter: message-enter 0.2s ease-out;
+  --animate-fade-in: fade-in 0.15s ease-out;
+  --animate-spinner: spinner 0.8s linear infinite;
+  --animate-spin-slow: spinner 2s linear infinite;
+
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+
+  @keyframes collapsible-down {
+    from { height: 0; }
+    to { height: var(--radix-collapsible-content-height); }
+  }
+
+  @keyframes collapsible-up {
+    from { height: var(--radix-collapsible-content-height); }
+    to { height: 0; }
+  }
+
+  @keyframes message-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes spinner {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+}
 
 @layer base {
   :root {
-    /* shadcn-vue theme variables mapped to VS Code + Unbound colors */
-    /* Using HSL values for compatibility with shadcn's opacity modifiers */
+    --background: var(--vscode-editor-background);
+    --foreground: var(--vscode-editor-foreground);
+    --card: var(--vscode-sideBar-background, var(--vscode-editor-background));
+    --card-foreground: var(--vscode-editor-foreground);
+    --popover: var(--vscode-menu-background, var(--vscode-editor-background));
+    --popover-foreground: var(--vscode-menu-foreground, var(--vscode-editor-foreground));
+    --muted: var(--vscode-editorWidget-background);
+    --muted-foreground: var(--vscode-descriptionForeground);
+    --border: var(--vscode-panel-border, var(--vscode-widget-border));
+    --input: var(--vscode-input-background);
+    --ring: var(--vscode-focusBorder);
 
-    /* Primary: Unbound cyan (#00bcd4 = 187 100% 42%) */
-    --primary: 187 100% 42%;
-    --primary-foreground: 180 100% 94%;
+    --primary: var(--vscode-button-background);
+    --primary-foreground: var(--vscode-button-foreground);
+    --accent: var(--vscode-button-hoverBackground);
+    --accent-foreground: var(--vscode-button-foreground);
 
-    /* Background: Deep navy from unbound theme */
-    --background: 210 60% 10%;
-    --foreground: 180 100% 94%;
+    --secondary: var(--vscode-button-secondaryBackground);
+    --secondary-foreground: var(--vscode-button-secondaryForeground);
 
-    /* Card: Slightly lighter navy */
-    --card: 210 50% 14%;
-    --card-foreground: 180 100% 94%;
+    --destructive: #dc2626;
+    --destructive-foreground: #ffffff;
 
-    /* Popover: Uses VS Code dropdown background */
-    --popover: 210 50% 14%;
-    --popover-foreground: 180 100% 94%;
-
-    /* Secondary: Muted blue-gray */
-    --secondary: 200 20% 25%;
-    --secondary-foreground: 180 30% 85%;
-
-    /* Muted: Subtle backgrounds */
-    --muted: 200 20% 20%;
-    --muted-foreground: 200 15% 55%;
-
-    /* Accent: Cyan accent */
-    --accent: 187 70% 35%;
-    --accent-foreground: 180 100% 94%;
-
-    /* Destructive: Red for errors/warnings */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-
-    /* Border and Input */
-    --border: 200 20% 25%;
-    --input: 200 20% 25%;
-    --ring: 187 100% 42%;
-
-    /* Border radius */
     --radius: 0.375rem;
 
-    /* Font settings from VS Code */
-    font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
-    font-size: var(--vscode-font-size, 13px);
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
     line-height: 1.5;
   }
 }
@@ -77,11 +132,10 @@ html, body {
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 0; /* Important for flex children to shrink properly */
+  min-height: 0;
   overflow: hidden;
 }
 
-/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 10px;
 }
@@ -95,7 +149,6 @@ html, body {
   border-radius: 5px;
 }
 
-/* Code blocks */
 pre {
   background: var(--vscode-textCodeBlock-background);
   border-radius: 4px;
@@ -109,18 +162,26 @@ code {
   font-size: var(--vscode-editor-font-size, 12px);
 }
 
-/* Inline code */
 :not(pre) > code {
   background: var(--vscode-textCodeBlock-background);
   padding: 2px 4px;
   border-radius: 3px;
 }
 
-/* Links */
 a {
   color: var(--vscode-textLink-foreground);
+  text-decoration: underline;
 }
 
 a:hover {
-  color: var(--vscode-textLink-activeForeground);
+  color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

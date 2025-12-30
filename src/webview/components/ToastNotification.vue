@@ -57,10 +57,10 @@ function removeToast(id: number) {
 }
 
 const typeStyles: Record<Toast['type'], string> = {
-  info: 'bg-blue-600',
-  success: 'bg-green-600',
-  warning: 'bg-yellow-600',
-  error: 'bg-red-600',
+  info: 'bg-info',
+  success: 'bg-success',
+  warning: 'bg-warning',
+  error: 'bg-error',
 };
 
 const typeIcons: Record<Toast['type'], Component> = {

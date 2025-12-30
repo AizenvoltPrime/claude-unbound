@@ -23,7 +23,7 @@ const emit = defineEmits<{
   cancel: [];
 }>();
 
-const selectedIndex = ref(0);
+const selectedIndex = ref(-1);
 
 const options: { key: RewindOption; label: string; description: string; shortcut: string }[] = [
   {
@@ -54,7 +54,7 @@ const options: { key: RewindOption; label: string; description: string; shortcut
 
 watch(() => props.visible, (visible) => {
   if (visible) {
-    selectedIndex.value = 0;
+    selectedIndex.value = -1;
   }
 });
 
@@ -76,15 +76,25 @@ function handleKeyDown(event: KeyboardEvent) {
     }
     case 'ArrowUp':
       event.preventDefault();
-      selectedIndex.value = selectedIndex.value > 0 ? selectedIndex.value - 1 : options.length - 1;
+      if (selectedIndex.value <= 0) {
+        selectedIndex.value = options.length - 1;
+      } else {
+        selectedIndex.value--;
+      }
       break;
     case 'ArrowDown':
       event.preventDefault();
-      selectedIndex.value = selectedIndex.value < options.length - 1 ? selectedIndex.value + 1 : 0;
+      if (selectedIndex.value < 0 || selectedIndex.value >= options.length - 1) {
+        selectedIndex.value = 0;
+      } else {
+        selectedIndex.value++;
+      }
       break;
     case 'Enter':
       event.preventDefault();
-      selectOption(selectedIndex.value);
+      if (selectedIndex.value >= 0) {
+        selectOption(selectedIndex.value);
+      }
       break;
     case 'Escape':
       event.preventDefault();
@@ -113,14 +123,14 @@ onUnmounted(() => {
 
 <template>
   <AlertDialog :open="visible" @update:open="(open: boolean) => !open && emit('cancel')">
-    <AlertDialogContent class="bg-vscode-bg border-vscode-border max-w-md">
+    <AlertDialogContent class="bg-card border-border max-w-md">
       <AlertDialogHeader>
         <AlertDialogTitle class="flex items-center gap-2">
           Restore Options
         </AlertDialogTitle>
         <AlertDialogDescription>
           <div class="flex items-start gap-3 mt-2">
-            <IconWarning :size="24" class="shrink-0 text-yellow-500" />
+            <IconWarning :size="24" class="shrink-0 text-warning" />
             <div>
               <p class="mb-2 text-foreground">
                 Choose how to restore to this point in the conversation.
@@ -130,16 +140,16 @@ onUnmounted(() => {
         </AlertDialogDescription>
       </AlertDialogHeader>
 
-      <div v-if="messagePreview" class="p-3 rounded bg-vscode-input-bg text-sm">
-        <div class="text-xs opacity-50 mb-1">Rewind to after:</div>
+      <div v-if="messagePreview" class="p-3 rounded bg-muted text-sm">
+        <div class="text-xs text-muted-foreground mb-1">Rewind to after:</div>
         <div class="truncate italic">"{{ messagePreview }}"</div>
       </div>
 
-      <div v-if="filesAffected" class="flex items-center gap-3 text-xs text-unbound-muted px-1">
+      <div v-if="filesAffected" class="flex items-center gap-3 text-xs text-muted-foreground px-1">
         <span>{{ filesAffected }} files affected</span>
         <template v-if="linesChanged">
-          <span class="text-green-500">+{{ linesChanged.added }}</span>
-          <span class="text-red-500">-{{ linesChanged.removed }}</span>
+          <span class="text-success">+{{ linesChanged.added }}</span>
+          <span class="text-error">-{{ linesChanged.removed }}</span>
         </template>
       </div>
 
@@ -147,41 +157,41 @@ onUnmounted(() => {
         <button
           v-for="(option, index) in options"
           :key="option.key"
-          class="w-full p-3 rounded-lg text-left transition-all flex items-start gap-3"
+          class="w-full p-3 rounded-lg text-left transition-all flex items-start gap-3 cursor-pointer"
           :class="index === selectedIndex
-            ? 'bg-unbound-cyan-900/60 border border-unbound-cyan-500'
-            : 'bg-vscode-input-bg border border-transparent hover:bg-unbound-cyan-900/30'"
+            ? 'bg-primary/60 border border-primary'
+            : 'bg-muted border border-transparent hover:bg-muted/80'"
           @click="selectOption(index)"
           @mouseenter="selectedIndex = index"
         >
           <span
-            class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-sm font-mono"
+            class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-sm font-mono leading-none"
             :class="index === selectedIndex
-              ? 'bg-unbound-cyan-500 text-white'
-              : 'bg-vscode-border text-unbound-muted'"
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-border text-muted-foreground'"
           >
             {{ option.shortcut }}
           </span>
           <div>
             <div class="font-medium text-sm">{{ option.label }}</div>
-            <div class="text-xs text-unbound-muted mt-0.5">{{ option.description }}</div>
+            <div class="text-xs text-muted-foreground mt-0.5">{{ option.description }}</div>
           </div>
         </button>
       </div>
 
-      <Alert class="bg-yellow-900/20 border-yellow-600/30">
-        <AlertTitle class="text-yellow-400 font-semibold text-xs">Note</AlertTitle>
-        <AlertDescription class="text-xs opacity-80">
+      <Alert class="bg-warning/20 border-warning/30">
+        <AlertTitle class="text-warning font-semibold text-xs">Note</AlertTitle>
+        <AlertDescription class="text-xs text-foreground/70">
           File checkpoints are stored in memory. This action cannot be undone once the session ends.
         </AlertDescription>
       </Alert>
 
-      <div class="pt-2 text-xs text-unbound-muted flex items-center gap-4">
+      <div class="pt-2 text-xs text-muted-foreground flex items-center gap-4">
         <span class="flex items-center gap-1">
-          <kbd class="px-1.5 py-0.5 bg-vscode-input-bg rounded text-[10px] font-mono">1-4</kbd>
+          <kbd class="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">1-4</kbd>
           <span>or</span>
-          <kbd class="px-1.5 py-0.5 bg-vscode-input-bg rounded text-[10px] font-mono">↑↓</kbd>
-          <kbd class="px-1.5 py-0.5 bg-vscode-input-bg rounded text-[10px] font-mono">Enter</kbd>
+          <kbd class="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">↑↓</kbd>
+          <kbd class="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">Enter</kbd>
         </span>
       </div>
     </AlertDialogContent>

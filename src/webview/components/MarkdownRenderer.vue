@@ -227,14 +227,14 @@ function renderTokens(tokens: Token[]): VNode[] {
 
 <style scoped>
 .markdown-renderer {
-  color: #e0f7fa;
+  color: var(--vscode-editor-foreground);
 }
 
 .markdown-renderer :deep(.markdown-heading) {
   margin-top: 16px;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #4fc3f7;
+  color: var(--vscode-editor-foreground);
 }
 
 .markdown-renderer :deep(h1) {
@@ -254,22 +254,22 @@ function renderTokens(tokens: Token[]): VNode[] {
 }
 
 .markdown-renderer :deep(.inline-code) {
-  background-color: rgba(79, 195, 247, 0.15);
-  color: #4fc3f7;
+  background-color: var(--vscode-textCodeBlock-background);
+  color: var(--vscode-textPreformat-foreground, var(--vscode-editor-foreground));
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: var(--vscode-editor-font-family, 'Consolas', 'Monaco', monospace);
+  font-family: var(--vscode-editor-font-family);
   font-size: 0.85em;
 }
 
 .markdown-renderer :deep(a) {
-  color: #4fc3f7;
-  text-decoration: none;
+  color: var(--vscode-editor-foreground);
+  text-decoration: underline;
 }
 
 .markdown-renderer :deep(a:hover) {
   text-decoration: underline;
-  color: #81d4fa;
+  opacity: 0.8;
 }
 
 .markdown-renderer :deep(ul),
@@ -283,17 +283,21 @@ function renderTokens(tokens: Token[]): VNode[] {
 }
 
 .markdown-renderer :deep(.markdown-blockquote) {
-  border-left: 3px solid #00bcd4;
+  border-left: 3px solid var(--vscode-textBlockQuote-border);
   margin: 8px 0;
   padding: 8px 12px;
-  color: #81d4fa;
-  background: rgba(0, 188, 212, 0.1);
+  color: var(--vscode-textBlockQuote-foreground);
+  background: var(--vscode-textBlockQuote-background);
   border-radius: 0 4px 4px 0;
 }
 
 .markdown-renderer :deep(.table-wrapper) {
   overflow-x: auto;
   margin: 8px 0;
+  background: var(--vscode-textCodeBlock-background, var(--vscode-editorWidget-background));
+  border-radius: 12px;
+  border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border));
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.25), 0 2px 6px -1px rgba(0, 0, 0, 0.2);
 }
 
 .markdown-renderer :deep(.markdown-table) {
@@ -303,37 +307,38 @@ function renderTokens(tokens: Token[]): VNode[] {
 
 .markdown-renderer :deep(th),
 .markdown-renderer :deep(td) {
-  border: 1px solid rgba(79, 195, 247, 0.3);
-  padding: 6px 12px;
+  border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border));
+  padding: 8px 12px;
   text-align: left;
 }
 
 .markdown-renderer :deep(th) {
-  background-color: rgba(0, 188, 212, 0.15);
-  color: #4fc3f7;
+  background-color: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
+  color: var(--vscode-foreground);
+  font-weight: 600;
 }
 
 .markdown-renderer :deep(tr:nth-child(even)) {
-  background-color: var(--vscode-editor-inactiveSelectionBackground, rgba(79, 195, 247, 0.05));
+  background-color: var(--vscode-list-inactiveSelectionBackground);
 }
 
 .markdown-renderer :deep(tr:hover) {
-  background-color: var(--vscode-list-hoverBackground, rgba(79, 195, 247, 0.1));
+  background-color: var(--vscode-list-hoverBackground);
   transition: background-color 0.15s ease;
 }
 
 .markdown-renderer :deep(strong) {
-  color: #81d4fa;
+  color: var(--vscode-textPreformat-foreground, var(--vscode-editor-foreground));
   font-weight: 600;
 }
 
 .markdown-renderer :deep(em) {
-  color: #b2ebf2;
+  color: var(--vscode-editor-foreground);
 }
 
 .markdown-renderer :deep(.markdown-hr) {
   border: none;
-  border-top: 1px solid rgba(79, 195, 247, 0.3);
+  border-top: 1px solid var(--vscode-panel-border);
   margin: 16px 0;
 }
 

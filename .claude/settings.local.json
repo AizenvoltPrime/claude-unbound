@@ -146,7 +146,8 @@
       "WebFetch(domain:www.shadcn-vue.com)",
       "Bash(npx --yes shadcn-vue@latest add button:*)",
       "Bash(npx --yes shadcn-vue@latest add:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "WebFetch(domain:ui.shadcn.com)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

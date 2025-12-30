@@ -14,18 +14,18 @@ const percentUsed = computed(() =>
 
 const progressColor = computed(() => {
   const pct = percentUsed.value;
-  if (pct >= 90) return 'bg-red-500';
-  if (pct >= 70) return 'bg-yellow-500';
-  return 'bg-unbound-cyan-500';
+  if (pct >= 90) return 'bg-error';
+  if (pct >= 70) return 'bg-warning';
+  return 'bg-primary';
 });
 
 const categories = computed(() => [
-  { label: 'System prompt', tokens: props.data.breakdown.systemPrompt, color: 'bg-blue-500' },
-  { label: 'System tools', tokens: props.data.breakdown.systemTools, color: 'bg-purple-500' },
-  { label: 'Custom agents', tokens: props.data.breakdown.customAgents, color: 'bg-pink-500' },
-  { label: 'Memory files', tokens: props.data.breakdown.memoryFiles, color: 'bg-green-500' },
-  { label: 'Messages', tokens: props.data.breakdown.messages, color: 'bg-cyan-500' },
-  { label: 'Free space', tokens: props.data.breakdown.freeSpace, color: 'bg-gray-600', isFree: true },
+  { label: 'System prompt', tokens: props.data.breakdown.systemPrompt, color: 'bg-info' },
+  { label: 'System tools', tokens: props.data.breakdown.systemTools, color: 'bg-primary' },
+  { label: 'Custom agents', tokens: props.data.breakdown.customAgents, color: 'bg-accent' },
+  { label: 'Memory files', tokens: props.data.breakdown.memoryFiles, color: 'bg-success' },
+  { label: 'Messages', tokens: props.data.breakdown.messages, color: 'bg-primary' },
+  { label: 'Free space', tokens: props.data.breakdown.freeSpace, color: 'bg-muted', isFree: true },
 ]);
 
 function formatTokens(tokens: number): string {
@@ -44,25 +44,25 @@ function getPercent(tokens: number): number {
 </script>
 
 <template>
-  <div class="border border-unbound-cyan-800/50 rounded-lg bg-unbound-bg-card overflow-hidden">
-    <div class="px-4 py-3 flex items-center gap-2 border-b border-unbound-cyan-800/30">
-      <IconChartBar :size="16" class="text-unbound-cyan-400" />
+  <div class="border border-border rounded-lg bg-muted overflow-hidden">
+    <div class="px-4 py-3 flex items-center gap-2 border-b border-border/30">
+      <IconChartBar :size="16" class="text-primary" />
       <span class="font-medium text-sm">Context Usage</span>
     </div>
 
     <div class="p-4 space-y-4">
-      <div class="text-xs text-unbound-muted">{{ data.model }}</div>
+      <div class="text-xs text-muted-foreground">{{ data.model }}</div>
 
       <div class="space-y-1">
-        <div class="relative h-3 bg-unbound-bg-light rounded-full overflow-hidden">
+        <div class="relative h-3 bg-card rounded-full overflow-hidden">
           <div
             :class="['h-full transition-all duration-300', progressColor]"
             :style="{ width: `${percentUsed}%` }"
           />
         </div>
-        <div class="flex justify-between text-xs text-unbound-muted">
+        <div class="flex justify-between text-xs text-muted-foreground">
           <span>{{ formatTokens(data.totalTokens) }} / {{ formatTokens(data.maxTokens) }}</span>
-          <span :class="percentUsed >= 90 ? 'text-red-400' : percentUsed >= 70 ? 'text-yellow-400' : ''">
+          <span :class="percentUsed >= 90 ? 'text-error' : percentUsed >= 70 ? 'text-warning' : ''">
             {{ percentUsed }}%
           </span>
         </div>
@@ -76,20 +76,20 @@ function getPercent(tokens: number): number {
         >
           <div class="flex items-center gap-1.5 w-28 shrink-0">
             <span :class="['w-2 h-2 rounded-sm', cat.color]" />
-            <span :class="cat.isFree ? 'text-unbound-muted' : 'text-unbound-text'">
+            <span :class="cat.isFree ? 'text-muted-foreground' : 'text-foreground'">
               {{ cat.label }}
             </span>
           </div>
-          <div class="flex-1 h-1.5 bg-unbound-bg-light rounded-full overflow-hidden">
+          <div class="flex-1 h-1.5 bg-card rounded-full overflow-hidden">
             <div
               :class="['h-full', cat.isFree ? 'bg-gray-700' : cat.color]"
               :style="{ width: `${getPercent(cat.tokens)}%` }"
             />
           </div>
-          <span class="w-16 text-right text-unbound-muted tabular-nums">
+          <span class="w-16 text-right text-muted-foreground tabular-nums">
             {{ formatTokens(cat.tokens) }}
           </span>
-          <span class="w-12 text-right text-unbound-muted tabular-nums">
+          <span class="w-12 text-right text-muted-foreground tabular-nums">
             {{ getPercent(cat.tokens) }}%
           </span>
         </div>
@@ -97,7 +97,7 @@ function getPercent(tokens: number): number {
 
       <template v-if="data.details.memoryFiles.length > 0">
         <Collapsible>
-          <CollapsibleTrigger class="flex items-center gap-2 text-xs text-unbound-muted hover:text-unbound-text transition-colors group">
+          <CollapsibleTrigger class="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group">
             <IconChevronDown :size="12" class="group-data-[state=open]:hidden" />
             <IconChevronUp :size="12" class="hidden group-data-[state=open]:block" />
             <span>Memory files ({{ data.details.memoryFiles.length }})</span>
@@ -109,8 +109,8 @@ function getPercent(tokens: number): number {
                 :key="file.name"
                 class="flex justify-between text-xs"
               >
-                <span class="text-unbound-muted truncate">{{ file.name }}</span>
-                <span class="text-unbound-muted tabular-nums ml-2">{{ formatTokens(file.tokens) }}</span>
+                <span class="text-muted-foreground truncate">{{ file.name }}</span>
+                <span class="text-muted-foreground tabular-nums ml-2">{{ formatTokens(file.tokens) }}</span>
               </div>
             </div>
           </CollapsibleContent>
@@ -119,7 +119,7 @@ function getPercent(tokens: number): number {
 
       <template v-if="data.details.skills.length > 0">
         <Collapsible>
-          <CollapsibleTrigger class="flex items-center gap-2 text-xs text-unbound-muted hover:text-unbound-text transition-colors group">
+          <CollapsibleTrigger class="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group">
             <IconChevronDown :size="12" class="group-data-[state=open]:hidden" />
             <IconChevronUp :size="12" class="hidden group-data-[state=open]:block" />
             <span>Skills ({{ data.details.skills.length }})</span>
@@ -131,8 +131,8 @@ function getPercent(tokens: number): number {
                 :key="skill.name"
                 class="flex justify-between text-xs"
               >
-                <span class="text-unbound-muted truncate">{{ skill.name }}</span>
-                <span class="text-unbound-muted tabular-nums ml-2">{{ formatTokens(skill.tokens) }}</span>
+                <span class="text-muted-foreground truncate">{{ skill.name }}</span>
+                <span class="text-muted-foreground tabular-nums ml-2">{{ formatTokens(skill.tokens) }}</span>
               </div>
             </div>
           </CollapsibleContent>
@@ -141,7 +141,7 @@ function getPercent(tokens: number): number {
 
       <template v-if="data.details.customAgents.length > 0">
         <Collapsible>
-          <CollapsibleTrigger class="flex items-center gap-2 text-xs text-unbound-muted hover:text-unbound-text transition-colors group">
+          <CollapsibleTrigger class="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group">
             <IconChevronDown :size="12" class="group-data-[state=open]:hidden" />
             <IconChevronUp :size="12" class="hidden group-data-[state=open]:block" />
             <span>Custom agents ({{ data.details.customAgents.length }})</span>
@@ -153,8 +153,8 @@ function getPercent(tokens: number): number {
                 :key="agent.name"
                 class="flex justify-between text-xs"
               >
-                <span class="text-unbound-muted truncate">{{ agent.name }}</span>
-                <span class="text-unbound-muted tabular-nums ml-2">{{ formatTokens(agent.tokens) }}</span>
+                <span class="text-muted-foreground truncate">{{ agent.name }}</span>
+                <span class="text-muted-foreground tabular-nums ml-2">{{ formatTokens(agent.tokens) }}</span>
               </div>
             </div>
           </CollapsibleContent>

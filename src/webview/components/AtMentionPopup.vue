@@ -93,7 +93,7 @@ function highlightMatch(text: string): string {
   const escapedMatch = escapeHtml(text.slice(index, index + props.query.length));
   const escapedAfter = escapeHtml(text.slice(index + props.query.length));
 
-  return `${escapedBefore}<span class="text-unbound-cyan-300 font-semibold">${escapedMatch}</span>${escapedAfter}`;
+  return `${escapedBefore}<span class="text-primary font-semibold">${escapedMatch}</span>${escapedAfter}`;
 }
 </script>
 
@@ -111,18 +111,18 @@ function highlightMatch(text: string): string {
         v-if="isOpen"
         ref="popupRef"
         :style="popupStyle"
-        class="z-50 bg-unbound-bg-card border border-unbound-cyan-800/50 rounded-lg shadow-xl overflow-hidden origin-bottom flex flex-col max-h-80"
+        class="z-50 bg-muted border border-border rounded-lg shadow-xl overflow-hidden origin-bottom flex flex-col max-h-80"
       >
         <div class="flex-1 min-h-0 overflow-y-auto">
           <div class="p-1">
             <!-- Loading State -->
-            <div v-if="isLoading" class="px-3 py-4 flex items-center justify-center gap-2 text-sm text-unbound-muted">
-              <IconLoader :size="16" class="animate-spin text-unbound-cyan-400" />
+            <div v-if="isLoading" class="px-3 py-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <IconLoader :size="16" class="animate-spin text-primary" />
               <span>Indexing workspace files...</span>
             </div>
 
             <!-- Empty State -->
-            <div v-else-if="files.length === 0" class="px-3 py-4 text-center text-sm text-unbound-muted">
+            <div v-else-if="files.length === 0" class="px-3 py-4 text-center text-sm text-muted-foreground">
               <div class="mb-1">No matching files</div>
               <div class="text-xs opacity-70">Try a different search term</div>
             </div>
@@ -135,14 +135,14 @@ function highlightMatch(text: string): string {
               :ref="el => itemRefs[index] = el as HTMLDivElement"
               class="px-2 py-1.5 rounded cursor-pointer flex items-center gap-2 transition-all duration-75"
               :class="index === selectedIndex
-                ? 'bg-unbound-cyan-900/60 text-unbound-cyan-200'
-                : 'hover:bg-unbound-cyan-900/30 text-unbound-text'"
+                ? 'bg-primary/60 text-primary-foreground'
+                : 'hover:bg-muted text-foreground'"
               @click="emit('select', file)"
               @mouseenter="$emit('update:selectedIndex', index)"
             >
               <!-- Icon -->
-              <IconFolder v-if="file.isDirectory" :size="16" class="shrink-0 text-unbound-cyan-500" />
-              <IconFile v-else :size="16" class="shrink-0 text-unbound-muted" />
+              <IconFolder v-if="file.isDirectory" :size="16" class="shrink-0 text-primary" />
+              <IconFile v-else :size="16" class="shrink-0 text-muted-foreground" />
 
               <!-- File info -->
               <div class="flex-1 min-w-0 flex items-center gap-2">
@@ -154,7 +154,7 @@ function highlightMatch(text: string): string {
                 <!-- Folder path (secondary, right-aligned with RTL for smart truncation) -->
                 <span
                   v-if="getFolderPath(file.relativePath)"
-                  class="text-xs text-unbound-muted/70 truncate flex-1 text-right"
+                  class="text-xs text-muted-foreground/70 truncate flex-1 text-right"
                   style="direction: rtl; text-align: right;"
                 >
                   {{ getFolderPath(file.relativePath) }}
@@ -165,17 +165,17 @@ function highlightMatch(text: string): string {
         </div>
 
         <!-- Footer hints -->
-        <div class="px-3 py-2 border-t border-unbound-cyan-900/30 bg-unbound-bg-light/30 text-xs text-unbound-muted flex items-center gap-4">
+        <div class="px-3 py-2 border-t border-border/30 bg-card/30 text-xs text-muted-foreground flex items-center gap-4">
           <span class="flex items-center gap-1">
-            <kbd class="px-1.5 py-0.5 bg-unbound-bg-light rounded text-[10px] font-mono">↑↓</kbd>
+            <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">↑↓</kbd>
             <span class="opacity-80">navigate</span>
           </span>
           <span class="flex items-center gap-1">
-            <kbd class="px-1.5 py-0.5 bg-unbound-bg-light rounded text-[10px] font-mono">Tab</kbd>
+            <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Tab</kbd>
             <span class="opacity-80">select</span>
           </span>
           <span class="flex items-center gap-1">
-            <kbd class="px-1.5 py-0.5 bg-unbound-bg-light rounded text-[10px] font-mono">Esc</kbd>
+            <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Esc</kbd>
             <span class="opacity-80">close</span>
           </span>
         </div>

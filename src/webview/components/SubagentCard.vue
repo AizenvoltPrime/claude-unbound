@@ -71,30 +71,30 @@ const toolCount = computed(() => props.subagent.toolCalls.length);
 const cardClass = computed(() => {
   switch (props.subagent.status) {
     case 'running':
-      return 'border-blue-500/50 hover:border-blue-400/70';
+      return 'border-primary/50 hover:border-primary/70';
     case 'completed':
-      return 'border-green-500/50 hover:border-green-400/70';
+      return 'border-success/50 hover:border-success/70';
     case 'failed':
-      return 'border-red-500/50 hover:border-red-400/70';
+      return 'border-error/50 hover:border-error/70';
     case 'cancelled':
-      return 'border-amber-500/50 hover:border-amber-400/70';
+      return 'border-warning/50 hover:border-warning/70';
     default:
-      return 'border-unbound-cyan-800/50';
+      return 'border-border';
   }
 });
 
 const statusBadgeClass = computed(() => {
   switch (props.subagent.status) {
     case 'running':
-      return 'bg-blue-600/30 text-blue-300 border-blue-500/30';
+      return 'bg-primary/30 text-primary border-primary/30';
     case 'completed':
-      return 'bg-green-600/30 text-green-300 border-green-500/30';
+      return 'bg-success/30 text-success border-success/30';
     case 'failed':
-      return 'bg-red-600/30 text-red-300 border-red-500/30';
+      return 'bg-error/30 text-error border-error/30';
     case 'cancelled':
-      return 'bg-amber-600/30 text-amber-300 border-amber-500/30';
+      return 'bg-warning/30 text-warning border-warning/30';
     default:
-      return 'bg-unbound-cyan-600/30 text-unbound-cyan-300 border-unbound-cyan-500/30';
+      return 'bg-primary/30 text-primary border-primary/30';
   }
 });
 
@@ -125,20 +125,20 @@ const metadataItems = computed(() => [
     :class="cardClass"
     @click="$emit('expand')"
   >
-    <CardHeader class="flex flex-row items-center gap-2 px-3 py-2 bg-unbound-bg-card border-b border-unbound-cyan-900/30 space-y-0">
-      <component :is="agentIcon" :size="18" class="text-unbound-cyan-400 shrink-0" />
-      <span class="text-unbound-text font-medium truncate flex-1">{{ subagent.description }}</span>
+    <CardHeader class="flex flex-row items-center gap-2 px-3 py-2 bg-foreground/5 border-b border-border/50 space-y-0">
+      <component :is="agentIcon" :size="18" class="text-primary shrink-0" />
+      <span class="text-foreground font-medium truncate flex-1">{{ subagent.description }}</span>
       <Badge variant="secondary" :class="statusBadgeClass" class="gap-1 shrink-0">
         <component :is="agentIcon" :size="12" />
         <span>{{ displayAgentType }}</span>
       </Badge>
     </CardHeader>
 
-    <CardContent class="bg-unbound-bg px-3 py-2 flex items-center justify-between">
-      <div class="flex items-center gap-1.5 text-xs text-unbound-muted leading-none">
+    <CardContent class="px-3 py-2 flex items-center justify-between">
+      <div class="flex items-center gap-1.5 text-xs text-foreground/70 leading-none">
         <IconGear :size="12" class="shrink-0" />
         <template v-for="(item, index) in metadataItems" :key="index">
-          <span v-if="index > 0" class="text-unbound-muted/50">•</span>
+          <span v-if="index > 0" class="text-foreground/40">•</span>
           <span>{{ item }}</span>
         </template>
       </div>
@@ -147,22 +147,22 @@ const metadataItems = computed(() => [
         <LoadingSpinner
           v-if="subagent.status === 'running'"
           :size="14"
-          class="text-blue-400"
+          class="text-primary"
         />
         <IconCheck
           v-else-if="subagent.status === 'completed'"
           :size="14"
-          class="text-green-400"
+          class="text-success"
         />
         <IconXCircle
           v-else-if="subagent.status === 'failed'"
           :size="14"
-          class="text-red-400"
+          class="text-error"
         />
         <IconBan
           v-else-if="subagent.status === 'cancelled'"
           :size="14"
-          class="text-amber-400"
+          class="text-warning"
         />
       </div>
     </CardContent>
