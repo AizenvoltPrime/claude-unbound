@@ -51,10 +51,10 @@ function extractDisplayableUserContent(msgContent: unknown): string | null {
 
   if (content.startsWith("<command-")) {
     const displayContent = extractSlashCommandDisplay(content);
-    return displayContent?.toLowerCase() === "/compact" ? null : displayContent;
+    return displayContent?.toLowerCase().startsWith("/compact") ? null : displayContent;
   }
 
-  return content.toLowerCase() === "/compact" ? null : content;
+  return content.toLowerCase().startsWith("/compact") ? null : content;
 }
 
 export class HistoryManager {
