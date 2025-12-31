@@ -41,10 +41,10 @@ import {
   IconChevronDown,
 } from '@/components/icons';
 import type {
-  ChatMessage,
   StoredSession,
   PermissionMode,
   RewindOption,
+  RewindHistoryItem,
 } from '@shared/types';
 
 const { postMessage } = useVSCode();
@@ -62,8 +62,6 @@ const {
   rewindHistoryItems,
   rewindHistoryLoading,
   selectedRewindItem,
-  pendingRewindMessageId,
-  pendingRewindOption,
   renamingSessionId,
   renameInputValue,
   deletingSessionId,
@@ -133,22 +131,26 @@ useMessageHandler({
   chatInputRef,
 });
 
+function openRewindFlow() {
+  uiStore.openRewindBrowser();
+  postMessage({ type: 'requestRewindHistory' });
+}
+
 useDoubleKeyStroke('Escape', () => {
   if (!showRewindTypeModal.value &&
       !showRewindBrowser.value &&
       !showSettingsPanel.value &&
       !showMcpPanel.value &&
       !showDeleteModal.value) {
-    uiStore.openRewindTypeModal();
+    openRewindFlow();
   }
 });
 
 function handleSendMessage(content: string) {
   const trimmed = content.trim();
 
-  // Intercept UI-only commands that should not go to the SDK
   if (trimmed === '/rewind' || trimmed.startsWith('/rewind ')) {
-    uiStore.openRewindTypeModal();
+    openRewindFlow();
     return;
   }
 
@@ -344,43 +346,16 @@ function handleRefreshMcpStatus() {
   postMessage({ type: 'requestMcpStatus' });
 }
 
-function handleRequestRewind(messageId: string) {
-  uiStore.requestRewind(messageId);
-  uiStore.openRewindTypeModal();
-}
-
 function handleTypeSelected(option: RewindOption) {
   if (option === 'cancel') {
-    uiStore.cancelRewind();
-    uiStore.closeRewindTypeModal();
+    uiStore.cancelTypeSelection();
     return;
   }
 
-  if (pendingRewindMessageId.value) {
-    postMessage({ type: 'rewindToMessage', userMessageId: pendingRewindMessageId.value, option });
-    uiStore.cancelRewind();
-    uiStore.closeRewindTypeModal();
-  } else {
-    uiStore.selectRewindType(option);
-    postMessage({ type: 'requestRewindHistory' });
-  }
-}
-
-function handleRewindBrowserSelect(item: { messageId: string; content: string; timestamp: number; filesAffected: number; linesChanged?: { added: number; removed: number } }) {
-  if (pendingRewindOption.value) {
-    postMessage({ type: 'rewindToMessage', userMessageId: item.messageId, option: pendingRewindOption.value });
-    uiStore.closeRewindBrowser();
+  if (selectedRewindItem.value) {
+    postMessage({ type: 'rewindToMessage', userMessageId: selectedRewindItem.value.messageId, option });
     uiStore.cancelRewind();
   }
-}
-
-function handleCloseRewindBrowser() {
-  uiStore.closeRewindBrowser();
-  uiStore.cancelRewind();
-}
-
-function handleCancelRewind() {
-  uiStore.cancelRewind();
   uiStore.closeRewindTypeModal();
 }
 
@@ -409,9 +384,7 @@ function handleDismissBudgetWarning() {
 }
 
 const rewindMessagePreview = computed(() => {
-  if (!pendingRewindMessageId.value) return '';
-  const msg = messages.value.find((m: ChatMessage) => m.id === pendingRewindMessageId.value);
-  return msg?.content.slice(0, 100) || '';
+  return selectedRewindItem.value?.content.slice(0, 100) || '';
 });
 </script>
 
@@ -583,7 +556,7 @@ const rewindMessagePreview = computed(() => {
           :compact-markers="compactMarkersList"
           :checkpoint-messages="checkpointMessages"
           :subagents="subagents"
-          @rewind="handleRequestRewind"
+          @rewind="openRewindFlow"
           @interrupt="handleInterrupt"
           @expand-subagent="subagentStore.expandSubagent"
         />
@@ -681,7 +654,7 @@ const rewindMessagePreview = computed(() => {
       :files-affected="selectedRewindItem?.filesAffected"
       :lines-changed="selectedRewindItem?.linesChanged"
       @confirm="handleTypeSelected"
-      @cancel="handleCancelRewind"
+      @cancel="uiStore.cancelTypeSelection"
     />
 
     <!-- Rewind Browser (pick which message to rewind to) -->
@@ -689,8 +662,8 @@ const rewindMessagePreview = computed(() => {
       :is-open="showRewindBrowser"
       :prompts="rewindHistoryItems"
       :is-loading="rewindHistoryLoading"
-      @select="handleRewindBrowserSelect"
-      @close="handleCloseRewindBrowser"
+      @select="uiStore.selectRewindItem"
+      @close="uiStore.closeRewindBrowser"
     />
 
     <!-- Delete Session Confirmation Modal -->

@@ -142,7 +142,7 @@ onUnmounted(() => {
 
       <div v-if="messagePreview" class="p-3 rounded bg-muted text-sm">
         <div class="text-xs text-muted-foreground mb-1">Rewind to after:</div>
-        <div class="truncate italic">"{{ messagePreview }}"</div>
+        <div class="italic break-words">"{{ messagePreview }}"</div>
       </div>
 
       <div v-if="filesAffected" class="flex items-center gap-3 text-xs text-muted-foreground px-1">

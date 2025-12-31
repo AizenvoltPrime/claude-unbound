@@ -23,7 +23,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: "rewind", messageId: string): void;
+  (e: "rewind"): void;
   (e: "interrupt", toolId: string): void;
   (e: "expandSubagent", subagentId: string): void;
 }>();
@@ -86,7 +86,7 @@ function isTodoWriteTool(toolName: string): boolean {
           size="icon-sm"
           class="absolute -left-6 top-2 opacity-0 group-hover:opacity-100 text-base text-muted-foreground hover:text-foreground hover:bg-transparent"
           title="Undo file changes after this point"
-          @click="emit('rewind', message.sdkMessageId!)"
+          @click="emit('rewind')"
         >
           ⏪
         </Button>

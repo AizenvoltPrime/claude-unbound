@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { RewindHistoryItem, RewindOption } from '@shared/types';
+import type { RewindHistoryItem } from '@shared/types';
 
 export const useUIStore = defineStore('ui', () => {
   const isProcessing = ref(false);
@@ -14,8 +14,6 @@ export const useUIStore = defineStore('ui', () => {
   const rewindHistoryItems = ref<RewindHistoryItem[]>([]);
   const rewindHistoryLoading = ref(false);
   const selectedRewindItem = ref<RewindHistoryItem | null>(null);
-  const pendingRewindMessageId = ref<string | null>(null);
-  const pendingRewindOption = ref<RewindOption | null>(null);
   const renamingSessionId = ref<string | null>(null);
   const renameInputValue = ref('');
   const deletingSessionId = ref<string | null>(null);
@@ -62,19 +60,8 @@ export const useUIStore = defineStore('ui', () => {
     showSessionPicker.value = false;
   }
 
-  function openRewindTypeModal() {
-    showRewindTypeModal.value = true;
-  }
-
   function closeRewindTypeModal() {
     showRewindTypeModal.value = false;
-  }
-
-  function selectRewindType(option: RewindOption) {
-    pendingRewindOption.value = option;
-    showRewindTypeModal.value = false;
-    showRewindBrowser.value = true;
-    rewindHistoryLoading.value = true;
   }
 
   function openRewindBrowser() {
@@ -85,7 +72,7 @@ export const useUIStore = defineStore('ui', () => {
   function closeRewindBrowser() {
     showRewindBrowser.value = false;
     rewindHistoryLoading.value = false;
-    pendingRewindOption.value = null;
+    rewindHistoryItems.value = [];
   }
 
   function setRewindHistory(items: RewindHistoryItem[]) {
@@ -95,17 +82,17 @@ export const useUIStore = defineStore('ui', () => {
 
   function selectRewindItem(item: RewindHistoryItem) {
     selectedRewindItem.value = item;
-    pendingRewindMessageId.value = item.messageId;
     showRewindBrowser.value = false;
+    showRewindTypeModal.value = true;
   }
 
-  function requestRewind(messageId: string) {
-    pendingRewindMessageId.value = messageId;
+  function cancelTypeSelection() {
+    showRewindTypeModal.value = false;
+    showRewindBrowser.value = true;
+    selectedRewindItem.value = null;
   }
 
   function cancelRewind() {
-    pendingRewindMessageId.value = null;
-    pendingRewindOption.value = null;
     selectedRewindItem.value = null;
   }
 
@@ -145,8 +132,6 @@ export const useUIStore = defineStore('ui', () => {
     rewindHistoryItems.value = [];
     rewindHistoryLoading.value = false;
     selectedRewindItem.value = null;
-    pendingRewindMessageId.value = null;
-    pendingRewindOption.value = null;
     renamingSessionId.value = null;
     renameInputValue.value = '';
     deletingSessionId.value = null;
@@ -166,8 +151,6 @@ export const useUIStore = defineStore('ui', () => {
     rewindHistoryItems,
     rewindHistoryLoading,
     selectedRewindItem,
-    pendingRewindMessageId,
-    pendingRewindOption,
     renamingSessionId,
     renameInputValue,
     deletingSessionId,
@@ -182,14 +165,12 @@ export const useUIStore = defineStore('ui', () => {
     openSessionPicker,
     toggleSessionPicker,
     closeSessionPicker,
-    openRewindTypeModal,
     closeRewindTypeModal,
-    selectRewindType,
     openRewindBrowser,
     closeRewindBrowser,
     setRewindHistory,
     selectRewindItem,
-    requestRewind,
+    cancelTypeSelection,
     cancelRewind,
     startRename,
     cancelRename,
