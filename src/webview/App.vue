@@ -47,7 +47,7 @@ import type {
   RewindHistoryItem,
 } from '@shared/types';
 
-const { postMessage } = useVSCode();
+const { postMessage, setState, getState } = useVSCode();
 
 const uiStore = useUIStore();
 const {
@@ -178,6 +178,8 @@ function handleResumeSession(sessionId: string) {
   sessionStore.setSelectedSession(sessionId);
   postMessage({ type: 'resumeSession', sessionId });
   uiStore.closeSessionPicker();
+
+  setState({ ...getState(), sessionId });
 }
 
 onKeyStroke('Escape', () => {

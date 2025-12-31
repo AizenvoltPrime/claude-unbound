@@ -42,7 +42,7 @@ function convertHistoryTools(tools: HistoryToolCall[] | undefined): ToolCall[] |
 }
 
 export function useMessageHandler(options: MessageHandlerOptions): void {
-  const { postMessage, onMessage } = useVSCode();
+  const { postMessage, onMessage, setState, getState } = useVSCode();
   const { messageContainerRef, chatInputRef } = options;
 
   const uiStore = useUIStore();
@@ -194,6 +194,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         case "sessionStarted":
           sessionStore.setCurrentSession(message.sessionId);
           sessionStore.setSelectedSession(message.sessionId);
+          setState({ ...getState(), sessionId: message.sessionId });
           break;
 
         case "storedSessions": {
@@ -586,7 +587,8 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
       });
     });
 
-    postMessage({ type: "ready" });
+    const savedState = getState<{ sessionId?: string }>();
+    postMessage({ type: "ready", savedSessionId: savedState?.sessionId });
 
     nextTick(() => {
       chatInputRef.value?.focus();

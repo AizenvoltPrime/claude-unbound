@@ -358,7 +358,7 @@ export type WebviewToExtensionMessage =
       approved: boolean;
       customMessage?: string;
     }
-  | { type: "ready" }
+  | { type: "ready"; savedSessionId?: string }
   // New: Model and settings control
   | { type: "requestModels" }
   | { type: "setModel"; model: string }

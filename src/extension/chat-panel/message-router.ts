@@ -184,6 +184,17 @@ export class MessageRouter {
         } catch (err) {
           log("[MessageRouter] Error pre-loading command history:", err);
         }
+
+        if (msg.type === "ready" && msg.savedSessionId) {
+          ctx.session.setResumeSession(msg.savedSessionId);
+          try {
+            await this.historyManager.loadSessionHistory(msg.savedSessionId, ctx.panel);
+            this.postMessage(ctx.panel, { type: "sessionStarted", sessionId: msg.savedSessionId });
+          } catch (err) {
+            log("[MessageRouter] Error auto-resuming session:", err);
+            this.postMessage(ctx.panel, { type: "sessionStarted", sessionId: msg.savedSessionId });
+          }
+        }
       },
 
       // Settings operations

@@ -41,17 +41,15 @@ export class PanelManager {
 
   async show(): Promise<void> {
     let targetColumn: vscode.ViewColumn;
-    let startedInNewColumn = false;
+    let lockEditorGroup = false;
 
     const existingColumn = this.findExistingPanelColumn();
     if (existingColumn) {
       targetColumn = existingColumn;
     } else {
       targetColumn = this.findUnusedColumn();
-      startedInNewColumn = true;
+      lockEditorGroup = true;
     }
-
-    const panelId = `panel-${++this.panelCounter}`;
 
     const panel = vscode.window.createWebviewPanel(
       "claude-unbound.chat",
@@ -67,10 +65,20 @@ export class PanelManager {
       }
     );
 
+    await this.initializePanel(panel, lockEditorGroup);
+  }
+
+  async restorePanel(panel: vscode.WebviewPanel): Promise<void> {
+    await this.initializePanel(panel, false);
+  }
+
+  private async initializePanel(panel: vscode.WebviewPanel, lockEditorGroup: boolean): Promise<void> {
+    const panelId = `panel-${++this.panelCounter}`;
+
     panel.webview.html = this.getHtmlContent(panel.webview);
     panel.iconPath = vscode.Uri.joinPath(this.extensionUri, "resources", "icon.png");
 
-    if (startedInNewColumn) {
+    if (lockEditorGroup) {
       await vscode.commands.executeCommand("workbench.action.lockEditorGroup");
     }
 

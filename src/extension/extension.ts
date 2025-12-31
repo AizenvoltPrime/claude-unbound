@@ -13,6 +13,14 @@ export function activate(context: vscode.ExtensionContext) {
   chatPanelProvider = new ChatPanelProvider(context.extensionUri, context);
 
   context.subscriptions.push(
+    vscode.window.registerWebviewPanelSerializer("claude-unbound.chat", {
+      async deserializeWebviewPanel(panel: vscode.WebviewPanel, _state: unknown) {
+        await chatPanelProvider?.restorePanel(panel);
+      },
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand("claude-unbound.openChat", () => {
       chatPanelProvider?.show();
     })

@@ -186,7 +186,7 @@ export class QueryManager {
           () => this.streamingManager.flushPendingAssistant()
         );
       },
-      settingSources: ['project'],
+      settingSources: ['user', 'project', 'local'],
       systemPrompt: { type: 'preset', preset: 'claude_code' },
       tools: { type: 'preset', preset: 'claude_code' },
       hooks: this.buildHooks(),

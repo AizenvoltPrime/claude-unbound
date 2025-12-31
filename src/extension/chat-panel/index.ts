@@ -90,6 +90,10 @@ export class ChatPanelProvider {
     await this.panelManager.show();
   }
 
+  async restorePanel(panel: vscode.WebviewPanel): Promise<void> {
+    await this.panelManager.restorePanel(panel);
+  }
+
   newSession(): void {
     this.panelManager.newSession();
   }

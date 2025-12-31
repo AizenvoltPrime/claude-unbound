@@ -35,6 +35,28 @@ interface ExtractedContent {
   tools: HistoryToolCall[];
 }
 
+function extractDisplayableUserContent(msgContent: unknown): string | null {
+  let content = "";
+
+  if (typeof msgContent === "string") {
+    content = msgContent;
+  } else if (Array.isArray(msgContent)) {
+    const textBlock = findUserTextBlock(msgContent as JsonlContentBlock[]);
+    content = textBlock?.text ?? "";
+  }
+
+  if (!content || content.startsWith("<local-command-")) {
+    return null;
+  }
+
+  if (content.startsWith("<command-")) {
+    const displayContent = extractSlashCommandDisplay(content);
+    return displayContent?.toLowerCase() === "/compact" ? null : displayContent;
+  }
+
+  return content.toLowerCase() === "/compact" ? null : content;
+}
+
 export class HistoryManager {
   private readonly workspacePath: string;
   private readonly postMessage: HistoryManagerConfig["postMessage"];
@@ -142,21 +164,10 @@ export class HistoryManager {
     for (const entry of entries) {
       if (entry.type !== "user" || !entry.uuid || entry.isMeta || entry.isCompactSummary) continue;
 
-      const msgContent = entry.message?.content;
-      let content = "";
+      const content = extractDisplayableUserContent(entry.message?.content);
+      if (!content) continue;
 
-      if (typeof msgContent === "string") {
-        content = msgContent;
-      } else if (Array.isArray(msgContent)) {
-        const textBlock = findUserTextBlock(msgContent as JsonlContentBlock[]);
-        content = textBlock?.text ?? "";
-      }
-
-      if (!content || content.startsWith("<command-") || content.startsWith("<local-command-")) {
-        continue;
-      }
-
-      if (entry.isInterrupt || content === "[Request interrupted by user]") {
+      if (entry.isInterrupt || content.startsWith("[Request interrupted by user")) {
         continue;
       }
 
@@ -327,43 +338,18 @@ export class HistoryManager {
   }
 
   private buildUserMessage(entry: ClaudeSessionEntry, isInjected?: boolean): HistoryMessage | null {
-    const msgContent = entry.message?.content;
-    let content = "";
+    const content = extractDisplayableUserContent(entry.message?.content);
+    if (!content) return null;
 
-    if (typeof msgContent === "string") {
-      content = msgContent;
-    } else if (Array.isArray(msgContent)) {
-      const textBlock = findUserTextBlock(msgContent as JsonlContentBlock[]);
-      content = textBlock?.text ?? "";
-    }
-
-    if (
-      !content ||
-      content.startsWith("Unknown slash command:") ||
-      content.startsWith("Caveat:") ||
-      content.toLowerCase() === "/compact"
-    ) {
+    if (content.startsWith("Unknown slash command:") || content.startsWith("Caveat:")) {
       return null;
     }
 
-    const sdkMessageId = entry.uuid;
-
-    if (content.startsWith("<command-message>") || content.startsWith("<command-name>")) {
-      const displayContent = extractSlashCommandDisplay(content);
-      if (displayContent && displayContent.toLowerCase() !== "/compact") {
-        return { type: "user", content: displayContent, sdkMessageId, isInjected };
-      }
-      return null;
-    }
-
-    if (content.startsWith("<local-command-")) {
-      return null;
-    }
-
-    if (entry.isInterrupt || content === "[Request interrupted by user]") {
+    if (entry.isInterrupt || content.startsWith("[Request interrupted by user")) {
       return { type: "error", content: "Claude Code process aborted by user" };
     }
 
+    const sdkMessageId = entry.uuid;
     return { type: "user", content, sdkMessageId, isInjected };
   }
 

@@ -17,6 +17,7 @@
 - **Slash Commands**: Type `/` for built-in commands (`/clear`, `/compact`, `/rewind`, etc.) and custom commands from `.claude/commands/`
 - **Command History**: Navigate previous prompts with arrow keys (shell-style)
 - **Session Management**: Create, rename, resume, and delete sessions with confirmation
+- **Panel Persistence**: Panels and active sessions survive VS Code restarts
 - **Multi-Panel Sync**: Command history syncs across all open panels instantly
 - **Context Stats**: Live tracking of token usage, cache activity, context window %, and session cost
 - **Context Usage Panel**: Detailed breakdown of context window usage by category (`/context`)
