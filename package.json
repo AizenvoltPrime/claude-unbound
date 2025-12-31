@@ -4,6 +4,7 @@
   "description": "A VS Code extension that integrates Claude AI as your coding assistant using the Agent SDK.",
   "version": "0.1.0",
   "publisher": "AizenvoltPrime",
+  "icon": "resources/icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -13,9 +14,8 @@
     "vscode": "^1.95.0"
   },
   "categories": [
-    "Programming Languages",
-    "Machine Learning",
-    "Other"
+    "AI",
+    "Chat"
   ],
   "keywords": [
     "claude",
