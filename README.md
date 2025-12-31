@@ -93,7 +93,71 @@ Custom commands are loaded from `.claude/commands/*.md` (project) and `~/.claude
 ## Requirements
 
 - VS Code 1.95.0 or higher
-- Claude Max subscription (authentication via Claude Code CLI)
+- Claude Code installed (`npm install -g @anthropic-ai/claude-code`)
+- `ANTHROPIC_API_KEY` environment variable set (see Authentication below)
+
+## Authentication
+
+Claude Unbound uses the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/typescript), which uses Claude Code as its runtime. **The extension does not handle authentication directly** — it delegates entirely to Claude Code.
+
+### How It Works
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Claude Unbound Extension                               │
+│         │                                               │
+│         ▼                                               │
+│  @anthropic-ai/claude-agent-sdk                         │
+│         │                                               │
+│         ▼ (uses as runtime)                             │
+│  Claude Code                                            │
+│         │                                               │
+│         ▼ (handles authentication)                      │
+│  Anthropic API                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+The SDK uses Claude Code as its runtime. This means:
+
+- All Claude Code authentication methods work automatically
+- Sessions persist in `~/.claude/projects/`
+- Tool execution, sandboxing, and permissions are handled by Claude Code
+
+### Why Claude Code CLI Is Required
+
+The Claude Agent SDK uses Claude Code as its runtime — it's not a standalone API client. Claude Code provides:
+
+- **Built-in tools** — Bash, Read, Write, Edit, Grep, Glob, etc.
+- **Authentication** — OAuth session management, API keys, cloud provider credentials
+- **Session persistence** — Conversation history stored in `~/.claude/projects/`
+- **Sandboxing** — OS-level process isolation for safe command execution
+- **Permissions** — Tool approval workflows and permission modes
+
+Your extension calls the SDK API; the SDK handles everything else through Claude Code.
+
+### Setting Up Authentication
+
+**Option 1: API Key (Recommended)**
+
+```bash
+export ANTHROPIC_API_KEY=your-api-key
+```
+
+Get your API key from the [Anthropic Console](https://console.anthropic.com/). This is the officially recommended authentication method for SDK-based applications.
+
+**Option 2: Cloud Providers**
+
+For enterprise environments using cloud-hosted Claude:
+
+| Variable | Purpose |
+|----------|---------|
+| `CLAUDE_CODE_USE_BEDROCK=1` | Use AWS Bedrock (requires AWS credentials) |
+| `CLAUDE_CODE_USE_VERTEX=1` | Use Google Vertex AI (requires GCP credentials) |
+| `CLAUDE_CODE_USE_FOUNDRY=1` | Use Microsoft Foundry (requires Azure credentials) |
+
+### Verifying Authentication
+
+Once authenticated, the extension displays your account info (email, subscription type) in the chat panel header.
 
 ## Development
 
