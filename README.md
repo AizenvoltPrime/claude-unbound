@@ -175,6 +175,19 @@ npm run dev
 npm run typecheck
 ```
 
+## Packaging
+
+To create a distributable `.vsix` file:
+
+```bash
+npm run build && npm run package
+```
+
+This generates `claude-unbound-<version>.vsix` which can be installed via:
+
+- **VS Code UI**: Extensions → `...` menu → "Install from VSIX..."
+- **Command line**: `code --install-extension claude-unbound-<version>.vsix`
+
 ## Architecture
 
 - **Extension Host** (Node.js): Handles Claude Agent SDK integration

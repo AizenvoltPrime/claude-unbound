@@ -1,11 +1,15 @@
+# Development folders
 .vscode/**
 .vscode-test/**
 node_modules/**
 src/**
 .claude/**
 logs/**
-*.md
-*.map
+docs/**
+
+# Config files
+.env
+.mcp.json
 .gitignore
 .eslintrc*
 tsconfig*.json
@@ -13,5 +17,13 @@ vite.config.ts
 esbuild.config.mjs
 tailwind.config.js
 postcss.config.js
+components.json
+
+# Build artifacts & lock files
+*.map
 bun.lockb
 package-lock.json
+
+# Documentation (README is auto-included by vsce)
+*.md
+!README.md

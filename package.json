@@ -190,7 +190,7 @@
     "watch:webview": "vite build --watch",
     "dev": "npm run watch",
     "typecheck": "tsc --noEmit",
-    "package": "vsce package",
+    "package": "npx @vscode/vsce package",
     "lint": "eslint src --ext .ts,.vue"
   },
   "dependencies": {
