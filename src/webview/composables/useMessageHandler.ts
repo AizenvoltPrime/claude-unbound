@@ -75,6 +75,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           const textContent = streamingStore.extractTextFromContent(assistantMsg.message.content);
           const toolCalls = streamingStore.extractToolCalls(assistantMsg.message.content);
           const thinkingContent = streamingStore.extractThinkingContent(assistantMsg.message.content);
+          const contentBlocks = assistantMsg.message.content.filter(
+            (block): block is { type: 'text'; text: string } | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> } =>
+              block.type === 'text' || block.type === 'tool_use'
+          );
           const hasSubagent = parentToolUseId ? subagentStore.hasSubagent(parentToolUseId) : false;
 
           for (const tool of toolCalls) {
@@ -87,6 +91,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               sdkMessageId: msgId,
               role: "assistant",
               content: textContent,
+              contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
               thinking: thinkingContent,
               toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
               timestamp: Date.now(),
@@ -106,6 +111,9 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           const updates: Partial<ChatMessage> = {};
           if (textContent) {
             updates.content = textContent;
+          }
+          if (contentBlocks.length > 0) {
+            updates.contentBlocks = contentBlocks;
           }
           if (thinkingContent) {
             updates.thinking = thinkingContent;

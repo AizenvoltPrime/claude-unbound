@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import type { ChatMessage, CompactMarker as CompactMarkerType, SubagentState } from "@shared/types";
+import type { ChatMessage, CompactMarker as CompactMarkerType, SubagentState, ToolCall, ContentBlock } from "@shared/types";
 import ToolCallCard from "./ToolCallCard.vue";
 import QuestionToolCard from "./QuestionToolCard.vue";
 import SubagentCard from "./SubagentCard.vue";
@@ -68,6 +68,37 @@ function isTodoWriteTool(toolName: string): boolean {
 function isAskUserQuestionTool(toolName: string): boolean {
   return toolName === 'AskUserQuestion';
 }
+
+function getToolCallById(message: ChatMessage, toolId: string): ToolCall | undefined {
+  return message.toolCalls?.find(t => t.id === toolId);
+}
+
+function shouldUseInterleavedRendering(message: ChatMessage): boolean {
+  return !!(message.contentBlocks && message.contentBlocks.length > 0);
+}
+
+function isTextBlock(block: ContentBlock): block is { type: 'text'; text: string } {
+  return block.type === 'text';
+}
+
+function isToolUseBlock(block: ContentBlock): block is { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> } {
+  return block.type === 'tool_use';
+}
+
+function getBlockKey(block: ContentBlock, index: number): string {
+  if (isToolUseBlock(block)) return block.id;
+  return `block-${index}`;
+}
+
+function getTrailingStreamingText(message: ChatMessage): string {
+  if (!message.contentBlocks || message.contentBlocks.length === 0) return '';
+  let committedLength = 0;
+  for (const block of message.contentBlocks) {
+    if (isTextBlock(block)) committedLength += block.text.length;
+  }
+  if (message.content.length <= committedLength) return '';
+  return message.content.slice(committedLength);
+}
 </script>
 
 <template>
@@ -122,30 +153,77 @@ function isAskUserQuestionTool(toolName: string): boolean {
           :duration="message.thinkingDuration"
         />
 
-        <!-- Tool calls appear BEFORE text (Claude: think → use tools → respond) -->
-        <div v-if="message.toolCalls?.length" class="pl-4 space-y-2">
-          <template v-for="tool in message.toolCalls" :key="tool.id">
-            <SubagentCard
-              v-if="isTaskToolWithSubagent(tool.id, tool.name) && subagents?.[tool.id]"
-              :subagent="subagents[tool.id]"
-              @expand="emit('expandSubagent', tool.id)"
-            />
-            <QuestionToolCard
-              v-else-if="isAskUserQuestionTool(tool.name)"
-              :tool-call="tool"
-            />
-            <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @interrupt="emit('interrupt', $event)" @expand="emit('expandMcpTool', $event)" />
-          </template>
-        </div>
+        <!-- Interleaved rendering: iterate content blocks in order -->
+        <template v-if="shouldUseInterleavedRendering(message)">
+          <template v-for="(block, blockIndex) in message.contentBlocks" :key="getBlockKey(block, blockIndex)">
+            <!-- Text block (committed - no animation, already streamed) -->
+            <div v-if="isTextBlock(block)" class="pl-4">
+              <MessageContent
+                :content="block.text"
+                :is-streaming="false"
+                :is-thinking-phase="false"
+              />
+            </div>
 
-        <!-- Final text response appears AFTER tools -->
-        <div v-if="message.content" class="pl-4">
-          <MessageContent
-            :content="message.content"
-            :is-streaming="isStreamingMessage(message)"
-            :is-thinking-phase="message.isThinkingPhase ?? false"
-          />
-        </div>
+            <!-- Tool use block -->
+            <template v-else-if="isToolUseBlock(block)">
+              <div class="pl-4 space-y-2">
+                <template v-if="getToolCallById(message, block.id)">
+                  <SubagentCard
+                    v-if="isTaskToolWithSubagent(block.id, block.name) && subagents?.[block.id]"
+                    :subagent="subagents[block.id]"
+                    @expand="emit('expandSubagent', block.id)"
+                  />
+                  <QuestionToolCard
+                    v-else-if="isAskUserQuestionTool(block.name)"
+                    :tool-call="getToolCallById(message, block.id)!"
+                  />
+                  <ToolCallCard
+                    v-else-if="!isTodoWriteTool(block.name)"
+                    :tool-call="getToolCallById(message, block.id)!"
+                    @interrupt="emit('interrupt', $event)"
+                    @expand="emit('expandMcpTool', $event)"
+                  />
+                </template>
+              </div>
+            </template>
+          </template>
+
+          <!-- Trailing streaming text (text arriving after the last committed block) -->
+          <div v-if="isStreamingMessage(message) && getTrailingStreamingText(message)" class="pl-4">
+            <MessageContent
+              :content="getTrailingStreamingText(message)"
+              :is-streaming="true"
+              :is-thinking-phase="false"
+            />
+          </div>
+        </template>
+
+        <!-- Fallback for messages without contentBlocks -->
+        <template v-else>
+          <div v-if="message.toolCalls?.length" class="pl-4 space-y-2">
+            <template v-for="tool in message.toolCalls" :key="tool.id">
+              <SubagentCard
+                v-if="isTaskToolWithSubagent(tool.id, tool.name) && subagents?.[tool.id]"
+                :subagent="subagents[tool.id]"
+                @expand="emit('expandSubagent', tool.id)"
+              />
+              <QuestionToolCard
+                v-else-if="isAskUserQuestionTool(tool.name)"
+                :tool-call="tool"
+              />
+              <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @interrupt="emit('interrupt', $event)" @expand="emit('expandMcpTool', $event)" />
+            </template>
+          </div>
+
+          <div v-if="message.content" class="pl-4">
+            <MessageContent
+              :content="message.content"
+              :is-streaming="isStreamingMessage(message)"
+              :is-thinking-phase="message.isThinkingPhase ?? false"
+            />
+          </div>
+        </template>
       </div>
     </template>
 

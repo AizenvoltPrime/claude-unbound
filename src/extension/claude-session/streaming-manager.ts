@@ -93,6 +93,17 @@ export class StreamingManager {
     this._silentAbort = value;
   }
 
+  /** Commit any accumulated streaming text to pending content */
+  private commitStreamingText(): void {
+    if (!this.streamingContent.text || !this.pendingAssistant) return;
+
+    this.pendingAssistant.content.push({
+      type: 'text',
+      text: this.streamingContent.text,
+    });
+    this.streamingContent.text = '';
+  }
+
   /** Flush accumulated assistant content to webview */
   flushPendingAssistant(): void {
     if (!this.pendingAssistant) return;
@@ -117,7 +128,6 @@ export class StreamingManager {
         pending.content.push({ type: 'text', text: this.streamingContent.text });
       }
     }
-
     this.callbacks.onMessage({
       type: 'assistant',
       data: {
@@ -257,6 +267,8 @@ export class StreamingManager {
     }
 
     const serializedContent = serializeContent(msg.message.content);
+    const hasToolBlocks = serializedContent.some(b => b.type === 'tool_use');
+    const hasAccumulatedText = hasToolBlocks && this.streamingContent.text;
 
     for (const block of serializedContent) {
       if (block.type === 'tool_use') {
@@ -296,17 +308,28 @@ export class StreamingManager {
       }
     }
 
+    const nonTextContent = serializedContent.filter(b => b.type !== 'text');
+
     if (!this.pendingAssistant) {
+      const initialContent: typeof serializedContent = [];
+      if (hasAccumulatedText) {
+        initialContent.push({ type: 'text' as const, text: this.streamingContent.text });
+        this.streamingContent.text = '';
+      }
+      initialContent.push(...nonTextContent);
       this.pendingAssistant = {
         id: msg.message.id,
         model: msg.message.model,
         stopReason: msg.message.stop_reason,
-        content: serializedContent,
+        content: initialContent,
         sessionId: msg.session_id,
         parentToolUseId,
       };
     } else {
-      this.pendingAssistant.content.push(...serializedContent);
+      if (hasAccumulatedText) {
+        this.commitStreamingText();
+      }
+      this.pendingAssistant.content.push(...nonTextContent);
       this.pendingAssistant.stopReason = msg.message.stop_reason;
     }
   }

@@ -18,6 +18,7 @@ export const useStreamingStore = defineStore('streaming', () => {
   const streamingMessageId = ref<string | null>(null);
   const toolStatusCache = ref<Map<string, ToolStatusEntry>>(new Map());
   const expandedMcpToolId = ref<string | null>(null);
+  const committedTextLength = ref(0);
 
   const expandedMcpTool = computed<ToolCall | undefined>(() => {
     if (!expandedMcpToolId.value) return undefined;
@@ -65,10 +66,18 @@ export const useStreamingStore = defineStore('streaming', () => {
     const msg = streamingMessage.value;
     if (!msg) return null;
 
-    updateStreamingMessage({
+    const updates: Partial<ChatMessage> = {
       isPartial: false,
       isThinkingPhase: false,
-    });
+    };
+
+    if (msg.contentBlocks && msg.contentBlocks.length > 0 && msg.content.length > committedTextLength.value) {
+      const trailingText = msg.content.slice(committedTextLength.value);
+      updates.contentBlocks = [...msg.contentBlocks, { type: 'text' as const, text: trailingText }];
+    }
+
+    updateStreamingMessage(updates);
+    committedTextLength.value = 0;
 
     const finalized = streamingMessage.value;
     streamingMessageId.value = null;
@@ -98,11 +107,13 @@ export const useStreamingStore = defineStore('streaming', () => {
     const current = streamingMessage.value;
 
     if (!current) {
+      committedTextLength.value = 0;
       const newMsg: ChatMessage = {
         id: `streaming-${Date.now()}`,
         sdkMessageId,
         role: 'assistant',
         content: '',
+        contentBlocks: [],
         timestamp: Date.now(),
         isPartial: true,
         isThinkingPhase: !sdkMessageId,
@@ -179,8 +190,27 @@ export const useStreamingStore = defineStore('streaming', () => {
       toolStatusCache.value.delete(tool.id);
     }
 
+    const existingBlocks = msg.contentBlocks || [];
+    const newBlocks = [...existingBlocks];
+
+    if (msg.content.length > committedTextLength.value) {
+      const uncommittedText = msg.content.slice(committedTextLength.value);
+      if (uncommittedText.trim()) {
+        newBlocks.push({ type: 'text' as const, text: uncommittedText });
+      }
+      committedTextLength.value = msg.content.length;
+    }
+
+    newBlocks.push({
+      type: 'tool_use' as const,
+      id: tool.id,
+      name: tool.name,
+      input: tool.input,
+    });
+
     updateStreamingMessage({
       toolCalls: [...existingToolCalls, newToolCall],
+      contentBlocks: newBlocks,
       isThinkingPhase: false,
     });
   }
@@ -376,6 +406,7 @@ export const useStreamingStore = defineStore('streaming', () => {
     streamingMessageId.value = null;
     toolStatusCache.value = new Map();
     expandedMcpToolId.value = null;
+    committedTextLength.value = 0;
   }
 
   return {

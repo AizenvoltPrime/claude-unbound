@@ -519,6 +519,7 @@ export interface ChatMessage {
   sdkMessageId?: string; // SDK message ID for identity matching (null until known)
   role: "user" | "assistant" | "error";
   content: string;
+  contentBlocks?: ContentBlock[]; // Ordered content blocks from SDK for interleaved rendering
   toolCalls?: ToolCall[];
   timestamp: number;
   isPartial?: boolean;
