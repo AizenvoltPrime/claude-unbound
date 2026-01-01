@@ -461,7 +461,7 @@ export type ExtensionToWebviewMessage =
   | { type: "rewindComplete"; rewindToMessageId: string; option: RewindOption; fileRewindWarning?: string }
   | { type: "rewindError"; message: string }
   // New: Tool lifecycle
-  | { type: "toolStreaming"; messageId: string; tool: { id: string; name: string; input: Record<string, unknown> }; parentToolUseId?: string | null }
+  | { type: "toolStreaming"; messageId: string; tool: { id: string; name: string; input: Record<string, unknown> }; contentBlocks: ContentBlock[]; parentToolUseId?: string | null }
   | { type: "toolCompleted"; toolUseId: string; toolName: string; result: string; parentToolUseId?: string | null }
   | { type: "toolFailed"; toolUseId: string; toolName: string; error: string; isInterrupt?: boolean; parentToolUseId?: string | null }
   | { type: "toolAbandoned"; toolUseId: string; toolName: string; parentToolUseId?: string | null }

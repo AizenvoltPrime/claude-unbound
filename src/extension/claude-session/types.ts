@@ -3,6 +3,7 @@ import type {
   ExtensionToWebviewMessage,
   AgentDefinition,
   McpServerConfig,
+  ContentBlock,
 } from '../../shared/types';
 
 /** Type for the Query object returned by the SDK */
@@ -43,6 +44,8 @@ export interface StreamingContent {
   thinkingStartTime: number | null;
   thinkingDuration: number | null;
   parentToolUseId: string | null;
+  contentBlocks: ContentBlock[];
+  committedTextLength: number;
 }
 
 /** Info about a streamed tool for correlation */
@@ -103,5 +106,7 @@ export function createEmptyStreamingContent(): StreamingContent {
     thinkingStartTime: null,
     thinkingDuration: null,
     parentToolUseId: null,
+    contentBlocks: [],
+    committedTextLength: 0,
   };
 }

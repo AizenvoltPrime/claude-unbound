@@ -250,16 +250,9 @@ export class StreamingManager {
     if (this.pendingAssistant && this.pendingAssistant.id !== msg.message.id) {
       this.flushPendingAssistant();
       if (this.streamingContent.messageId !== msg.message.id) {
-        this.streamingContent = {
-          messageId: msg.message.id,
-          thinking: '',
-          text: '',
-          isThinking: false,
-          hasStreamedTools: false,
-          thinkingStartTime: null,
-          thinkingDuration: null,
-          parentToolUseId,
-        };
+        this.streamingContent = createEmptyStreamingContent();
+        this.streamingContent.messageId = msg.message.id;
+        this.streamingContent.parentToolUseId = parentToolUseId;
       }
     } else if (!this.streamingContent.messageId) {
       this.streamingContent.messageId = msg.message.id;
@@ -295,6 +288,23 @@ export class StreamingManager {
           parentToolUseId,
         });
         this.toolManager.queueToolInfo(block.name, { toolUseId: block.id, parentToolUseId });
+
+        const currentText = this.streamingContent.text;
+        if (currentText.length > this.streamingContent.committedTextLength) {
+          const uncommittedText = currentText.slice(this.streamingContent.committedTextLength);
+          if (uncommittedText.trim()) {
+            this.streamingContent.contentBlocks.push({ type: 'text', text: uncommittedText });
+          }
+          this.streamingContent.committedTextLength = currentText.length;
+        }
+
+        this.streamingContent.contentBlocks.push({
+          type: 'tool_use',
+          id: block.id,
+          name: block.name,
+          input: block.input,
+        });
+
         this.callbacks.onMessage({
           type: 'toolStreaming',
           messageId: msg.message.id,
@@ -303,6 +313,7 @@ export class StreamingManager {
             name: block.name,
             input: block.input,
           },
+          contentBlocks: [...this.streamingContent.contentBlocks],
           parentToolUseId,
         });
       }
@@ -347,16 +358,9 @@ export class StreamingManager {
       if (this.streamingContent.messageId && this.streamingContent.messageId !== event.message.id) {
         this.flushPendingAssistant();
       }
-      this.streamingContent = {
-        messageId: event.message.id,
-        thinking: '',
-        text: '',
-        isThinking: false,
-        hasStreamedTools: false,
-        thinkingStartTime: null,
-        thinkingDuration: null,
-        parentToolUseId: streamParentToolUseId,
-      };
+      this.streamingContent = createEmptyStreamingContent();
+      this.streamingContent.messageId = event.message.id;
+      this.streamingContent.parentToolUseId = streamParentToolUseId;
     }
 
     if (event.type === 'content_block_delta') {

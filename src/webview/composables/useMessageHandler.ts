@@ -269,7 +269,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
           streamingStore.checkAndFinalizeForNewMessageId(targetMsgId);
           streamingStore.ensureStreamingMessage(targetMsgId);
-          streamingStore.addToolCall(message.tool);
+          streamingStore.addToolCall(message.tool, message.contentBlocks);
           sessionStore.trackFileAccess(message.tool.name, message.tool.input);
           break;
         }
