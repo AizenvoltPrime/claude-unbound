@@ -248,6 +248,10 @@ export class QueryManager {
 
       const controllerForThisQuery = this._streamingInputController;
 
+      this.streamingManager.onTurnEndFlush = () => {
+        this.flushQueuedMessagesAsNewTurn();
+      };
+
       this.streamingManager.consumeQueryInBackground(
         result,
         this.maxBudgetUsd,
@@ -257,6 +261,7 @@ export class QueryManager {
             this._streamingInputController = null;
           }
           this.streamingManager.onTurnComplete = null;
+          this.streamingManager.onTurnEndFlush = null;
         }
       ).catch(err => {
         log('[QueryManager] Background query consumption error:', err);
@@ -455,6 +460,36 @@ export class QueryManager {
     log('[QueryManager] queueInput: queuing message for PostToolUse injection');
     this._queuedMessages.push({ id: messageId ?? null, content });
     return true;
+  }
+
+  /**
+   * Flush any remaining queued messages as a new user turn.
+   *
+   * Called at turn end when PostToolUse hook didn't fire (text-only responses).
+   * Combines all queued messages into a single message and sends via the
+   * streaming input controller as a proper SDK turn.
+   */
+  flushQueuedMessagesAsNewTurn(): void {
+    if (this._queuedMessages.length === 0 || !this._streamingInputController) {
+      return;
+    }
+
+    const queued = this._queuedMessages.splice(0);
+    log('[QueryManager] Flushing %d queued messages as new turn', queued.length);
+
+    const combinedContent = queued.map(m => m.content).join('\n\n');
+
+    const messageIds = queued.map(m => m.id).filter((id): id is string => id !== null);
+    if (messageIds.length > 0) {
+      this.callbacks.onMessage({
+        type: 'queueBatchProcessed',
+        messageIds,
+        combinedContent,
+      });
+    }
+
+    this.streamingManager.processing = true;
+    this._streamingInputController.sendMessage(combinedContent);
   }
 
   /** Abort the current query */

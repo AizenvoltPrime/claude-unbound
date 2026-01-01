@@ -618,6 +618,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           streamingStore.markQueueProcessed(message.messageId);
           break;
 
+        case "queueBatchProcessed":
+          streamingStore.combineQueuedMessages(message.messageIds, message.combinedContent);
+          break;
+
         case "queueCancelled":
           streamingStore.removeQueuedMessage(message.messageId);
           break;

@@ -38,6 +38,7 @@ export class StreamingManager {
   private _isProcessing = false;
   private _onTurnComplete: TurnCompleteCallback | null = null;
   private _silentAbort = false;
+  private _onTurnEndFlush: (() => void) | null = null;
   private cwd: string;
 
   constructor(
@@ -91,6 +92,10 @@ export class StreamingManager {
 
   set silentAbort(value: boolean) {
     this._silentAbort = value;
+  }
+
+  set onTurnEndFlush(callback: (() => void) | null) {
+    this._onTurnEndFlush = callback;
   }
 
   /** Commit any accumulated streaming text to pending content */
@@ -600,6 +605,12 @@ export class StreamingManager {
     if (this._onTurnComplete) {
       this._onTurnComplete();
       this._onTurnComplete = null;
+    }
+
+    // Note: _onTurnEndFlush is NOT nullified here (unlike _onTurnComplete) because it needs
+    // to run at every turn end, not just once. It's cleaned up at query termination instead.
+    if (this._onTurnEndFlush) {
+      this._onTurnEndFlush();
     }
   }
 

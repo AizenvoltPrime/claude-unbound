@@ -354,6 +354,23 @@ export const useStreamingStore = defineStore('streaming', () => {
     messages.value = messages.value.filter(m => m.id !== messageId);
   }
 
+  function combineQueuedMessages(messageIds: string[], combinedContent: string): void {
+    console.log('[useStreamingStore] Combining', messageIds.length, 'queued messages into one');
+    const idsSet = new Set(messageIds);
+    const firstQueuedIndex = messages.value.findIndex(m => idsSet.has(m.id));
+    const timestamp = firstQueuedIndex !== -1 ? messages.value[firstQueuedIndex].timestamp : Date.now();
+
+    messages.value = messages.value.filter(m => !idsSet.has(m.id));
+
+    const combinedMessage: ChatMessage = {
+      id: generateId(),
+      role: 'user',
+      content: combinedContent,
+      timestamp,
+    };
+    messages.value = [...messages.value, combinedMessage];
+  }
+
   function appendStreamingContent(text: string): void {
     const current = streamingMessage.value;
     if (!current) return;
@@ -414,6 +431,7 @@ export const useStreamingStore = defineStore('streaming', () => {
     addQueuedMessage,
     markQueueProcessed,
     removeQueuedMessage,
+    combineQueuedMessages,
     appendStreamingContent,
     appendStreamingThinking,
     setStreamingThinkingPhase,
