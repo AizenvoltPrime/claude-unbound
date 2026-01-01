@@ -6,12 +6,17 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { IconBrain, IconChevronDown } from '@/components/icons';
+import { useTextStreaming } from '@/composables/useTextStreaming';
 
 const props = defineProps<{
   thinking?: string;
   isStreaming?: boolean;
   duration?: number;
 }>();
+
+const thinkingRef = computed(() => props.thinking ?? '');
+const isStreamingRef = computed(() => props.isStreaming ?? false);
+const { displayedContent } = useTextStreaming(thinkingRef, isStreamingRef);
 
 const isExpanded = ref(false);
 const elapsedSeconds = ref(0);
@@ -127,7 +132,7 @@ onUnmounted(() => {
         v-if="hasContent"
         class="mt-2 py-2 px-3 border-l-2 border-border bg-muted/30 rounded-r-md overflow-hidden max-h-64 overflow-y-auto"
       >
-        <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">{{ thinking }}</pre>
+        <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">{{ isStreaming ? displayedContent : thinking }}</pre>
       </div>
     </CollapsibleContent>
   </Collapsible>

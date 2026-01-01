@@ -89,7 +89,6 @@ export const WITTY_PHRASES = [
   "Exercising my language model...",
   "Performing advanced pattern matching...",
   "Extrapolating from my training data...",
-  "Consulting my imaginary friend GPT...",
   "Generating plausible-sounding words...",
   "Doing math that looks like thinking...",
 

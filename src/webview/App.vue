@@ -21,6 +21,7 @@ import TodoListCard from './components/TodoListCard.vue';
 import { useVSCode } from './composables/useVSCode';
 import { useMessageHandler } from './composables/useMessageHandler';
 import { useDoubleKeyStroke } from './composables/useDoubleKeyStroke';
+import { useAutoScroll } from './composables/useAutoScroll';
 import {
   useUIStore,
   useSettingsStore,
@@ -112,6 +113,9 @@ const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
 const renameInputRef = ref<HTMLInputElement | null>(null);
 const sessionPickerRef = ref<HTMLElement | null>(null);
 const historySentinelRef = ref<HTMLElement | null>(null);
+
+const shouldAutoScroll = computed(() => isProcessing.value || !!streamingMessageId.value);
+useAutoScroll(messageContainerRef, shouldAutoScroll);
 
 const compactMarkersList = computed(() => compactMarkers.value);
 

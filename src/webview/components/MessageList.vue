@@ -6,6 +6,7 @@ import SubagentCard from "./SubagentCard.vue";
 import CompactMarker from "./CompactMarker.vue";
 import ThinkingIndicator from "./ThinkingIndicator.vue";
 import MarkdownRenderer from "./MarkdownRenderer.vue";
+import MessageContent from "./MessageContent.vue";
 import { Button } from "@/components/ui/button";
 
 const logoUri = ref("");
@@ -129,7 +130,11 @@ function isTodoWriteTool(toolName: string): boolean {
 
         <!-- Final text response appears AFTER tools -->
         <div v-if="message.content" class="pl-4">
-          <MarkdownRenderer :content="message.content" :class="message.isPartial && 'opacity-80'" />
+          <MessageContent
+            :content="message.content"
+            :is-streaming="isStreamingMessage(message)"
+            :is-thinking-phase="message.isThinkingPhase ?? false"
+          />
         </div>
       </div>
     </template>
