@@ -436,7 +436,7 @@ export type ExtensionToWebviewMessage =
   | { type: "done"; data: ResultMessage }
   | { type: "userMessage"; content: string }
   | { type: "userMessageIdAssigned"; sdkMessageId: string }
-  | { type: "toolPending"; toolName: string; input: unknown }
+  | { type: "toolPending"; toolUseId: string; toolName: string; input: unknown; parentToolUseId?: string | null }
   | { type: "error"; message: string }
   | { type: "sessionStarted"; sessionId: string }
   | { type: "processing"; isProcessing: boolean }

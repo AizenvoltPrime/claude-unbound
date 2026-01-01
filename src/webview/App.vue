@@ -391,10 +391,6 @@ function handlePermissionApproval(toolUseId: string, approved: boolean, options?
   permissionStore.removePermission(toolUseId);
 }
 
-function handleInterrupt(_toolId: string) {
-  postMessage({ type: 'interrupt' });
-}
-
 function handleQuestionSubmit(answers: Record<string, string>) {
   if (pendingQuestion.value) {
     postMessage({
@@ -596,7 +592,6 @@ const rewindMessagePreview = computed(() => {
           :checkpoint-messages="checkpointMessages"
           :subagents="subagents"
           @rewind="openRewindFlow"
-          @interrupt="handleInterrupt"
           @expand-subagent="subagentStore.expandSubagent"
           @expand-mcp-tool="streamingStore.expandMcpTool"
         />
@@ -728,7 +723,6 @@ const rewindMessagePreview = computed(() => {
       :subagent="expandedSubagent"
       :streaming="expandedSubagent ? subagentStore.getSubagentStreaming(expandedSubagent.id) : undefined"
       @close="subagentStore.collapseSubagent"
-      @interrupt="handleInterrupt"
       @open-log="handleOpenAgentLog"
     />
 

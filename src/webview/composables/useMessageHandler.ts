@@ -274,6 +274,14 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
+        case "toolPending": {
+          const found = subagentStore.updateSubagentToolStatus(message.toolUseId, "running");
+          if (!found) {
+            streamingStore.updateToolStatus(message.toolUseId, "running");
+          }
+          break;
+        }
+
         case "requestPermission": {
           const parentToolUseId = message.parentToolUseId;
           const toolCall: ToolCall = {

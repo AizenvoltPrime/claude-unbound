@@ -26,7 +26,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "rewind"): void;
-  (e: "interrupt", toolId: string): void;
   (e: "expandSubagent", subagentId: string): void;
   (e: "expandMcpTool", toolId: string): void;
 }>();
@@ -181,7 +180,6 @@ function getTrailingStreamingText(message: ChatMessage): string {
                   <ToolCallCard
                     v-else-if="!isTodoWriteTool(block.name)"
                     :tool-call="getToolCallById(message, block.id)!"
-                    @interrupt="emit('interrupt', $event)"
                     @expand="emit('expandMcpTool', $event)"
                   />
                 </template>
@@ -212,7 +210,7 @@ function getTrailingStreamingText(message: ChatMessage): string {
                 v-else-if="isAskUserQuestionTool(tool.name)"
                 :tool-call="tool"
               />
-              <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @interrupt="emit('interrupt', $event)" @expand="emit('expandMcpTool', $event)" />
+              <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @expand="emit('expandMcpTool', $event)" />
             </template>
           </div>
 

@@ -36,7 +36,6 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'interrupt', toolId: string): void;
   (e: 'expand', toolId: string): void;
 }>();
 
@@ -224,17 +223,6 @@ function formatInput(input: Record<string, unknown>): string {
       </span>
       <LoadingSpinner v-if="isPending" :size="16" :class="statusClass" class="ml-auto shrink-0" />
       <component v-else :is="statusIconComponent" :size="16" :class="statusClass" class="ml-auto shrink-0" />
-
-      <Button
-        v-if="isRunning"
-        variant="destructive"
-        size="sm"
-        class="h-6 px-2 text-xs bg-error/20 text-error hover:bg-error/40"
-        @click="$emit('interrupt', toolCall.id)"
-        title="Interrupt this tool"
-      >
-        Stop
-      </Button>
     </CardHeader>
 
     <CardContent v-if="isFileOperation && diffContent" class="p-0">

@@ -40,7 +40,6 @@ const props = defineProps<{
 
 defineEmits<{
   (e: 'close'): void;
-  (e: 'interrupt', toolId: string): void;
   (e: 'openLog', agentId: string): void;
 }>();
 
@@ -238,7 +237,6 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
           v-for="tool in subagent.toolCalls"
           :key="tool.id"
           :tool-call="tool"
-          @interrupt="$emit('interrupt', $event)"
         />
       </div>
 

@@ -137,12 +137,17 @@ export class ToolManager {
       this.toolsUsedThisTurn = true;
     }
     if (toolName && toolUseId) {
-      // Don't delete from streamedToolIds here - keep tracking until completion
-      // so we can send toolAbandoned if stream is interrupted mid-execution
+      const toolInfo = this.streamedToolIds.get(toolUseId);
+      if (toolInfo) {
+        toolInfo.approved = true;
+      }
+      const parentToolUseId = toolInfo?.parentToolUseId ?? null;
       this.callbacks.onMessage({
         type: 'toolPending',
+        toolUseId,
         toolName,
         input,
+        parentToolUseId,
       });
     }
   }
