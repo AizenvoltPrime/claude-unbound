@@ -155,6 +155,11 @@ export class MessageRouter {
         });
       },
 
+      answerQuestion: (msg, ctx) => {
+        if (msg.type !== "answerQuestion") return;
+        ctx.permissionHandler.resolveQuestion(msg.toolUseId, msg.answers);
+      },
+
       // Initialization
       ready: async (msg, ctx) => {
         try {

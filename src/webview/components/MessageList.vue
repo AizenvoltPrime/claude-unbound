@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import type { ChatMessage, CompactMarker as CompactMarkerType, SubagentState } from "@shared/types";
 import ToolCallCard from "./ToolCallCard.vue";
+import QuestionToolCard from "./QuestionToolCard.vue";
 import SubagentCard from "./SubagentCard.vue";
 import CompactMarker from "./CompactMarker.vue";
 import ThinkingIndicator from "./ThinkingIndicator.vue";
@@ -62,6 +63,10 @@ function canRewindTo(message: ChatMessage): boolean {
 
 function isTodoWriteTool(toolName: string): boolean {
   return toolName === 'TodoWrite';
+}
+
+function isAskUserQuestionTool(toolName: string): boolean {
+  return toolName === 'AskUserQuestion';
 }
 </script>
 
@@ -124,6 +129,10 @@ function isTodoWriteTool(toolName: string): boolean {
               v-if="isTaskToolWithSubagent(tool.id, tool.name) && subagents?.[tool.id]"
               :subagent="subagents[tool.id]"
               @expand="emit('expandSubagent', tool.id)"
+            />
+            <QuestionToolCard
+              v-else-if="isAskUserQuestionTool(tool.name)"
+              :tool-call="tool"
             />
             <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @interrupt="emit('interrupt', $event)" @expand="emit('expandMcpTool', $event)" />
           </template>

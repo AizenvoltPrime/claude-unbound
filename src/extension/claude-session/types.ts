@@ -50,6 +50,7 @@ export interface StreamedToolInfo {
   toolName: string;
   messageId: string;
   parentToolUseId: string | null;
+  approved?: boolean;
 }
 
 /** Controller for streaming input mode - allows sending messages to an active query */

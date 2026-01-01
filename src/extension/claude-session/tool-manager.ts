@@ -29,8 +29,7 @@ export class ToolManager {
     context: { signal: AbortSignal },
     flushCallback: () => void
   ): Promise<ToolPermissionResult> {
-    flushCallback();
-
+    // Get the tool ID first
     const toolQueue = this.pendingToolQueue.get(toolName) ?? [];
     const queuedInfo = toolQueue.shift();
     if (queuedInfo) {
@@ -41,19 +40,29 @@ export class ToolManager {
     const toolUseId = queuedInfo?.toolUseId ?? null;
     const parentToolUseId = queuedInfo?.parentToolUseId ?? null;
 
+    // Mark as approved BEFORE flush to prevent sendAbandonedTools from
+    // abandoning this tool during flushPendingAssistant
+    if (toolUseId) {
+      const info = this.streamedToolIds.get(toolUseId);
+      if (info) {
+        info.approved = true;
+      }
+    }
+
+    // Now safe to flush - the tool won't be abandoned
+    flushCallback();
+
     const extendedContext = { ...context, toolUseID: toolUseId, parentToolUseId };
     const result = await this.permissionHandler.canUseTool(toolName, input, extendedContext);
 
     if (result.behavior === 'allow') {
-      if (toolUseId) {
-        this.streamedToolIds.delete(toolUseId);
-      }
       return {
         behavior: 'allow' as const,
         updatedInput: (result.updatedInput ?? input) as Record<string, unknown>,
       };
     }
 
+    // Tool was denied - delete from tracking and notify
     if (toolUseId) {
       this.streamedToolIds.delete(toolUseId);
       log('[ToolManager] Tool denied, sending toolFailed:', toolName, toolUseId);
@@ -93,11 +102,11 @@ export class ToolManager {
     return info;
   }
 
-  /** Send abandoned tools for a specific message ID */
+  /** Send abandoned tools for a specific message ID (only non-approved tools) */
   sendAbandonedTools(messageId: string): void {
     for (const [toolUseId, info] of this.streamedToolIds.entries()) {
-      if (info.messageId === messageId) {
-        log('[ToolManager] Tool was streamed but never executed, sending toolAbandoned:', info.toolName, toolUseId);
+      // Only abandon tools that were never approved (Claude changed course)
+      if (info.messageId === messageId && !info.approved) {
         this.callbacks.onMessage({
           type: 'toolAbandoned',
           toolUseId,
@@ -109,13 +118,27 @@ export class ToolManager {
     }
   }
 
+  /** Send abandoned for ALL remaining streamed tools (used on abort) */
+  sendAllAbandonedTools(): void {
+    for (const [toolUseId, info] of this.streamedToolIds.entries()) {
+      this.callbacks.onMessage({
+        type: 'toolAbandoned',
+        toolUseId,
+        toolName: info.toolName,
+        parentToolUseId: info.parentToolUseId,
+      });
+    }
+    this.streamedToolIds.clear();
+  }
+
   /** Handle PreToolUse hook - mark tool as used and notify UI */
   handlePreToolUse(toolName: string | undefined, toolUseId: string | undefined, input: unknown): void {
     if (toolName) {
       this.toolsUsedThisTurn = true;
     }
     if (toolName && toolUseId) {
-      this.streamedToolIds.delete(toolUseId);
+      // Don't delete from streamedToolIds here - keep tracking until completion
+      // so we can send toolAbandoned if stream is interrupted mid-execution
       this.callbacks.onMessage({
         type: 'toolPending',
         toolName,

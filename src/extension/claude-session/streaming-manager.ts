@@ -184,6 +184,8 @@ export class StreamingManager {
       onComplete();
 
       if (!receivedResult) {
+        this.toolManager.sendAllAbandonedTools();
+
         this._isProcessing = false;
         this.callbacks.onMessage({ type: 'processing', isProcessing: false });
         if (this._onTurnComplete) {

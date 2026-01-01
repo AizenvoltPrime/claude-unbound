@@ -18,6 +18,7 @@ import RewindBrowser from './components/RewindBrowser.vue';
 import RewindConfirmModal from './components/RewindConfirmModal.vue';
 import DeleteSessionModal from './components/DeleteSessionModal.vue';
 import PermissionPrompt from './components/PermissionPrompt.vue';
+import QuestionPrompt from './components/QuestionPrompt.vue';
 import TodoListCard from './components/TodoListCard.vue';
 import { useVSCode } from './composables/useVSCode';
 import { useMessageHandler } from './composables/useMessageHandler';
@@ -30,6 +31,7 @@ import {
   usePermissionStore,
   useStreamingStore,
   useSubagentStore,
+  useQuestionStore,
 } from './stores';
 import { Button } from '@/components/ui/button';
 import {
@@ -108,6 +110,9 @@ const { messages, streamingMessageId, expandedMcpTool } = storeToRefs(streamingS
 
 const subagentStore = useSubagentStore();
 const { subagents, expandedSubagent } = storeToRefs(subagentStore);
+
+const questionStore = useQuestionStore();
+const { pendingQuestion } = storeToRefs(questionStore);
 
 const messageContainerRef = ref<HTMLElement | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
@@ -390,6 +395,28 @@ function handleInterrupt(_toolId: string) {
   postMessage({ type: 'interrupt' });
 }
 
+function handleQuestionSubmit(answers: Record<string, string>) {
+  if (pendingQuestion.value) {
+    postMessage({
+      type: 'answerQuestion',
+      toolUseId: pendingQuestion.value.toolUseId,
+      answers,
+    });
+    questionStore.clearQuestion();
+  }
+}
+
+function handleQuestionCancel() {
+  if (pendingQuestion.value) {
+    postMessage({
+      type: 'answerQuestion',
+      toolUseId: pendingQuestion.value.toolUseId,
+      answers: null,
+    });
+    questionStore.clearQuestion();
+  }
+}
+
 function handleDismissBudgetWarning() {
   settingsStore.dismissBudgetWarning();
 }
@@ -599,14 +626,6 @@ const rewindMessagePreview = computed(() => {
       />
     </div>
 
-    <!-- Status Bar with witty phrases (above input) -->
-    <StatusBar
-      :is-processing="isProcessing"
-      :current-tool-name="currentRunningTool ?? undefined"
-    />
-
-    <SessionStats :stats="sessionStats" @open-log="handleOpenSessionLog" />
-
     <!-- Permission Prompt (queue - shows one at a time) -->
     <PermissionPrompt
       v-if="currentPermission"
@@ -622,6 +641,22 @@ const rewindMessagePreview = computed(() => {
       :queue-total="pendingPermissionCount"
       @approve="(approved, options) => handlePermissionApproval(currentPermission.toolUseId, approved, options)"
     />
+
+    <!-- Question Prompt for AskUserQuestion tool -->
+    <QuestionPrompt
+      v-if="pendingQuestion"
+      :visible="true"
+      @submit="handleQuestionSubmit"
+      @cancel="handleQuestionCancel"
+    />
+
+    <!-- Status Bar with witty phrases (above input) -->
+    <StatusBar
+      :is-processing="isProcessing"
+      :current-tool-name="currentRunningTool ?? undefined"
+    />
+
+    <SessionStats :stats="sessionStats" @open-log="handleOpenSessionLog" />
 
     <ChatInput
       ref="chatInputRef"

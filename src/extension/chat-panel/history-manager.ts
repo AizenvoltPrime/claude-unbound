@@ -197,10 +197,10 @@ export class HistoryManager {
       if (entry.type === "user" && entry.message && Array.isArray(entry.message.content)) {
         for (const block of entry.message.content as JsonlContentBlock[]) {
           if (block.type === "tool_result") {
-            if (entry.toolUseResult?.totalDurationMs !== undefined) {
+            if (this.shouldUseToolUseResultAsDisplay(entry.toolUseResult)) {
               toolResults.set(block.tool_use_id, {
                 result: JSON.stringify(entry.toolUseResult),
-                agentId: entry.toolUseResult.agentId,
+                agentId: entry.toolUseResult?.agentId,
               });
             } else {
               const result =
@@ -217,6 +217,16 @@ export class HistoryManager {
     }
 
     return toolResults;
+  }
+
+  private shouldUseToolUseResultAsDisplay(
+    toolUseResult: ClaudeSessionEntry["toolUseResult"]
+  ): boolean {
+    if (!toolUseResult) return false;
+    return (
+      toolUseResult.totalDurationMs !== undefined ||
+      toolUseResult.answers !== undefined
+    );
   }
 
   private collectTaskToolAgents(entries: ClaudeSessionEntry[]): Map<string, string> {

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { DiffManager } from './DiffManager';
-import type { FileEditInput, FileWriteInput, ExtensionToWebviewMessage, PermissionMode } from '../shared/types';
+import type { FileEditInput, FileWriteInput, ExtensionToWebviewMessage, PermissionMode, Question } from '../shared/types';
 
 export interface PermissionResult {
   behavior: 'allow' | 'deny';
@@ -27,9 +27,20 @@ interface PendingApproval {
   diffId?: string;
 }
 
+interface QuestionResult {
+  approved: boolean;
+  answers?: Record<string, string>;
+}
+
+interface PendingQuestion {
+  resolve: (result: QuestionResult) => void;
+  cleanup: () => void;
+}
+
 export class PermissionHandler {
   private diffManager: DiffManager;
   private pendingApprovals: Map<string, PendingApproval> = new Map();
+  private pendingQuestions: Map<string, PendingQuestion> = new Map();
   private postMessageToWebview: ((msg: ExtensionToWebviewMessage) => void) | null = null;
   private _permissionMode: PermissionMode = 'default';
 
@@ -93,6 +104,24 @@ export class PermissionHandler {
       }
 
       return { behavior: 'allow', updatedInput: input };
+    }
+
+    if (toolName === 'AskUserQuestion') {
+      const questions = input.questions as Question[] | undefined;
+      if (!questions || questions.length === 0) {
+        return { behavior: 'allow', updatedInput: { questions: [], answers: {} } };
+      }
+
+      const result = await this.requestQuestionFromWebview(questions, context);
+
+      if (!result.approved || !result.answers) {
+        return { behavior: 'deny', message: 'User cancelled the question prompt' };
+      }
+
+      return {
+        behavior: 'allow',
+        updatedInput: { questions, answers: result.answers },
+      };
     }
 
     // These tools are safe to auto-allow because they don't modify files or system state
@@ -248,6 +277,55 @@ export class PermissionHandler {
       customMessage: options?.customMessage,
     });
     this.pendingApprovals.delete(toolUseId);
+  }
+
+  private async requestQuestionFromWebview(
+    questions: Question[],
+    context: CanUseToolContext
+  ): Promise<QuestionResult> {
+    if (!this.postMessageToWebview) {
+      return { approved: false };
+    }
+
+    const toolUseId = context.toolUseID;
+    if (!toolUseId) {
+      return { approved: false };
+    }
+
+    return new Promise<QuestionResult>((resolve) => {
+      const abortHandler = () => {
+        this.pendingQuestions.delete(toolUseId);
+        resolve({ approved: false });
+      };
+
+      const cleanup = () => {
+        context.signal.removeEventListener('abort', abortHandler);
+      };
+
+      this.pendingQuestions.set(toolUseId, { resolve, cleanup });
+      context.signal.addEventListener('abort', abortHandler, { once: true });
+
+      this.postMessageToWebview!({
+        type: 'requestQuestion',
+        toolUseId,
+        questions,
+        parentToolUseId: context.parentToolUseId,
+      });
+    });
+  }
+
+  resolveQuestion(toolUseId: string, answers: Record<string, string> | null): void {
+    const pending = this.pendingQuestions.get(toolUseId);
+    if (!pending) {
+      return;
+    }
+
+    pending.cleanup();
+    pending.resolve({
+      approved: answers !== null,
+      answers: answers ?? undefined,
+    });
+    this.pendingQuestions.delete(toolUseId);
   }
 
   async dispose(): Promise<void> {

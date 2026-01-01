@@ -72,6 +72,13 @@ export interface ClaudeSessionEntry {
     totalDurationMs?: number;
     totalTokens?: number;
     totalToolUseCount?: number;
+    questions?: Array<{
+      question: string;
+      header?: string;
+      options: Array<{ label: string; description?: string }>;
+      multiSelect?: boolean;
+    }>;
+    answers?: Record<string, string>;
   };
 }
 

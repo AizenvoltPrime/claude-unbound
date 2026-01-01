@@ -8,6 +8,7 @@ import { useSessionStore } from "@/stores/useSessionStore";
 import { usePermissionStore } from "@/stores/usePermissionStore";
 import { useStreamingStore } from "@/stores/useStreamingStore";
 import { useSubagentStore } from "@/stores/useSubagentStore";
+import { useQuestionStore } from "@/stores/useQuestionStore";
 import type {
   ChatMessage,
   ToolCall,
@@ -51,6 +52,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
   const permissionStore = usePermissionStore();
   const streamingStore = useStreamingStore();
   const subagentStore = useSubagentStore();
+  const questionStore = useQuestionStore();
 
   onMounted(() => {
     onMessage((message) => {
@@ -211,6 +213,8 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         case "sessionCleared":
           streamingStore.$reset();
           subagentStore.$reset();
+          questionStore.$reset();
+          permissionStore.$reset();
           sessionStore.clearSessionData();
           sessionStore.setCurrentSession(null);
           sessionStore.setSelectedSession(null);
@@ -296,6 +300,19 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             originalContent: message.originalContent,
             proposedContent: message.proposedContent,
             command: message.command,
+            parentToolUseId,
+            agentDescription,
+          });
+          break;
+        }
+
+        case "requestQuestion": {
+          const parentToolUseId = message.parentToolUseId;
+          const agentDescription = parentToolUseId ? subagentStore.getSubagentDescription(parentToolUseId) : undefined;
+
+          questionStore.setQuestion({
+            toolUseId: message.toolUseId,
+            questions: message.questions,
             parentToolUseId,
             agentDescription,
           });
@@ -416,6 +433,8 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             streamingStore.finalizeStreamingMessage();
           }
           subagentStore.cancelRunningSubagents();
+          questionStore.$reset();
+          permissionStore.$reset();
           break;
 
         case "compactBoundary":

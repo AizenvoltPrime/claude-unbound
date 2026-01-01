@@ -240,6 +240,26 @@ export interface PendingPermissionInfo {
   agentDescription?: string;
 }
 
+// Question types for AskUserQuestion tool (matching SDK structure)
+export interface QuestionOption {
+  label: string;
+  description?: string;
+}
+
+export interface Question {
+  question: string;
+  header?: string;
+  options: QuestionOption[];
+  multiSelect?: boolean;
+}
+
+export interface PendingQuestionInfo {
+  toolUseId: string;
+  questions: Question[];
+  parentToolUseId?: string | null;
+  agentDescription?: string;
+}
+
 // ============================================================================
 // Tool Input Types
 // ============================================================================
@@ -397,7 +417,9 @@ export type WebviewToExtensionMessage =
   | { type: "queueMessage"; content: string }
   | { type: "cancelQueuedMessage"; messageId: string }
   // MCP server control
-  | { type: "toggleMcpServer"; serverName: string; enabled: boolean };
+  | { type: "toggleMcpServer"; serverName: string; enabled: boolean }
+  // AskUserQuestion response
+  | { type: "answerQuestion"; toolUseId: string; answers: Record<string, string> | null };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
@@ -487,7 +509,9 @@ export type ExtensionToWebviewMessage =
   | { type: "queueProcessed"; messageId: string }
   | { type: "queueCancelled"; messageId: string }
   // MCP configuration update (all servers with enabled state)
-  | { type: "mcpConfigUpdate"; servers: McpServerStatusInfo[] };
+  | { type: "mcpConfigUpdate"; servers: McpServerStatusInfo[] }
+  // AskUserQuestion request
+  | { type: "requestQuestion"; toolUseId: string; questions: Question[]; parentToolUseId?: string | null };
 
 // Chat message for UI rendering
 export interface ChatMessage {
