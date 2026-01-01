@@ -24,7 +24,8 @@ export class WorkspaceManager {
 
   async getCustomSlashCommands(): Promise<SlashCommandItem[]> {
     const customCommands = await this.slashCommandService.getCommands();
-    return [...BUILTIN_SLASH_COMMANDS, ...customCommands];
+    const allCommands = [...BUILTIN_SLASH_COMMANDS, ...customCommands];
+    return allCommands.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async sendCustomSlashCommands(panel: vscode.WebviewPanel): Promise<void> {

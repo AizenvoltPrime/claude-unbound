@@ -3,7 +3,7 @@ import { Fzf, byLengthAsc } from 'fzf';
 import { useVSCode } from './useVSCode';
 import type { ExtensionToWebviewMessage, SlashCommandItem } from '@shared/types';
 
-const MAX_VISIBLE_ITEMS = 10;
+const MAX_FILTERED_ITEMS = 50;
 
 export function useSlashCommandAutocomplete(
   inputText: Ref<string>,
@@ -21,13 +21,13 @@ export function useSlashCommandAutocomplete(
 
   const filteredCommands = computed(() => {
     if (!query.value) {
-      return commands.value.slice(0, MAX_VISIBLE_ITEMS);
+      return commands.value;
     }
 
     const fzf = new Fzf(commands.value, {
       selector: cmd => cmd.name,
       tiebreakers: [byLengthAsc],
-      limit: MAX_VISIBLE_ITEMS,
+      limit: MAX_FILTERED_ITEMS,
     });
 
     return fzf.find(query.value).map(result => result.item);
