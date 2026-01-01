@@ -77,6 +77,16 @@ export const useSettingsStore = defineStore('settings', () => {
     mcpServers.value = servers;
   }
 
+  function updateMcpServerStatuses(sdkStatuses: { name: string; status: string }[]) {
+    const statusMap = new Map(sdkStatuses.map(s => [s.name, s.status]));
+    mcpServers.value = mcpServers.value.map(server => ({
+      ...server,
+      status: server.enabled
+        ? (statusMap.get(server.name) as McpServerStatusInfo["status"]) || server.status
+        : "disabled",
+    }));
+  }
+
   function setBudgetWarning(currentSpend: number, limit: number, exceeded: boolean) {
     budgetWarning.value = { currentSpend, limit, exceeded };
   }
@@ -109,6 +119,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setAvailableModels,
     setAccountInfo,
     setMcpServers,
+    updateMcpServerStatuses,
     setBudgetWarning,
     dismissBudgetWarning,
     $reset,

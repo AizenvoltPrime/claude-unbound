@@ -6,6 +6,7 @@ import { IconCheck, IconExclamation } from '@/components/icons';
 
 const props = defineProps<{
   servers: McpServerStatusInfo[];
+  disabled?: boolean;
 }>();
 
 defineEmits<{
@@ -14,7 +15,7 @@ defineEmits<{
 
 const statusSummary = computed(() => {
   if (props.servers.length === 0) {
-    return { icon: null, label: '', color: '', text: '' };
+    return { icon: null, label: '', color: '', text: '', count: 0 };
   }
 
   const connected = props.servers.filter(s => s.status === 'connected').length;
@@ -28,6 +29,7 @@ const statusSummary = computed(() => {
       label: `MCP: ${connected}/${total} connecting`,
       color: 'text-warning',
       text: '...',
+      count: connected,
     };
   }
 
@@ -37,6 +39,7 @@ const statusSummary = computed(() => {
       label: `MCP: ${connected}/${total} (${failed} failed)`,
       color: 'text-error',
       text: '',
+      count: connected,
     };
   }
 
@@ -45,6 +48,7 @@ const statusSummary = computed(() => {
     label: `MCP: ${connected}/${total}`,
     color: 'text-success',
     text: '',
+    count: connected,
   };
 });
 
@@ -57,7 +61,9 @@ const hasServers = computed(() => props.servers.length > 0);
     variant="ghost"
     size="sm"
     class="h-auto py-1 px-2 text-xs hover:bg-muted hover:text-inherit"
+    :class="{ 'opacity-50 cursor-not-allowed': disabled }"
     :title="statusSummary.label"
+    :disabled="disabled"
     @click="$emit('click')"
   >
     <span
@@ -67,6 +73,6 @@ const hasServers = computed(() => props.servers.length > 0);
       <component v-if="statusSummary.icon" :is="statusSummary.icon" :size="12" />
       <span v-else class="text-[10px] font-bold">{{ statusSummary.text }}</span>
     </span>
-    <span class="hidden sm:inline opacity-70">{{ servers.length }} MCP</span>
+    <span class="hidden sm:inline opacity-70">{{ statusSummary.count }} MCP</span>
   </Button>
 </template>

@@ -79,7 +79,8 @@ export type McpServerConfig = McpStdioServerConfig | McpSseServerConfig | McpHtt
 // MCP Server status for UI display
 export interface McpServerStatusInfo {
   name: string;
-  status: "connected" | "failed" | "needs-auth" | "pending";
+  status: "connected" | "failed" | "needs-auth" | "pending" | "disabled" | "idle";
+  enabled: boolean;
   serverInfo?: {
     name: string;
     version: string;
@@ -394,7 +395,9 @@ export type WebviewToExtensionMessage =
   | { type: "requestCustomSlashCommands" }
   // Message queue injection
   | { type: "queueMessage"; content: string }
-  | { type: "cancelQueuedMessage"; messageId: string };
+  | { type: "cancelQueuedMessage"; messageId: string }
+  // MCP server control
+  | { type: "toggleMcpServer"; serverName: string; enabled: boolean };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
@@ -482,7 +485,9 @@ export type ExtensionToWebviewMessage =
   // Message queue injection
   | { type: "messageQueued"; message: QueuedMessage }
   | { type: "queueProcessed"; messageId: string }
-  | { type: "queueCancelled"; messageId: string };
+  | { type: "queueCancelled"; messageId: string }
+  // MCP configuration update (all servers with enabled state)
+  | { type: "mcpConfigUpdate"; servers: McpServerStatusInfo[] };
 
 // Chat message for UI rendering
 export interface ChatMessage {

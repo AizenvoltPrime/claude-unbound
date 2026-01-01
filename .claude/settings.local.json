@@ -154,9 +154,7 @@
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "context7",
-    "sequential-thinking",
-    "claude-compass"
+    "context7"
   ],
   "hooks": {
     "PreToolUse": [

@@ -27,6 +27,7 @@ const emit = defineEmits<{
   (e: "rewind"): void;
   (e: "interrupt", toolId: string): void;
   (e: "expandSubagent", subagentId: string): void;
+  (e: "expandMcpTool", toolId: string): void;
 }>();
 
 function isStreamingMessage(message: ChatMessage): boolean {
@@ -124,7 +125,7 @@ function isTodoWriteTool(toolName: string): boolean {
               :subagent="subagents[tool.id]"
               @expand="emit('expandSubagent', tool.id)"
             />
-            <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @interrupt="emit('interrupt', $event)" />
+            <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @interrupt="emit('interrupt', $event)" @expand="emit('expandMcpTool', $event)" />
           </template>
         </div>
 

@@ -51,7 +51,7 @@ export class ChatPanelProvider {
 
     this.sessionManager = new SessionManager({
       workspacePath: this.workspacePath,
-      getMcpServers: () => this.settingsManager.getMcpServers(),
+      getEnabledMcpServers: () => this.settingsManager.getEnabledMcpServers(),
       getMcpConfigLoaded: () => this.settingsManager.getMcpConfigLoaded(),
       loadMcpConfig: () => this.settingsManager.loadMcpConfig(),
       postMessage,

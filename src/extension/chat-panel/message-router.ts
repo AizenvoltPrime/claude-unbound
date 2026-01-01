@@ -110,17 +110,13 @@ export class MessageRouter {
       queueMessage: async (msg, ctx) => {
         if (msg.type !== "queueMessage" || !msg.content.trim()) return;
 
-        log("[MessageRouter] queueMessage: attempting SDK injection for panel", ctx.panelId);
-
         const queuedMessage = createQueuedMessage(msg.content);
         const injected = ctx.session.queueInput(msg.content, queuedMessage.id);
 
         if (injected) {
-          log("[MessageRouter] queueMessage: SDK injection successful");
           this.postMessage(ctx.panel, { type: "messageQueued", message: queuedMessage });
           this.storageManager.broadcastCommandHistoryEntry(msg.content.trim());
         } else {
-          log("[MessageRouter] queueMessage: SDK injection failed - no active streaming session");
           this.postMessage(ctx.panel, {
             type: "notification",
             message: "Cannot send mid-stream message: no active streaming session",
@@ -130,8 +126,7 @@ export class MessageRouter {
       },
 
       cancelQueuedMessage: async () => {
-        // SDK-injected messages cannot be cancelled - they're already in the SDK stream
-        log("[MessageRouter] cancelQueuedMessage: SDK-injected messages cannot be cancelled");
+        // SDK-injected messages cannot be cancelled
       },
 
       resumeSession: async (msg, ctx) => {
@@ -177,6 +172,7 @@ export class MessageRouter {
 
         this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
         this.settingsManager.sendAvailableModels(ctx.session, ctx.panel);
+        this.settingsManager.sendMcpConfig(ctx.panel);
 
         try {
           const { history, hasMore } = await extractCommandHistory(this.workspacePath, 0);
@@ -268,6 +264,14 @@ export class MessageRouter {
 
       requestSupportedCommands: async (msg, ctx) => {
         await this.settingsManager.sendSupportedCommands(ctx.session, ctx.panel);
+      },
+
+      toggleMcpServer: async (msg, ctx) => {
+        if (msg.type !== "toggleMcpServer") return;
+        await this.settingsManager.setServerEnabled(msg.serverName, msg.enabled);
+        ctx.session.setMcpServers(this.settingsManager.getEnabledMcpServers());
+        ctx.session.restartForMcpChanges();
+        this.settingsManager.sendMcpConfig(ctx.panel);
       },
 
       // VS Code operations

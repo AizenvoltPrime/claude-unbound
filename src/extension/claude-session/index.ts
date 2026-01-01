@@ -1,6 +1,7 @@
 import { log } from '../logger';
 import { persistQueuedMessage } from '../session';
 import type { SessionOptions, MessageCallbacks, RewindOption } from './types';
+import type { McpServerConfig } from '../../shared/types';
 import { ToolManager } from './tool-manager';
 import { StreamingManager, type CheckpointTracker } from './streaming-manager';
 import { CheckpointManager } from './checkpoint-manager';
@@ -138,14 +139,12 @@ export class ClaudeSession {
     }
 
     this.checkpointManager.currentPrompt = null;
-    if (this.checkpointManager.wasInterrupted) {
-      this.options.onMessage({ type: 'sessionCancelled' });
-    }
   }
 
   cancel(): void {
     this.checkpointManager.wasInterrupted = true;
     this.streamingManager.silentAbort = true;
+    this.options.onMessage({ type: 'sessionCancelled' });
     this.queryManager.abort();
     this.streamingManager.processing = false;
   }
@@ -163,6 +162,8 @@ export class ClaudeSession {
   async interrupt(): Promise<void> {
     this.checkpointManager.wasInterrupted = true;
     this.streamingManager.silentAbort = true;
+    this.options.onMessage({ type: 'sessionCancelled' });
+    this.streamingManager.processing = false;
     await this.queryManager.interrupt();
   }
 
@@ -176,7 +177,6 @@ export class ClaudeSession {
    * Returns true if the message was queued, false if no active session.
    */
   queueInput(content: string, messageId?: string): boolean {
-    log('[ClaudeSession] queueInput called, queuing for PostToolUse injection');
     const injected = this.queryManager.queueInput(content, messageId);
 
     if (injected) {
@@ -213,6 +213,15 @@ export class ClaudeSession {
 
   async getMcpServerStatus(): Promise<McpServerStatusInfo[]> {
     return this.queryManager.getMcpServerStatus();
+  }
+
+  setMcpServers(mcpServers: Record<string, McpServerConfig>): void {
+    this.queryManager.setMcpServers(mcpServers);
+  }
+
+  restartForMcpChanges(): void {
+    this.streamingManager.silentAbort = true;
+    this.queryManager.restartForMcpChanges();
   }
 
   async rewindFiles(userMessageId: string, option: RewindOption = 'code-only'): Promise<void> {

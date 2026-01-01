@@ -49,7 +49,9 @@ export const useSubagentStore = defineStore('subagent', () => {
   }
 
   function stopSubagent(_agentId: string): void {
-    // No-op - status is set via toolCompleted/toolFailed
+    // No-op: SDK fires SubagentStop BEFORE PostToolUse, so sdkAgentId isn't set yet.
+    // Normal completion: handled by completeSubagent() via toolCompleted
+    // Interrupt: handled by cancelRunningSubagents() via sessionCancelled
   }
 
   function completeSubagent(taskToolId: string): void {

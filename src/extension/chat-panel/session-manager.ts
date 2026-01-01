@@ -6,7 +6,7 @@ import type { ExtensionToWebviewMessage, McpServerConfig } from "../../shared/ty
 
 export interface SessionManagerConfig {
   workspacePath: string;
-  getMcpServers: () => Record<string, McpServerConfig>;
+  getEnabledMcpServers: () => Record<string, McpServerConfig>;
   getMcpConfigLoaded: () => boolean;
   loadMcpConfig: () => Promise<void>;
   postMessage: (panel: vscode.WebviewPanel, message: ExtensionToWebviewMessage) => void;
@@ -15,7 +15,7 @@ export interface SessionManagerConfig {
 
 export class SessionManager {
   private readonly workspacePath: string;
-  private readonly getMcpServers: SessionManagerConfig["getMcpServers"];
+  private readonly getEnabledMcpServers: SessionManagerConfig["getEnabledMcpServers"];
   private readonly getMcpConfigLoaded: SessionManagerConfig["getMcpConfigLoaded"];
   private readonly loadMcpConfig: SessionManagerConfig["loadMcpConfig"];
   private readonly postMessage: SessionManagerConfig["postMessage"];
@@ -23,7 +23,7 @@ export class SessionManager {
 
   constructor(config: SessionManagerConfig) {
     this.workspacePath = config.workspacePath;
-    this.getMcpServers = config.getMcpServers;
+    this.getEnabledMcpServers = config.getEnabledMcpServers;
     this.getMcpConfigLoaded = config.getMcpConfigLoaded;
     this.loadMcpConfig = config.loadMcpConfig;
     this.postMessage = config.postMessage;
@@ -48,7 +48,7 @@ export class SessionManager {
         this.postMessage(panel, { type: "sessionStarted", sessionId: sessionId || "" });
         this.setupSessionWatcher();
       },
-      mcpServers: this.getMcpServers(),
+      mcpServers: this.getEnabledMcpServers(),
     });
 
     return session;

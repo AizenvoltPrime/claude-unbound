@@ -10,11 +10,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import {
   IconCheckCircle,
   IconXCircle,
   IconKey,
   IconGear,
+  IconBan,
 } from '@/components/icons';
 import LoadingSpinner from './LoadingSpinner.vue';
 
@@ -26,6 +28,7 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'refresh'): void;
+  (e: 'toggle', serverName: string, enabled: boolean): void;
 }>();
 
 function getStatusIcon(status: McpServerStatusInfo['status']): Component | null {
@@ -38,6 +41,10 @@ function getStatusIcon(status: McpServerStatusInfo['status']): Component | null 
       return IconKey;
     case 'pending':
       return null;
+    case 'idle':
+      return IconGear;
+    case 'disabled':
+      return IconBan;
     default:
       return IconGear;
   }
@@ -53,6 +60,10 @@ function getStatusLabel(status: McpServerStatusInfo['status']): string {
       return 'Needs Authentication';
     case 'pending':
       return 'Connecting...';
+    case 'idle':
+      return 'Ready';
+    case 'disabled':
+      return 'Disabled';
     default:
       return 'Unknown';
   }
@@ -68,6 +79,10 @@ function getStatusClass(status: McpServerStatusInfo['status']): string {
       return 'text-warning';
     case 'pending':
       return 'text-primary';
+    case 'idle':
+      return 'text-muted-foreground';
+    case 'disabled':
+      return 'text-muted-foreground';
     default:
       return 'text-muted-foreground';
   }
@@ -77,7 +92,7 @@ function getStatusClass(status: McpServerStatusInfo['status']): string {
 <template>
   <Dialog :open="visible" @update:open="(open: boolean) => !open && emit('close')">
     <DialogContent class="bg-card border-border max-w-md max-h-96 overflow-hidden flex flex-col">
-      <DialogHeader class="flex flex-row items-center justify-between shrink-0">
+      <DialogHeader class="flex flex-row items-center justify-between shrink-0 pr-8">
         <div>
           <DialogTitle>MCP Servers</DialogTitle>
           <DialogDescription class="sr-only">
@@ -110,14 +125,20 @@ function getStatusClass(status: McpServerStatusInfo['status']): string {
                 <div class="flex items-center gap-2">
                   <LoadingSpinner v-if="server.status === 'pending'" :size="16" :class="getStatusClass(server.status)" />
                   <component v-else :is="getStatusIcon(server.status)" :size="16" :class="getStatusClass(server.status)" />
-                  <span class="font-medium">{{ server.name }}</span>
+                  <span class="font-medium" :class="{ 'opacity-50': !server.enabled }">{{ server.name }}</span>
                 </div>
-                <span
-                  class="text-xs px-2 py-0.5 rounded"
-                  :class="getStatusClass(server.status)"
-                >
-                  {{ getStatusLabel(server.status) }}
-                </span>
+                <div class="flex items-center gap-3">
+                  <span
+                    class="text-xs px-2 py-0.5 rounded"
+                    :class="getStatusClass(server.status)"
+                  >
+                    {{ getStatusLabel(server.status) }}
+                  </span>
+                  <Switch
+                    :checked="server.enabled"
+                    @update:checked="(checked: boolean) => emit('toggle', server.name, checked)"
+                  />
+                </div>
               </div>
 
               <div v-if="server.serverInfo" class="mt-2 text-xs opacity-70">

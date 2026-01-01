@@ -384,10 +384,11 @@ export class StreamingManager {
   private handleSystemMessage(message: Record<string, unknown>): void {
     const sysMsg = message as { subtype?: string; [key: string]: unknown };
     if (sysMsg.subtype === 'init') {
+      const mcpServers = (sysMsg.mcp_servers as { name: string; status: string }[]) || [];
       const initData: SystemInitData = {
         model: (sysMsg.model as string) || '',
         tools: (sysMsg.tools as string[]) || [],
-        mcpServers: (sysMsg.mcp_servers as { name: string; status: string }[]) || [],
+        mcpServers,
         permissionMode: (sysMsg.permissionMode as string) || 'default',
         slashCommands: (sysMsg.slash_commands as string[]) || [],
         apiKeySource: (sysMsg.apiKeySource as string) || '',

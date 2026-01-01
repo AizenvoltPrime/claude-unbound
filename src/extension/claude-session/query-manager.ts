@@ -174,6 +174,7 @@ export class QueryManager {
           }),
         },
       }),
+      // Pass MCP servers explicitly - SDK doesn't auto-discover from settings
       ...(this.options.mcpServers && Object.keys(this.options.mcpServers).length > 0 && {
         mcpServers: this.options.mcpServers,
       }),
@@ -186,6 +187,7 @@ export class QueryManager {
           () => this.streamingManager.flushPendingAssistant()
         );
       },
+      // Load all settings for hooks, CLAUDE.md, etc.
       settingSources: ['user', 'project', 'local'],
       systemPrompt: { type: 'preset', preset: 'claude_code' },
       tools: { type: 'preset', preset: 'claude_code' },
@@ -467,12 +469,15 @@ export class QueryManager {
 
   /** Close streaming input and reset query state */
   closeAndReset(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
     if (this._streamingInputController) {
       this._streamingInputController.close();
       this._streamingInputController = null;
     }
     this._currentQuery = null;
-    this.abortController = null;
     this._sessionInitializing = false;
     this._queuedMessages = [];
   }
@@ -484,6 +489,25 @@ export class QueryManager {
     this.cachedModels = null;
     this._currentModel = null;
     this.maxBudgetUsd = null;
+  }
+
+  /**
+   * Update MCP servers configuration.
+   * Called when user toggles MCP servers in the UI.
+   */
+  setMcpServers(mcpServers: Record<string, import('../../shared/types').McpServerConfig>): void {
+    this.options.mcpServers = mcpServers;
+  }
+
+  /**
+   * Close the query to trigger recreation with new MCP servers.
+   * Must call setMcpServers() first to update the configuration.
+   * Session ID is preserved - next query will resume.
+   */
+  restartForMcpChanges(): void {
+    if (this._streamingInputController) {
+      this.closeAndReset();
+    }
   }
 
   /** Set permission mode (fails silently if query not active) */

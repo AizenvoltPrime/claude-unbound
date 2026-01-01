@@ -11,6 +11,7 @@ import McpStatusIndicator from './components/McpStatusIndicator.vue';
 import McpStatusPanel from './components/McpStatusPanel.vue';
 import SubagentIndicator from './components/SubagentIndicator.vue';
 import SubagentOverlay from './components/SubagentOverlay.vue';
+import McpToolOverlay from './components/McpToolOverlay.vue';
 import StatusBar from './components/StatusBar.vue';
 import BudgetWarning from './components/BudgetWarning.vue';
 import RewindBrowser from './components/RewindBrowser.vue';
@@ -103,7 +104,7 @@ const permissionStore = usePermissionStore();
 const { currentPermission, pendingCount: pendingPermissionCount } = storeToRefs(permissionStore);
 
 const streamingStore = useStreamingStore();
-const { messages, streamingMessageId } = storeToRefs(streamingStore);
+const { messages, streamingMessageId, expandedMcpTool } = storeToRefs(streamingStore);
 
 const subagentStore = useSubagentStore();
 const { subagents, expandedSubagent } = storeToRefs(subagentStore);
@@ -352,6 +353,10 @@ function handleRefreshMcpStatus() {
   postMessage({ type: 'requestMcpStatus' });
 }
 
+function handleToggleMcpServer(serverName: string, enabled: boolean) {
+  postMessage({ type: 'toggleMcpServer', serverName, enabled });
+}
+
 function handleTypeSelected(option: RewindOption) {
   if (option === 'cancel') {
     uiStore.cancelTypeSelection();
@@ -410,6 +415,7 @@ const rewindMessagePreview = computed(() => {
       <!-- MCP Status Indicator -->
       <McpStatusIndicator
         :servers="mcpServers"
+        :disabled="isProcessing"
         @click="uiStore.openMcpPanel()"
       />
 
@@ -565,6 +571,7 @@ const rewindMessagePreview = computed(() => {
           @rewind="openRewindFlow"
           @interrupt="handleInterrupt"
           @expand-subagent="subagentStore.expandSubagent"
+          @expand-mcp-tool="streamingStore.expandMcpTool"
         />
       </div>
 
@@ -651,6 +658,7 @@ const rewindMessagePreview = computed(() => {
       :servers="mcpServers"
       @close="uiStore.closeMcpPanel()"
       @refresh="handleRefreshMcpStatus"
+      @toggle="handleToggleMcpServer"
     />
 
     <!-- Rewind Type Modal (pick rewind type first) -->
@@ -688,6 +696,13 @@ const rewindMessagePreview = computed(() => {
       @close="subagentStore.collapseSubagent"
       @interrupt="handleInterrupt"
       @open-log="handleOpenAgentLog"
+    />
+
+    <!-- MCP Tool Overlay (full-screen) -->
+    <McpToolOverlay
+      v-if="expandedMcpTool"
+      :tool="expandedMcpTool"
+      @close="streamingStore.collapseMcpTool"
     />
 
   </div>

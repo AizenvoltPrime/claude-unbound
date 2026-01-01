@@ -331,7 +331,14 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
 
         case "mcpServerStatus":
+        case "mcpConfigUpdate":
           settingsStore.setMcpServers(message.servers);
+          break;
+
+        case "systemInit":
+          if (message.data.mcpServers) {
+            settingsStore.updateMcpServerStatuses(message.data.mcpServers);
+          }
           break;
 
         case "budgetWarning":
@@ -401,7 +408,9 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
 
         case "sessionCancelled":
-          // Clear UI state when session is cancelled (ESC pressed)
+          if (!uiStore.isProcessing && !streamingStore.streamingMessageId) {
+            break;
+          }
           uiStore.setProcessing(false);
           if (streamingStore.streamingMessageId) {
             streamingStore.finalizeStreamingMessage();

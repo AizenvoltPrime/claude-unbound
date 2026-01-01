@@ -35,9 +35,18 @@ const props = defineProps<{
   toolCall: ToolCall;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'interrupt', toolId: string): void;
+  (e: 'expand', toolId: string): void;
 }>();
+
+const isMcpTool = computed(() => props.toolCall.name.startsWith('mcp__'));
+
+function handleCardClick(): void {
+  if (isMcpTool.value) {
+    emit('expand', props.toolCall.id);
+  }
+}
 
 const isDialogOpen = ref(false);
 
@@ -202,7 +211,11 @@ function formatInput(input: Record<string, unknown>): string {
 </script>
 
 <template>
-  <Card class="text-sm overflow-hidden" :class="cardClass">
+  <Card
+    class="text-sm overflow-hidden"
+    :class="[cardClass, isMcpTool ? 'cursor-pointer hover:border-primary/50 transition-colors' : '']"
+    @click="handleCardClick"
+  >
     <CardHeader class="flex flex-row items-center gap-2 px-3 py-1.5 bg-foreground/5 border-b border-border/50 space-y-0">
       <component :is="toolIconComponent" :size="18" class="text-foreground shrink-0" />
       <span class="text-foreground font-medium">{{ toolCall.name }}</span>

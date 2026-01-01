@@ -102,6 +102,13 @@ export class PermissionHandler {
       return { behavior: 'allow', updatedInput: input };
     }
 
+    // MCP tools are auto-allowed when the user has explicitly enabled the MCP server.
+    // This mirrors Claude Code CLI behavior: enabling a server = trusting its tools.
+    // The security boundary is at the server level, not individual tool level.
+    if (toolName.startsWith('mcp__')) {
+      return { behavior: 'allow', updatedInput: input };
+    }
+
     const result = await vscode.window.showInformationMessage(
       `Claude wants to use the "${toolName}" tool. Allow?`,
       { modal: true },

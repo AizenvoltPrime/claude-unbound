@@ -177,6 +177,14 @@
               "description": "Allow binding to local ports in sandbox"
             }
           }
+        },
+        "claude-unbound.disabledMcpServers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of MCP server names that are disabled"
         }
       }
     }

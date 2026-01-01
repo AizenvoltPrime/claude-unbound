@@ -40,8 +40,10 @@ export const useUIStore = defineStore('ui', () => {
     showSettingsPanel.value = false;
   }
 
-  function openMcpPanel() {
+  function openMcpPanel(): boolean {
+    if (isProcessing.value) return false;
     showMcpPanel.value = true;
+    return true;
   }
 
   function closeMcpPanel() {
