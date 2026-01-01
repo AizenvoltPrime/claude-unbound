@@ -156,7 +156,7 @@ useDoubleKeyStroke('Escape', () => {
   }
 });
 
-function handleSendMessage(content: string) {
+function handleSendMessage(content: string, includeIdeContext: boolean) {
   const trimmed = content.trim();
 
   if (trimmed === '/rewind' || trimmed.startsWith('/rewind ')) {
@@ -164,7 +164,7 @@ function handleSendMessage(content: string) {
     return;
   }
 
-  postMessage({ type: 'sendMessage', content });
+  postMessage({ type: 'sendMessage', content, includeIdeContext });
 }
 
 function handleQueueMessage(content: string) {
@@ -662,7 +662,6 @@ const rewindMessagePreview = computed(() => {
       ref="chatInputRef"
       :is-processing="isProcessing"
       :permission-mode="currentSettings.permissionMode"
-      :current-file="lastAccessedFile"
       :settings-open="showSettingsPanel"
       @send="handleSendMessage"
       @queue="handleQueueMessage"

@@ -6,6 +6,7 @@ import type {
   SessionOptions,
   StreamingInputController,
   MessageCallbacks,
+  TextContentBlock,
 } from './types';
 import { AGENT_DEFINITIONS } from './types';
 import type { ToolManager } from './tool-manager';
@@ -102,17 +103,18 @@ export class QueryManager {
       return;
     }
 
-    let resolveNext: ((content: string | null) => void) | null = null;
-
+    type ContentInput = string | TextContentBlock[];
     type UserMessage = {
       type: 'user';
-      message: { role: 'user'; content: string };
+      message: { role: 'user'; content: ContentInput };
       parent_tool_use_id: null;
     };
 
+    let resolveNext: ((content: ContentInput | null) => void) | null = null;
+
     async function* inputStream(): AsyncGenerator<UserMessage, void, unknown> {
       while (true) {
-        const content = await new Promise<string | null>(resolve => {
+        const content = await new Promise<ContentInput | null>(resolve => {
           resolveNext = resolve;
         });
         if (content === null) {
@@ -127,7 +129,7 @@ export class QueryManager {
     }
 
     this._streamingInputController = {
-      sendMessage: (content: string) => {
+      sendMessage: (content: ContentInput) => {
         if (resolveNext) {
           resolveNext(content);
         }
@@ -418,7 +420,7 @@ export class QueryManager {
   }
 
   /** Send message through streaming input controller */
-  sendMessage(content: string): Promise<void> {
+  sendMessage(content: string | Array<{ type: 'text'; text: string }>): Promise<void> {
     return new Promise<void>((resolve) => {
       this.streamingManager.onTurnComplete = resolve;
       this._streamingInputController?.sendMessage(content);

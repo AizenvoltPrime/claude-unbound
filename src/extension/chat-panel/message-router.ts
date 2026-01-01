@@ -12,6 +12,7 @@ import type {
   RewindOption,
 } from "../../shared/types";
 import type { PanelInstance } from "./types";
+import type { IdeContextManager } from "./ide-context-manager";
 import { getSessionFilePath, getAgentFilePath, renameSession, deleteSession, extractCommandHistory } from "../session";
 import { log } from "../logger";
 
@@ -29,6 +30,7 @@ interface HandlerContext {
   panel: vscode.WebviewPanel;
   session: ClaudeSession;
   permissionHandler: PermissionHandler;
+  ideContextManager: IdeContextManager;
   panelId: string;
 }
 
@@ -69,6 +71,7 @@ export class MessageRouter {
       panel: instance.panel,
       session: instance.session,
       permissionHandler: instance.permissionHandler,
+      ideContextManager: instance.ideContextManager,
       panelId,
     };
 
@@ -97,10 +100,13 @@ export class MessageRouter {
           this.postMessage(ctx.panel, { type: "userMessage", content: msg.content });
         }
 
-        // Broadcast to command history BEFORE awaiting - captures user intent immediately
         this.storageManager.broadcastCommandHistoryEntry(msg.content.trim());
 
-        await ctx.session.sendMessage(msg.content, msg.agentId);
+        const content = msg.includeIdeContext
+          ? ctx.ideContextManager.buildContentBlocks(msg.content)
+          : msg.content;
+
+        await ctx.session.sendMessage(content, msg.agentId);
       },
 
       cancelSession: (_msg, ctx) => {

@@ -613,6 +613,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         case "queueCancelled":
           streamingStore.removeQueuedMessage(message.messageId);
           break;
+
+        case "ideContextUpdate":
+          uiStore.setIdeContext(message.context);
+          break;
       }
 
       nextTick(() => {

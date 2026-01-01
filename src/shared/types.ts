@@ -115,6 +115,14 @@ export interface QueuedMessage {
   timestamp: number;
 }
 
+// IDE context display info (sent to webview for UI - actual content stays in extension)
+export interface IdeContextDisplayInfo {
+  type: "selection" | "opened_file";
+  filePath: string;
+  fileName: string;
+  lineCount?: number;
+}
+
 // ============================================================================
 // Session & Settings Types
 // ============================================================================
@@ -370,7 +378,7 @@ export interface ResultMessage {
 // Messages from Webview → Extension
 export type WebviewToExtensionMessage =
   | { type: "log"; message: string }
-  | { type: "sendMessage"; content: string; agentId?: string }
+  | { type: "sendMessage"; content: string; agentId?: string; includeIdeContext?: boolean }
   | { type: "cancelSession" }
   | { type: "resumeSession"; sessionId: string }
   | {
@@ -511,7 +519,9 @@ export type ExtensionToWebviewMessage =
   // MCP configuration update (all servers with enabled state)
   | { type: "mcpConfigUpdate"; servers: McpServerStatusInfo[] }
   // AskUserQuestion request
-  | { type: "requestQuestion"; toolUseId: string; questions: Question[]; parentToolUseId?: string | null };
+  | { type: "requestQuestion"; toolUseId: string; questions: Question[]; parentToolUseId?: string | null }
+  // IDE context update (active file/selection in editor)
+  | { type: "ideContextUpdate"; context: IdeContextDisplayInfo | null };
 
 // Chat message for UI rendering
 export interface ChatMessage {

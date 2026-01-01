@@ -8,24 +8,28 @@ import {
   IconBolt,
   IconClipboard,
   IconPlay,
+  IconEye,
+  IconCode,
 } from '@/components/icons';
 import { useCommandHistory } from '@/composables/useCommandHistory';
 import { useAtMentionAutocomplete } from '@/composables/useAtMentionAutocomplete';
 import { useSlashCommandAutocomplete } from '@/composables/useSlashCommandAutocomplete';
+import { useUIStore } from '@/stores/useUIStore';
 import AtMentionPopup from './AtMentionPopup.vue';
 import SlashCommandPopup from './SlashCommandPopup.vue';
+
+const uiStore = useUIStore();
 
 const MAX_TEXTAREA_HEIGHT = 200;
 
 const props = defineProps<{
   isProcessing: boolean;
   permissionMode: PermissionMode;
-  currentFile?: string;
   settingsOpen?: boolean;
 }>();
 
 const emit = defineEmits<{
-  send: [content: string];
+  send: [content: string, includeIdeContext: boolean];
   queue: [content: string];
   cancel: [];
   changeMode: [mode: PermissionMode];
@@ -136,6 +140,30 @@ function cycleMode() {
   emit('changeMode', modeOrder[nextIndex]);
 }
 
+const ideContextLabel = computed(() => {
+  const ctx = uiStore.ideContext;
+  if (!ctx) return 'No file';
+  if (ctx.type === 'selection' && ctx.lineCount) {
+    return `${ctx.lineCount} line${ctx.lineCount > 1 ? 's' : ''}`;
+  }
+  return ctx.fileName;
+});
+
+const ideContextEnabled = computed(() => {
+  return !!(uiStore.ideContext && uiStore.ideContextEnabled);
+});
+
+const ideContextTooltip = computed(() => {
+  const ctx = uiStore.ideContext;
+  const action = ideContextEnabled.value ? 'Click to exclude context' : 'Click to include context';
+  if (!ctx) return action;
+  return `${ctx.filePath}\n\n${action}`;
+});
+
+function toggleIdeContext() {
+  uiStore.toggleIdeContext();
+}
+
 function handleSend() {
   if (!canSend.value) return;
   const message = inputText.value.trim();
@@ -144,7 +172,7 @@ function handleSend() {
   if (props.isProcessing) {
     emit('queue', message);
   } else {
-    emit('send', message);
+    emit('send', message, ideContextEnabled.value);
   }
 
   inputText.value = '';
@@ -236,13 +264,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKeydown);
 });
-
-// Extract filename from path
-const displayFile = computed(() => {
-  if (!props.currentFile) return null;
-  const parts = props.currentFile.split(/[/\\]/);
-  return parts[parts.length - 1];
-});
 </script>
 
 <template>
@@ -302,11 +323,22 @@ const displayFile = computed(() => {
               <span>{{ currentModeConfig.label }}</span>
             </Button>
 
-            <!-- Current file indicator -->
-            <div v-if="displayFile" class="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span class="text-foreground">&lt;/&gt;</span>
-              <span>{{ displayFile }}</span>
-            </div>
+            <!-- IDE Context toggle -->
+            <button
+              class="flex items-center gap-1.5 text-xs transition-colors cursor-pointer"
+              :class="ideContextEnabled ? 'text-foreground' : 'text-muted-foreground/50'"
+              @click="toggleIdeContext"
+              :title="ideContextTooltip"
+            >
+              <component
+                :is="uiStore.ideContext?.type === 'selection' ? IconEye : IconCode"
+                :size="12"
+                :class="ideContextEnabled ? '' : 'opacity-50'"
+              />
+              <span :class="!ideContextEnabled && uiStore.ideContext ? 'line-through' : ''">
+                {{ ideContextLabel }}
+              </span>
+            </button>
           </div>
 
           <div class="flex items-center gap-3">

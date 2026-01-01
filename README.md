@@ -14,6 +14,7 @@
 - **Subagent Visualization**: Nested view of Task tool calls showing agent type, model, tool calls, and results
 - **Streaming Responses**: Watch Claude's responses as they're generated
 - **@ Mentions**: Type `@` to reference workspace files with fuzzy search autocomplete
+- **IDE Context**: Automatically include the active file or selected code in your message (toggleable in input bar)
 - **Slash Commands**: Type `/` for built-in commands (`/clear`, `/compact`, `/rewind`, etc.) and custom commands from `.claude/commands/`
 - **Command History**: Navigate previous prompts with arrow keys (shell-style)
 - **Session Management**: Create, rename, resume, and delete sessions with confirmation
@@ -49,6 +50,15 @@
 - `Ctrl+Shift+U` / `Cmd+Shift+U`: Focus the chat panel
 - `↑` / `↓`: Navigate through command history (like terminal shell)
 - `Escape`: Cancel current request (when processing)
+
+### IDE Context
+
+The input bar shows a context indicator that tracks your active editor:
+
+- **Eye icon + line count**: When you have code selected, shows "N lines"
+- **Code icon + filename**: When a file is open without selection, shows the filename
+
+Click the indicator to toggle whether the context is included in your next message. When enabled, the selected code (or entire file) is automatically injected into your prompt—no need to manually @mention or paste code.
 
 #### @ Mention Autocomplete
 

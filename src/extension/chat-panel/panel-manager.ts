@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { PermissionHandler } from "../PermissionHandler";
+import { IdeContextManager } from "./ide-context-manager";
 import type { ClaudeSession } from "../claude-session";
 import type { ExtensionToWebviewMessage, WebviewToExtensionMessage, StoredSession } from "../../shared/types";
 import type { PanelInstance } from "./types";
@@ -87,9 +88,13 @@ export class PanelManager {
     const permissionHandler = new PermissionHandler(this.extensionUri);
     permissionHandler.setPostMessage((msg) => this.postMessageToPanel(panel, msg));
 
+    const ideContextManager = new IdeContextManager("vscode-webview", (context) => {
+      this.postMessageToPanel(panel, { type: "ideContextUpdate", context });
+    });
+
     const session = await this.createSessionForPanel(panel, permissionHandler);
 
-    this.panels.set(panelId, { panel, session, permissionHandler, disposables: panelDisposables });
+    this.panels.set(panelId, { panel, session, permissionHandler, ideContextManager, disposables: panelDisposables });
 
     panelDisposables.push(
       panel.onDidChangeViewState((e) => {
@@ -130,6 +135,7 @@ export class PanelManager {
       if (instance) {
         instance.session.cancel();
         instance.permissionHandler.dispose();
+        instance.ideContextManager.dispose();
         instance.disposables.forEach((d) => d.dispose());
         this.panels.delete(panelId);
       }
@@ -168,6 +174,7 @@ export class PanelManager {
     for (const [, instance] of this.panels) {
       instance.session.cancel();
       instance.permissionHandler.dispose();
+      instance.ideContextManager.dispose();
       instance.disposables.forEach((d) => d.dispose());
       instance.panel.dispose();
     }

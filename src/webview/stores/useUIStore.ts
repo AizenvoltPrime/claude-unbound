@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { RewindHistoryItem } from '@shared/types';
+import type { RewindHistoryItem, IdeContextDisplayInfo } from '@shared/types';
 
 export const useUIStore = defineStore('ui', () => {
   const isProcessing = ref(false);
@@ -19,6 +19,8 @@ export const useUIStore = defineStore('ui', () => {
   const deletingSessionId = ref<string | null>(null);
   const showDeleteModal = ref(false);
   const todosPanelCollapsed = ref(false);
+  const ideContext = ref<IdeContextDisplayInfo | null>(null);
+  const ideContextEnabled = ref(true);
 
   function setProcessing(value: boolean) {
     isProcessing.value = value;
@@ -122,6 +124,14 @@ export const useUIStore = defineStore('ui', () => {
     todosPanelCollapsed.value = collapsed;
   }
 
+  function setIdeContext(context: IdeContextDisplayInfo | null) {
+    ideContext.value = context;
+  }
+
+  function toggleIdeContext() {
+    ideContextEnabled.value = !ideContextEnabled.value;
+  }
+
   function $reset() {
     isProcessing.value = false;
     isAtBottom.value = true;
@@ -139,6 +149,8 @@ export const useUIStore = defineStore('ui', () => {
     deletingSessionId.value = null;
     showDeleteModal.value = false;
     todosPanelCollapsed.value = false;
+    ideContext.value = null;
+    ideContextEnabled.value = true;
   }
 
   return {
@@ -180,6 +192,10 @@ export const useUIStore = defineStore('ui', () => {
     cancelDelete,
     todosPanelCollapsed,
     setTodosPanelCollapsed,
+    ideContext,
+    ideContextEnabled,
+    setIdeContext,
+    toggleIdeContext,
     $reset,
   };
 });

@@ -1,6 +1,7 @@
 import type * as vscode from "vscode";
 import type { ClaudeSession } from "../claude-session";
 import type { PermissionHandler } from "../PermissionHandler";
+import type { IdeContextManager } from "./ide-context-manager";
 import type {
   McpServerConfig,
   HistoryMessage,
@@ -16,6 +17,7 @@ export interface PanelInstance {
   panel: vscode.WebviewPanel;
   session: ClaudeSession;
   permissionHandler: PermissionHandler;
+  ideContextManager: IdeContextManager;
   disposables: vscode.Disposable[];
 }
 

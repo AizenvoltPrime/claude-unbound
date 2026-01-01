@@ -53,9 +53,12 @@ export interface StreamedToolInfo {
   approved?: boolean;
 }
 
+/** Content block for multi-part user messages */
+export type TextContentBlock = { type: 'text'; text: string };
+
 /** Controller for streaming input mode - allows sending messages to an active query */
 export interface StreamingInputController {
-  sendMessage: (content: string) => void;
+  sendMessage: (content: string | TextContentBlock[]) => void;
   close: () => void;
 }
 

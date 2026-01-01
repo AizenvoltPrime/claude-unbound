@@ -76,7 +76,10 @@ export class ClaudeSession {
     }
   }
 
-  async sendMessage(prompt: string, agentId?: string): Promise<void> {
+  async sendMessage(
+    prompt: string | Array<{ type: 'text'; text: string }>,
+    agentId?: string
+  ): Promise<void> {
     if (this.streamingManager.isProcessing) {
       this.options.onMessage({
         type: 'error',
@@ -102,9 +105,13 @@ export class ClaudeSession {
       this.checkpointManager.clearResumeSession();
     }
 
+    const plainPrompt = Array.isArray(prompt)
+      ? prompt.map(block => block.text).join('\n')
+      : prompt;
+
     this.streamingManager.processing = true;
     this.streamingManager.resetTurn();
-    this.checkpointManager.currentPrompt = prompt;
+    this.checkpointManager.currentPrompt = plainPrompt;
     this.checkpointManager.wasInterrupted = false;
 
     await this.queryManager.sendMessage(prompt);
