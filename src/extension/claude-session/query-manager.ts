@@ -12,6 +12,17 @@ import { AGENT_DEFINITIONS } from './types';
 import type { ToolManager } from './tool-manager';
 import type { StreamingManager } from './streaming-manager';
 import type { AccountInfo, ModelInfo, SlashCommandInfo, McpServerStatusInfo, PermissionMode, SandboxConfig } from '../../shared/types';
+import type {
+  PreToolUseHookInput,
+  PostToolUseHookInput,
+  PostToolUseFailureHookInput,
+  NotificationHookInput,
+  SessionStartHookInput,
+  SessionEndHookInput,
+  SubagentStartHookInput,
+  SubagentStopHookInput,
+  PreCompactHookInput,
+} from '@anthropic-ai/claude-agent-sdk';
 
 let queryFn: typeof import('@anthropic-ai/claude-agent-sdk').query | undefined;
 
@@ -264,7 +275,7 @@ export class QueryManager {
       PreToolUse: [{
         hooks: [
           async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-            const p = params as { tool_name?: string; tool_input?: unknown };
+            const p = params as PreToolUseHookInput;
             this.toolManager.handlePreToolUse(p.tool_name, toolUseId, p.tool_input);
             return {};
           },
@@ -273,7 +284,7 @@ export class QueryManager {
       PostToolUse: [{
         hooks: [
           async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-            const p = params as { tool_name?: string; tool_use_id?: string; tool_response?: unknown };
+            const p = params as PostToolUseHookInput;
             const id = toolUseId ?? p.tool_use_id;
             this.toolManager.handlePostToolUse(p.tool_name, id, p.tool_response);
 
@@ -329,7 +340,7 @@ export class QueryManager {
       PostToolUseFailure: [{
         hooks: [
           async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-            const p = params as { tool_name?: string; tool_use_id?: string; error?: string; is_interrupt?: boolean };
+            const p = params as PostToolUseFailureHookInput;
             const id = toolUseId ?? p.tool_use_id;
             this.toolManager.handlePostToolUseFailure(p.tool_name, id, p.error, p.is_interrupt);
             return {};
@@ -339,12 +350,12 @@ export class QueryManager {
       Notification: [{
         hooks: [
           async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as { message?: string; type?: string };
+            const p = params as NotificationHookInput;
             if (p.message) {
               this.callbacks.onMessage({
                 type: 'notification',
                 message: p.message,
-                notificationType: p.type || 'info',
+                notificationType: p.notification_type || 'info',
               } as import('../../shared/types').ExtensionToWebviewMessage);
             }
             return {};
@@ -354,7 +365,7 @@ export class QueryManager {
       SessionStart: [{
         hooks: [
           async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as { source?: 'startup' | 'resume' | 'clear' | 'compact' };
+            const p = params as SessionStartHookInput;
             this.callbacks.onMessage({
               type: 'sessionStart',
               source: p.source || 'startup',
@@ -366,7 +377,7 @@ export class QueryManager {
       SessionEnd: [{
         hooks: [
           async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as { reason?: string };
+            const p = params as SessionEndHookInput;
             this.callbacks.onMessage({
               type: 'sessionEnd',
               reason: p.reason || 'completed',
@@ -378,7 +389,7 @@ export class QueryManager {
       SubagentStart: [{
         hooks: [
           async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as { agent_id?: string; agent_type?: string };
+            const p = params as SubagentStartHookInput;
             if (p.agent_id) {
               this.callbacks.onMessage({
                 type: 'subagentStart',
@@ -393,7 +404,7 @@ export class QueryManager {
       SubagentStop: [{
         hooks: [
           async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as { agent_id?: string };
+            const p = params as SubagentStopHookInput;
             if (p.agent_id) {
               this.callbacks.onMessage({
                 type: 'subagentStop',
@@ -407,7 +418,7 @@ export class QueryManager {
       PreCompact: [{
         hooks: [
           async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as { trigger?: 'manual' | 'auto' };
+            const p = params as PreCompactHookInput;
             this.callbacks.onMessage({
               type: 'preCompact',
               trigger: p.trigger || 'auto',

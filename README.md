@@ -30,6 +30,7 @@
 - **Todo List**: Visual display of Claude's current task list with real-time progress tracking
 - **Message Queue**: Send messages while Claude is working - they're injected at the next tool boundary
 - **MCP Server Management**: Enable/disable MCP servers from the UI with settings persisted to Claude config
+- **Hooks Support**: Claude Code hooks (shell commands that run on events like tool calls) work automatically
 
 ## Installation
 
@@ -50,6 +51,7 @@
 - `Ctrl+Shift+U` / `Cmd+Shift+U`: Focus the chat panel
 - `↑` / `↓`: Navigate through command history (like terminal shell)
 - `Escape`: Cancel current request (when processing)
+- `Escape Escape`: Open rewind popup to restore previous state
 
 ### IDE Context
 
