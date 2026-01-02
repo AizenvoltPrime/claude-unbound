@@ -60,12 +60,12 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
       switch (message.type) {
         case "userMessage":
-          streamingStore.addUserMessage(message.content);
+          streamingStore.addUserMessage(message.content, false, undefined, undefined, message.correlationId);
           forceScrollToBottom = true;
           break;
 
         case "userMessageIdAssigned":
-          streamingStore.assignSdkIdToLastUserMessage(message.sdkMessageId);
+          streamingStore.assignSdkIdByCorrelationId(message.correlationId, message.sdkMessageId);
           break;
 
         case "assistant": {
@@ -624,6 +624,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
         case "queueCancelled":
           streamingStore.removeQueuedMessage(message.messageId);
+          break;
+
+        case "flushedMessagesAssigned":
+          streamingStore.assignSdkIdToFlushedMessage(message.queueMessageIds, message.sdkMessageId);
           break;
 
         case "ideContextUpdate":

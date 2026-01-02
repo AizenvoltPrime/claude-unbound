@@ -37,6 +37,9 @@ export class ClaudeSession {
     const callbacks: MessageCallbacks = {
       onMessage: options.onMessage,
       onSessionIdChange: options.onSessionIdChange,
+      onFlushedMessageComplete: async (content: string, queueMessageIds: string[]) => {
+        await this.assignFlushedMessageUuid(content, queueMessageIds);
+      },
     };
 
     const checkpointTracker: CheckpointTracker = {
@@ -48,6 +51,25 @@ export class ClaudeSession {
     this.checkpointManager = new CheckpointManager(options.cwd, callbacks);
     this.streamingManager = new StreamingManager(callbacks, this.toolManager, checkpointTracker, options.cwd);
     this.queryManager = new QueryManager(options, callbacks, this.toolManager, this.streamingManager);
+  }
+
+  private async assignFlushedMessageUuid(content: string, queueMessageIds: string[]): Promise<void> {
+    const sessionId = this.streamingManager.sessionId;
+    if (!sessionId) return;
+
+    const lastKnownUuid = this.streamingManager.lastUserMessageId;
+    const uuid = await this.checkpointManager.readFlushedMessageUuid(sessionId, content, lastKnownUuid);
+
+    if (uuid) {
+      this.streamingManager.lastUserMessageId = uuid;
+      if (queueMessageIds.length > 0) {
+        this.options.onMessage({
+          type: 'flushedMessagesAssigned',
+          queueMessageIds,
+          sdkMessageId: uuid,
+        });
+      }
+    }
   }
 
   get currentSessionId(): string | null {
@@ -78,7 +100,8 @@ export class ClaudeSession {
 
   async sendMessage(
     prompt: string | Array<{ type: 'text'; text: string }>,
-    agentId?: string
+    agentId?: string,
+    correlationId?: string
   ): Promise<void> {
     if (this.streamingManager.isProcessing) {
       this.options.onMessage({
@@ -114,16 +137,20 @@ export class ClaudeSession {
     this.checkpointManager.currentPrompt = plainPrompt;
     this.checkpointManager.wasInterrupted = false;
 
+    const lastKnownUserUuid = this.streamingManager.lastUserMessageId;
+
     await this.queryManager.sendMessage(prompt);
 
     const sessionId = this.streamingManager.sessionId;
-    if (sessionId && !this.checkpointManager.wasInterrupted) {
-      const uuid = await this.checkpointManager.readUserMessageUuid(sessionId);
+
+    if (sessionId && !this.checkpointManager.wasInterrupted && correlationId) {
+      const uuid = await this.checkpointManager.readUserMessageUuid(sessionId, lastKnownUserUuid);
       if (uuid) {
         this.streamingManager.lastUserMessageId = uuid;
         this.options.onMessage({
           type: 'userMessageIdAssigned',
           sdkMessageId: uuid,
+          correlationId,
         });
       }
     }
@@ -238,6 +265,8 @@ export class ClaudeSession {
     if (needsFileRewind && sessionId && !this.queryManager.query) {
       await this.queryManager.ensureStreamingQuery(sessionId, null);
     }
+
+    this.streamingManager.silentAbort = true;
 
     await this.checkpointManager.rewindFiles(
       userMessageId,

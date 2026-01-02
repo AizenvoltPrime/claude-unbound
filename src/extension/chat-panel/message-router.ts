@@ -95,9 +95,10 @@ export class MessageRouter {
         if (msg.type !== "sendMessage" || !msg.content.trim()) return;
 
         const isCompactCommand = msg.content.trim().toLowerCase() === "/compact";
+        const correlationId = `corr-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
         if (!isCompactCommand) {
-          this.postMessage(ctx.panel, { type: "userMessage", content: msg.content });
+          this.postMessage(ctx.panel, { type: "userMessage", content: msg.content, correlationId });
         }
 
         this.storageManager.broadcastCommandHistoryEntry(msg.content.trim());
@@ -106,7 +107,7 @@ export class MessageRouter {
           ? ctx.ideContextManager.buildContentBlocks(msg.content)
           : msg.content;
 
-        await ctx.session.sendMessage(content, msg.agentId);
+        await ctx.session.sendMessage(content, msg.agentId, correlationId);
       },
 
       cancelSession: (_msg, ctx) => {

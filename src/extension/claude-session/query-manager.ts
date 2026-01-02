@@ -489,6 +489,17 @@ export class QueryManager {
     }
 
     this.streamingManager.processing = true;
+
+    if (this.callbacks.onFlushedMessageComplete) {
+      const callback = this.callbacks.onFlushedMessageComplete;
+      this.streamingManager.onTurnComplete = () => {
+        log('[QueryManager] Flushed turn complete, triggering UUID assignment');
+        callback(combinedContent, messageIds).catch(err => {
+          log('[QueryManager] Error in onFlushedMessageComplete:', err);
+        });
+      };
+    }
+
     this._streamingInputController.sendMessage(combinedContent);
   }
 

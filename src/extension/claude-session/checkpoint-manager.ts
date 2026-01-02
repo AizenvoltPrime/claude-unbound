@@ -184,8 +184,8 @@ export class CheckpointManager {
     try {
       const prompt = this._currentPrompt;
       const sdkUserMessage = await retryWithBackoff(
-        () => findUserMessageInCurrentTurn(this.cwd, sessionId),
-        (msg) => msg !== null && msg.content.trim() === prompt.trim()
+        () => findUserMessageInCurrentTurn(this.cwd, sessionId, prompt),
+        (msg) => msg !== null
       );
 
       const sdkWroteUserMessage = sdkUserMessage !== null;
@@ -240,8 +240,9 @@ export class CheckpointManager {
 
   /**
    * Read user message UUID after successful message processing.
+   * @param excludeUuid - UUID to exclude (the previously known last user message)
    */
-  async readUserMessageUuid(sessionId: string): Promise<string | null> {
+  async readUserMessageUuid(sessionId: string, excludeUuid?: string | null): Promise<string | null> {
     if (!this._currentPrompt) {
       return null;
     }
@@ -249,13 +250,13 @@ export class CheckpointManager {
     try {
       const prompt = this._currentPrompt;
       const sdkUserMessage = await retryWithBackoff(
-        () => findUserMessageInCurrentTurn(this.cwd, sessionId),
-        (msg) => msg !== null && msg.content.trim() === prompt.trim()
+        () => findUserMessageInCurrentTurn(this.cwd, sessionId, prompt),
+        (msg) => msg !== null && (!excludeUuid || msg.uuid !== excludeUuid)
       );
 
       return sdkUserMessage?.uuid ?? null;
     } catch (err) {
-      log('[CheckpointManager] Error reading user message UUID from session file:', err);
+      log('[CheckpointManager] Error reading user message UUID:', err);
     }
 
     return null;
@@ -269,6 +270,27 @@ export class CheckpointManager {
       return await getLastMessageUuid(this.cwd, sessionId);
     } catch (err) {
       log('[CheckpointManager] getLastMessageUuid failed:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Read UUID for a flushed (queued) message after its turn completes.
+   */
+  async readFlushedMessageUuid(
+    sessionId: string,
+    content: string,
+    excludeUuid?: string | null
+  ): Promise<string | null> {
+    try {
+      const sdkUserMessage = await retryWithBackoff(
+        () => findUserMessageInCurrentTurn(this.cwd, sessionId, content),
+        (msg) => msg !== null && (!excludeUuid || msg.uuid !== excludeUuid)
+      );
+
+      return sdkUserMessage?.uuid ?? null;
+    } catch (err) {
+      log('[CheckpointManager] Error reading flushed message UUID:', err);
       return null;
     }
   }

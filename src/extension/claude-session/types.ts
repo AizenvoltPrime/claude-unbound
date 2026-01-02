@@ -22,6 +22,7 @@ export interface SessionOptions {
 export interface MessageCallbacks {
   onMessage: (message: ExtensionToWebviewMessage) => void;
   onSessionIdChange?: (sessionId: string | null) => void;
+  onFlushedMessageComplete?: (content: string, queueMessageIds: string[]) => Promise<void>;
 }
 
 /** Accumulated assistant message before flush */

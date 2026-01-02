@@ -434,8 +434,8 @@ export type ExtensionToWebviewMessage =
   | { type: "assistant"; data: AssistantMessage; parentToolUseId?: string | null }
   | { type: "partial"; data: PartialMessage; parentToolUseId?: string | null }
   | { type: "done"; data: ResultMessage }
-  | { type: "userMessage"; content: string }
-  | { type: "userMessageIdAssigned"; sdkMessageId: string }
+  | { type: "userMessage"; content: string; correlationId: string }
+  | { type: "userMessageIdAssigned"; sdkMessageId: string; correlationId: string }
   | { type: "toolPending"; toolUseId: string; toolName: string; input: unknown; parentToolUseId?: string | null }
   | { type: "error"; message: string }
   | { type: "sessionStarted"; sessionId: string }
@@ -517,6 +517,7 @@ export type ExtensionToWebviewMessage =
   | { type: "queueProcessed"; messageId: string }
   | { type: "queueBatchProcessed"; messageIds: string[]; combinedContent: string }
   | { type: "queueCancelled"; messageId: string }
+  | { type: "flushedMessagesAssigned"; queueMessageIds: string[]; sdkMessageId: string }
   // MCP configuration update (all servers with enabled state)
   | { type: "mcpConfigUpdate"; servers: McpServerStatusInfo[] }
   // AskUserQuestion request
@@ -528,6 +529,7 @@ export type ExtensionToWebviewMessage =
 export interface ChatMessage {
   id: string; // Unique ID for Vue rendering (stable for message lifetime)
   sdkMessageId?: string; // SDK message ID for identity matching (null until known)
+  correlationId?: string; // Correlation ID for matching userMessage with userMessageIdAssigned
   role: "user" | "assistant" | "error";
   content: string;
   contentBlocks?: ContentBlock[]; // Ordered content blocks from SDK for interleaved rendering

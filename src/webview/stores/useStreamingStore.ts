@@ -262,10 +262,11 @@ export const useStreamingStore = defineStore('streaming', () => {
     return thinkingBlocks.map((block) => block.thinking).join('\n\n');
   }
 
-  function addUserMessage(content: string, isReplay = false, sdkMessageId?: string, isInjected?: boolean): ChatMessage {
+  function addUserMessage(content: string, isReplay = false, sdkMessageId?: string, isInjected?: boolean, correlationId?: string): ChatMessage {
     const msg: ChatMessage = {
       id: generateId(),
       sdkMessageId,
+      correlationId,
       role: 'user',
       content,
       timestamp: Date.now(),
@@ -311,12 +312,11 @@ export const useStreamingStore = defineStore('streaming', () => {
     return msg;
   }
 
-  function assignSdkIdToLastUserMessage(sdkMessageId: string): void {
+  function assignSdkIdByCorrelationId(correlationId: string, sdkMessageId: string): void {
     for (let i = messages.value.length - 1; i >= 0; i--) {
       const msg = messages.value[i];
-      if (msg.role === 'user' && !msg.isInjected) {
+      if (msg.correlationId === correlationId) {
         if (msg.sdkMessageId !== sdkMessageId) {
-          console.log('[useStreamingStore] Updating SDK ID for user message at index', i, 'from', msg.sdkMessageId, 'to', sdkMessageId);
           const newMessages = [...messages.value];
           newMessages[i] = { ...msg, sdkMessageId };
           messages.value = newMessages;
@@ -324,7 +324,22 @@ export const useStreamingStore = defineStore('streaming', () => {
         return;
       }
     }
-    console.warn('[useStreamingStore] No non-injected user message found to assign SDK ID');
+  }
+
+  function assignSdkIdToFlushedMessage(queueMessageIds: string[], sdkMessageId: string): void {
+    if (queueMessageIds.length === 0) return;
+    const primaryId = queueMessageIds[0];
+    for (let i = messages.value.length - 1; i >= 0; i--) {
+      const msg = messages.value[i];
+      if (msg.id === primaryId) {
+        if (msg.sdkMessageId !== sdkMessageId) {
+          const newMessages = [...messages.value];
+          newMessages[i] = { ...msg, sdkMessageId };
+          messages.value = newMessages;
+        }
+        return;
+      }
+    }
   }
 
   function addQueuedMessage(message: QueuedMessage): void {
@@ -355,7 +370,6 @@ export const useStreamingStore = defineStore('streaming', () => {
   }
 
   function combineQueuedMessages(messageIds: string[], combinedContent: string): void {
-    console.log('[useStreamingStore] Combining', messageIds.length, 'queued messages into one');
     const idsSet = new Set(messageIds);
     const firstQueuedIndex = messages.value.findIndex(m => idsSet.has(m.id));
     const timestamp = firstQueuedIndex !== -1 ? messages.value[firstQueuedIndex].timestamp : Date.now();
@@ -363,7 +377,7 @@ export const useStreamingStore = defineStore('streaming', () => {
     messages.value = messages.value.filter(m => !idsSet.has(m.id));
 
     const combinedMessage: ChatMessage = {
-      id: generateId(),
+      id: messageIds[0],
       role: 'user',
       content: combinedContent,
       timestamp,
@@ -427,7 +441,8 @@ export const useStreamingStore = defineStore('streaming', () => {
     prependMessages,
     addMessage,
     truncateFromSdkMessageId,
-    assignSdkIdToLastUserMessage,
+    assignSdkIdByCorrelationId,
+    assignSdkIdToFlushedMessage,
     addQueuedMessage,
     markQueueProcessed,
     removeQueuedMessage,
