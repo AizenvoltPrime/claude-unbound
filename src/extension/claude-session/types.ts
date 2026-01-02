@@ -1,7 +1,6 @@
 import type { PermissionHandler } from '../PermissionHandler';
 import type {
   ExtensionToWebviewMessage,
-  AgentDefinition,
   McpServerConfig,
   ContentBlock,
 } from '../../shared/types';
@@ -73,28 +72,6 @@ export type ToolPermissionResult =
 
 /** Rewind option for file/conversation restoration */
 export type RewindOption = 'code-and-conversation' | 'conversation-only' | 'code-only';
-
-/** Agent definitions using proper SDK agents option */
-export const AGENT_DEFINITIONS: Record<string, AgentDefinition> = {
-  'code-reviewer': {
-    description: 'Expert code review and analysis',
-    prompt: 'You are an expert code reviewer. Focus on code quality, potential bugs, security issues, and best practices. Provide constructive feedback with specific suggestions. Do NOT modify files unless explicitly asked.',
-    tools: ['Read', 'Glob', 'Grep', 'LSP'],
-    model: 'inherit',
-  },
-  'explorer': {
-    description: 'Fast codebase exploration',
-    prompt: 'You are a fast codebase explorer. Focus on quickly finding files, understanding project structure, and answering questions about how code is organized. Prefer using Glob and Grep tools for efficiency.',
-    tools: ['Read', 'Glob', 'Grep', 'Bash', 'LSP'],
-    model: 'haiku',
-  },
-  'planner': {
-    description: 'Software architecture planning',
-    prompt: 'You are a software architect. Focus on designing implementation plans, identifying critical files, considering architectural trade-offs, and breaking down tasks into clear steps. Do NOT modify files - only analyze and plan.',
-    tools: ['Read', 'Glob', 'Grep', 'LSP'],
-    model: 'opus',
-  },
-};
 
 /** Creates fresh streaming content state */
 export function createEmptyStreamingContent(): StreamingContent {

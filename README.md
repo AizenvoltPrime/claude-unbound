@@ -13,7 +13,8 @@
 - **Tool Visualization**: See what tools Claude is using in real-time with expandable details
 - **Subagent Visualization**: Nested view of Task tool calls showing agent type, model, tool calls, and results
 - **Streaming Responses**: Watch Claude's responses as they're generated
-- **@ Mentions**: Type `@` to reference workspace files with fuzzy search autocomplete
+- **@ Mentions**: Type `@` to reference workspace files or agents (`@agent-Explore`, etc.) with fuzzy search autocomplete
+- **Custom Agents**: Define custom agents in `.claude/agents/*.md` (project) or `~/.claude/agents/*.md` (user)
 - **IDE Context**: Automatically include the active file or selected code in your message (toggleable in input bar)
 - **Slash Commands**: Type `/` for built-in commands (`/clear`, `/compact`, `/rewind`, etc.) and custom commands from `.claude/commands/`
 - **Command History**: Navigate previous prompts with arrow keys (shell-style)
@@ -64,10 +65,21 @@ Click the indicator to toggle whether the context is included in your next messa
 
 #### @ Mention Autocomplete
 
-- `@`: Trigger file autocomplete popup
+- `@`: Trigger autocomplete popup for files and agents
 - `↑` / `↓`: Navigate suggestions
-- `Tab` / `Enter`: Insert selected file
+- `Tab` / `Enter`: Insert selected item
 - `Escape`: Close popup
+
+**Mention types:**
+
+| Syntax | Description |
+|--------|-------------|
+| `@path/to/file.ts` | Reference a workspace file |
+| `@agent-Explore` | Use the fast codebase exploration agent |
+| `@agent-Plan` | Use the architecture planning agent |
+| `@agent-<name>` | Use a custom agent from `.claude/agents/` |
+
+Custom agents are loaded from `.claude/agents/*.md` (project) and `~/.claude/agents/*.md` (user). Project agents override user agents with the same name.
 
 #### Slash Command Autocomplete
 

@@ -8,7 +8,6 @@ import type {
   MessageCallbacks,
   TextContentBlock,
 } from './types';
-import { AGENT_DEFINITIONS } from './types';
 import type { ToolManager } from './tool-manager';
 import type { StreamingManager } from './streaming-manager';
 import type { AccountInfo, ModelInfo, SlashCommandInfo, McpServerStatusInfo, PermissionMode, SandboxConfig } from '../../shared/types';
@@ -191,7 +190,7 @@ export class QueryManager {
       ...(this.options.mcpServers && Object.keys(this.options.mcpServers).length > 0 && {
         mcpServers: this.options.mcpServers,
       }),
-      agents: AGENT_DEFINITIONS,
+      // Agents loaded from .claude/agents/ via settingSources
       canUseTool: async (toolName: string, input: Record<string, unknown>, context: { signal: AbortSignal }) => {
         return this.toolManager.handleCanUseTool(
           toolName,

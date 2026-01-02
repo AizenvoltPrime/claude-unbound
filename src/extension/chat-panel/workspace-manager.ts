@@ -1,9 +1,10 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { SlashCommandService } from "../SlashCommandService";
+import { CustomAgentService } from "../CustomAgentService";
 import { BUILTIN_SLASH_COMMANDS } from "../../shared/slashCommands";
 import { listWorkspaceFiles, type FileResult } from "../ripgrep";
-import type { ExtensionToWebviewMessage, SlashCommandItem, WorkspaceFileInfo } from "../../shared/types";
+import type { ExtensionToWebviewMessage, SlashCommandItem, WorkspaceFileInfo, CustomAgentInfo } from "../../shared/types";
 import { log } from "../logger";
 
 export interface WorkspaceManagerConfig {
@@ -15,11 +16,13 @@ export class WorkspaceManager {
   private readonly workspacePath: string;
   private readonly postMessage: WorkspaceManagerConfig["postMessage"];
   private readonly slashCommandService: SlashCommandService;
+  private readonly customAgentService: CustomAgentService;
 
   constructor(config: WorkspaceManagerConfig) {
     this.workspacePath = config.workspacePath;
     this.postMessage = config.postMessage;
     this.slashCommandService = new SlashCommandService(this.workspacePath);
+    this.customAgentService = new CustomAgentService(this.workspacePath);
   }
 
   async getCustomSlashCommands(): Promise<SlashCommandItem[]> {
@@ -35,6 +38,20 @@ export class WorkspaceManager {
     } catch (err) {
       log("[WorkspaceManager] Error fetching custom slash commands:", err);
       this.postMessage(panel, { type: "customSlashCommands", commands: BUILTIN_SLASH_COMMANDS });
+    }
+  }
+
+  async getCustomAgents(): Promise<CustomAgentInfo[]> {
+    return this.customAgentService.getCustomAgents();
+  }
+
+  async sendCustomAgents(panel: vscode.WebviewPanel): Promise<void> {
+    try {
+      const agents = await this.getCustomAgents();
+      this.postMessage(panel, { type: "customAgents", agents });
+    } catch (err) {
+      log("[WorkspaceManager] Error fetching custom agents:", err);
+      this.postMessage(panel, { type: "customAgents", agents: [] });
     }
   }
 
@@ -93,5 +110,6 @@ export class WorkspaceManager {
 
   dispose(): void {
     this.slashCommandService.dispose();
+    this.customAgentService.dispose();
   }
 }

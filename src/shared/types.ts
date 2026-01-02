@@ -421,6 +421,8 @@ export type WebviewToExtensionMessage =
   | { type: "openFile"; filePath: string; line?: number }
   // Custom slash commands from .claude/commands/
   | { type: "requestCustomSlashCommands" }
+  // Custom agents from .claude/agents/
+  | { type: "requestCustomAgents" }
   // Message queue injection
   | { type: "queueMessage"; content: string }
   | { type: "cancelQueuedMessage"; messageId: string }
@@ -512,6 +514,8 @@ export type ExtensionToWebviewMessage =
     }
   // Custom slash commands from .claude/commands/
   | { type: "customSlashCommands"; commands: SlashCommandItem[] }
+  // Custom agents from .claude/agents/
+  | { type: "customAgents"; agents: CustomAgentInfo[] }
   // Message queue injection
   | { type: "messageQueued"; message: QueuedMessage }
   | { type: "queueProcessed"; messageId: string }
@@ -600,9 +604,24 @@ export interface AgentConfig {
   icon: string;
 }
 
+export interface CustomAgentInfo {
+  name: string;
+  description: string;
+  source: "user" | "project";
+  model?: string;
+  tools?: string[];
+}
+
+export type AtMentionItem =
+  | { type: "file"; data: WorkspaceFileInfo }
+  | { type: "builtin-agent"; data: AgentConfig }
+  | { type: "custom-agent"; data: CustomAgentInfo };
+
+/** SDK built-in agents available for @agent-<id> autocomplete */
 export const AVAILABLE_AGENTS: AgentConfig[] = [
-  { id: "default", name: "Default", description: "General-purpose coding assistant", icon: "🤖" },
-  { id: "code-reviewer", name: "Code Reviewer", description: "Expert code review and analysis", icon: "🔍" },
-  { id: "explorer", name: "Explorer", description: "Fast codebase exploration", icon: "🗺️" },
-  { id: "planner", name: "Planner", description: "Software architecture planning", icon: "📋" },
+  { id: "general-purpose", name: "General Purpose", description: "General-purpose coding assistant", icon: "🤖" },
+  { id: "statusline-setup", name: "Statusline Setup", description: "Configure status line settings", icon: "⚙️" },
+  { id: "Explore", name: "Explore", description: "Fast codebase exploration", icon: "🗺️" },
+  { id: "Plan", name: "Plan", description: "Software architecture planning", icon: "📋" },
+  { id: "claude-code-guide", name: "Claude Code Guide", description: "Help with Claude Code usage", icon: "📖" },
 ];

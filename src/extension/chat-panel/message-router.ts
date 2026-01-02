@@ -420,6 +420,10 @@ export class MessageRouter {
       requestCustomSlashCommands: async (msg, ctx) => {
         await this.workspaceManager.sendCustomSlashCommands(ctx.panel);
       },
+
+      requestCustomAgents: async (msg, ctx) => {
+        await this.workspaceManager.sendCustomAgents(ctx.panel);
+      },
     };
   }
 

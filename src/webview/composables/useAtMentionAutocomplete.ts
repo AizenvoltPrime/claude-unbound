@@ -1,9 +1,29 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, type Ref } from 'vue';
 import { Fzf, byLengthAsc } from 'fzf';
 import { useVSCode } from './useVSCode';
-import type { ExtensionToWebviewMessage, WorkspaceFileInfo } from '@shared/types';
+import type {
+  ExtensionToWebviewMessage,
+  WorkspaceFileInfo,
+  CustomAgentInfo,
+  AtMentionItem,
+} from '@shared/types';
+import { AVAILABLE_AGENTS } from '@shared/types';
 
 const MAX_VISIBLE_ITEMS = 10;
+
+const builtinAgentItems: AtMentionItem[] = AVAILABLE_AGENTS
+  .map(a => ({ type: 'builtin-agent' as const, data: a }));
+
+function getItemSearchString(item: AtMentionItem): string {
+  switch (item.type) {
+    case 'file':
+      return `${item.data.relativePath} ${item.data.relativePath.split('/').pop() || ''}`;
+    case 'builtin-agent':
+      return `agent-${item.data.id} ${item.data.name} ${item.data.description}`;
+    case 'custom-agent':
+      return `agent-${item.data.name} ${item.data.description}`;
+  }
+}
 
 export function useAtMentionAutocomplete(
   inputText: Ref<string>,
@@ -16,17 +36,40 @@ export function useAtMentionAutocomplete(
   const atStartIndex = ref(-1);
   const selectedIndex = ref(0);
   const files = ref<WorkspaceFileInfo[]>([]);
+  const customAgents = ref<CustomAgentInfo[]>([]);
   const isLoading = ref(false);
   const filesLoaded = ref(false);
+  const customAgentsLoaded = ref(false);
 
-  const filteredFiles = computed(() => {
+  const filteredItems = computed((): AtMentionItem[] => {
+    const customAgentItems: AtMentionItem[] = customAgents.value.map(a => ({
+      type: 'custom-agent' as const,
+      data: a,
+    }));
+
+    const agentsByName = new Map<string, AtMentionItem>();
+    for (const item of builtinAgentItems) {
+      agentsByName.set(item.data.id, item);
+    }
+    for (const item of customAgentItems) {
+      agentsByName.set(item.data.name, item);
+    }
+    const allAgents = Array.from(agentsByName.values());
+
+    const fileItems: AtMentionItem[] = files.value.map(f => ({
+      type: 'file' as const,
+      data: f,
+    }));
+
+    const allItems = [...allAgents, ...fileItems];
+
     if (!query.value) {
-      return files.value.slice(0, MAX_VISIBLE_ITEMS);
+      return allItems.slice(0, MAX_VISIBLE_ITEMS);
     }
 
-    const searchItems = files.value.map(file => ({
-      original: file,
-      searchStr: `${file.relativePath} ${file.relativePath.split('/').pop() || ''}`,
+    const searchItems = allItems.map(item => ({
+      original: item,
+      searchStr: getItemSearchString(item),
     }));
 
     const fzf = new Fzf(searchItems, {
@@ -42,6 +85,16 @@ export function useAtMentionAutocomplete(
     if (message.type === 'workspaceFiles') {
       files.value = message.files;
       filesLoaded.value = true;
+      updateLoadingState();
+    } else if (message.type === 'customAgents') {
+      customAgents.value = message.agents;
+      customAgentsLoaded.value = true;
+      updateLoadingState();
+    }
+  }
+
+  function updateLoadingState() {
+    if (filesLoaded.value && customAgentsLoaded.value) {
       isLoading.value = false;
     }
   }
@@ -94,8 +147,8 @@ export function useAtMentionAutocomplete(
         open();
       }
 
-      if (selectedIndex.value >= filteredFiles.value.length) {
-        selectedIndex.value = Math.max(0, filteredFiles.value.length - 1);
+      if (selectedIndex.value >= filteredItems.value.length) {
+        selectedIndex.value = Math.max(0, filteredItems.value.length - 1);
       }
     } else {
       close();
@@ -103,10 +156,20 @@ export function useAtMentionAutocomplete(
   }
 
   function open() {
-    if (!filesLoaded.value && !isLoading.value) {
+    const needsFilesFetch = !filesLoaded.value;
+    const needsAgentsFetch = !customAgentsLoaded.value;
+
+    if ((needsFilesFetch || needsAgentsFetch) && !isLoading.value) {
       isLoading.value = true;
+    }
+
+    if (needsFilesFetch) {
       postMessage({ type: 'requestWorkspaceFiles' });
     }
+    if (needsAgentsFetch) {
+      postMessage({ type: 'requestCustomAgents' });
+    }
+
     isOpen.value = true;
     selectedIndex.value = 0;
   }
@@ -126,12 +189,12 @@ export function useAtMentionAutocomplete(
         if (selectedIndex.value > 0) {
           selectedIndex.value--;
         } else {
-          selectedIndex.value = filteredFiles.value.length - 1;
+          selectedIndex.value = filteredItems.value.length - 1;
         }
         return true;
 
       case 'ArrowDown':
-        if (selectedIndex.value < filteredFiles.value.length - 1) {
+        if (selectedIndex.value < filteredItems.value.length - 1) {
           selectedIndex.value++;
         } else {
           selectedIndex.value = 0;
@@ -140,8 +203,8 @@ export function useAtMentionAutocomplete(
 
       case 'Tab':
       case 'Enter':
-        if (filteredFiles.value.length > 0) {
-          insertMention(filteredFiles.value[selectedIndex.value]);
+        if (filteredItems.value.length > 0) {
+          insertMention(filteredItems.value[selectedIndex.value]);
           return true;
         }
         return false;
@@ -155,14 +218,26 @@ export function useAtMentionAutocomplete(
     }
   }
 
-  function insertMention(file: WorkspaceFileInfo) {
+  function insertMention(item: AtMentionItem) {
     const textarea = textareaRef.value;
     if (!textarea) return;
 
     const before = inputText.value.slice(0, atStartIndex.value);
     const after = inputText.value.slice(textarea.selectionStart);
 
-    const mention = `@${file.relativePath} `;
+    let mention: string;
+    switch (item.type) {
+      case 'file':
+        mention = `@${item.data.relativePath} `;
+        break;
+      case 'builtin-agent':
+        mention = `@agent-${item.data.id} `;
+        break;
+      case 'custom-agent':
+        mention = `@agent-${item.data.name} `;
+        break;
+    }
+
     inputText.value = before + mention + after;
 
     nextTick(() => {
@@ -175,8 +250,8 @@ export function useAtMentionAutocomplete(
   }
 
   function selectItem(index: number) {
-    if (index >= 0 && index < filteredFiles.value.length) {
-      insertMention(filteredFiles.value[index]);
+    if (index >= 0 && index < filteredItems.value.length) {
+      insertMention(filteredItems.value[index]);
     }
   }
 
@@ -184,7 +259,7 @@ export function useAtMentionAutocomplete(
     isOpen,
     query,
     selectedIndex,
-    filteredFiles,
+    filteredItems,
     isLoading,
     checkAndUpdateMention,
     handleKeyDown,

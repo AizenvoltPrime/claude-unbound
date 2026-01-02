@@ -43,7 +43,7 @@ const {
   isOpen: atMentionOpen,
   query: atMentionQuery,
   selectedIndex: atMentionSelectedIndex,
-  filteredFiles: atMentionFiles,
+  filteredItems: atMentionItems,
   isLoading: atMentionLoading,
   checkAndUpdateMention,
   handleKeyDown: handleAtMentionKeyDown,
@@ -271,12 +271,12 @@ onUnmounted(() => {
     <!-- @ Mention Autocomplete Popup -->
     <AtMentionPopup
       :is-open="atMentionOpen"
-      :files="atMentionFiles"
+      :items="atMentionItems"
       v-model:selected-index="atMentionSelectedIndex"
       :anchor-element="cardRef"
       :query="atMentionQuery"
       :is-loading="atMentionLoading"
-      @select="selectAtMentionItem(atMentionFiles.indexOf($event))"
+      @select="selectAtMentionItem(atMentionItems.indexOf($event))"
       @close="closeAtMention"
     />
 
