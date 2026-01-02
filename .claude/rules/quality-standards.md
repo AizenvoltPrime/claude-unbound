@@ -41,4 +41,4 @@ When working with this codebase, prioritize these architectural patterns:
 4. **Locality of Behavior**: Keep related code physically close together
 5. **Functional Approach**: Minimize OOP patterns in favor of functional programming where possible
 6. **Tailwind**: Use Tailwind wherever you can instead of custom CSS
-7. **Custom Components First**: Always prefer user-created custom components over DevExtreme equivalents where they exist
+7. **shadcn-vue First**: Prefer shadcn-vue components from `src/webview/components/ui/` over raw HTML elements

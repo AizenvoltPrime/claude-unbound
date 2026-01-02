@@ -44,57 +44,60 @@ npm run package       # Package for distribution
 
 ### Key Extension Files
 
-| File | Purpose |
-|------|---------|
-| `src/extension/claude-session/` | Claude Agent SDK integration (see module breakdown below) |
-| `src/extension/chat-panel/` | Webview panel management (see module breakdown below) |
-| `src/extension/PermissionHandler.ts` | Intercepts Edit/Write tools, shows diff for approval |
-| `src/extension/DiffManager.ts` | Manages concurrent diff views for file changes |
-| `src/extension/SlashCommandService.ts` | Discovers and executes custom slash commands |
-| `src/extension/ripgrep.ts` | Fast workspace file listing for @ mention autocomplete |
-| `src/extension/session/` | Session persistence module (see Session Storage below) |
-| `src/shared/types.ts` | All TypeScript types for extension↔webview communication |
+| File                                   | Purpose                                                   |
+| -------------------------------------- | --------------------------------------------------------- |
+| `src/extension/claude-session/`        | Claude Agent SDK integration (see module breakdown below) |
+| `src/extension/chat-panel/`            | Webview panel management (see module breakdown below)     |
+| `src/extension/PermissionHandler.ts`   | Intercepts Edit/Write tools, shows diff for approval      |
+| `src/extension/DiffManager.ts`         | Manages concurrent diff views for file changes            |
+| `src/extension/SlashCommandService.ts` | Discovers and executes custom slash commands              |
+| `src/extension/ripgrep.ts`             | Fast workspace file listing for @ mention autocomplete    |
+| `src/extension/session/`               | Session persistence module (see Session Storage below)    |
+| `src/shared/types.ts`                  | All TypeScript types for extension↔webview communication  |
 
 ### ClaudeSession Module (`claude-session/`)
 
 The SDK integration is modularized into focused managers wired together via dependency injection:
 
-| File | Responsibility |
-|------|----------------|
-| `index.ts` | Thin facade exposing public API, wires managers together |
-| `query-manager.ts` | SDK lifecycle, streaming query creation, model/permission config |
-| `streaming-manager.ts` | Message processing, content accumulation, turn management |
-| `tool-manager.ts` | Permission handling, tool use correlation, result tracking |
-| `checkpoint-manager.ts` | File checkpointing, rewind operations, cost tracking |
-| `types.ts` | Interfaces, agent definitions (`AGENT_DEFINITIONS`) |
-| `utils.ts` | Shared utility functions |
+| File                    | Responsibility                                                   |
+| ----------------------- | ---------------------------------------------------------------- |
+| `index.ts`              | Thin facade exposing public API, wires managers together         |
+| `query-manager.ts`      | SDK lifecycle, streaming query creation, model/permission config |
+| `streaming-manager.ts`  | Message processing, content accumulation, turn management        |
+| `tool-manager.ts`       | Permission handling, tool use correlation, result tracking       |
+| `checkpoint-manager.ts` | File checkpointing, rewind operations, cost tracking             |
+| `types.ts`              | Interfaces, agent definitions (`AGENT_DEFINITIONS`)              |
+| `utils.ts`              | Shared utility functions                                         |
 
 ### ChatPanel Module (`chat-panel/`)
 
 The webview panel management is modularized into focused managers:
 
-| File | Responsibility |
-|------|----------------|
-| `index.ts` | Public facade (ChatPanelProvider), wires managers together |
-| `panel-manager.ts` | Webview panel lifecycle, HTML generation, resource URIs |
-| `message-router.ts` | Handles all webview↔extension message routing |
-| `session-manager.ts` | ClaudeSession lifecycle, coordinates with claude-session module |
-| `settings-manager.ts` | Model/thinking/permission settings, MCP server management |
-| `history-manager.ts` | Session list, history pagination, session CRUD operations |
-| `storage-manager.ts` | Checkpoint persistence, rewind operations |
-| `workspace-manager.ts` | File indexing for @ mentions, workspace queries |
-| `types.ts` | Internal interfaces for manager communication |
+| File                     | Responsibility                                                       |
+| ------------------------ | -------------------------------------------------------------------- |
+| `index.ts`               | Public facade (ChatPanelProvider), wires managers together           |
+| `panel-manager.ts`       | Webview panel lifecycle, HTML generation, resource URIs              |
+| `message-router.ts`      | Handles all webview↔extension message routing                        |
+| `session-manager.ts`     | ClaudeSession lifecycle, coordinates with claude-session module      |
+| `settings-manager.ts`    | Model/thinking/permission settings, MCP server management            |
+| `history-manager.ts`     | Session list, history pagination, session CRUD operations            |
+| `storage-manager.ts`     | Checkpoint persistence, rewind operations                            |
+| `workspace-manager.ts`   | File indexing for @ mentions, workspace queries                      |
+| `ide-context-manager.ts` | Active editor tracking, selection context injection                  |
+| `queue-manager.ts`       | Message queuing while Claude is processing (tool boundary injection) |
+| `types.ts`               | Internal interfaces for manager communication                        |
 
 ### Webview State (Pinia Stores)
 
-| Store | Responsibility |
-|-------|----------------|
-| `useUIStore` | Panel visibility, processing state, scroll position |
-| `useSettingsStore` | Model selection, thinking tokens, permission mode, MCP servers |
-| `useSessionStore` | Session list, history pagination, checkpoints, stats |
-| `usePermissionStore` | Pending tool approvals queue |
-| `useStreamingStore` | Messages array, streaming message, tool status |
-| `useSubagentStore` | Subagent instances and their streaming states |
+| Store                | Responsibility                                                 |
+| -------------------- | -------------------------------------------------------------- |
+| `useUIStore`         | Panel visibility, processing state, scroll position            |
+| `useSettingsStore`   | Model selection, thinking tokens, permission mode, MCP servers |
+| `useSessionStore`    | Session list, history pagination, checkpoints, stats           |
+| `usePermissionStore` | Pending tool approvals queue                                   |
+| `useStreamingStore`  | Messages array, streaming message, tool status                 |
+| `useSubagentStore`   | Subagent instances and their streaming states                  |
+| `useQuestionStore`   | AskUserQuestion tool responses                                 |
 
 ### Communication Flow
 
@@ -130,31 +133,32 @@ The SDK is dynamically imported (ESM) since the extension uses CommonJS.
 ## Type Aliases
 
 Configured in both tsconfig.json and vite.config.ts:
+
 - `@shared/*` → `src/shared/*`
 - `@/*` → `src/webview/*` (webview only)
 
 ## Permission Modes
 
-| Mode | Behavior |
-|------|----------|
-| `default` | Shows diff view for Edit/Write, prompts for other tools |
-| `acceptEdits` | Auto-approves Edit/Write, prompts for Bash |
-| `bypassPermissions` | Auto-approves all tools |
-| `plan` | Read-only mode, no tool execution |
+| Mode                | Behavior                                                |
+| ------------------- | ------------------------------------------------------- |
+| `default`           | Shows diff view for Edit/Write, prompts for other tools |
+| `acceptEdits`       | Auto-approves Edit/Write, prompts for Bash              |
+| `bypassPermissions` | Auto-approves all tools                                 |
+| `plan`              | Read-only mode, no tool execution                       |
 
 ## Session Storage
 
 Sessions are stored in `~/.claude/projects/<encoded-workspace-path>/` as JSONL files. The `session/` module handles persistence:
 
-| File | Responsibility |
-|------|----------------|
-| `paths.ts` | Path encoding, session directory resolution |
-| `types.ts` | JSONL entry types, session interfaces |
-| `reading.ts` | List sessions, read entries, extract stats |
-| `writing.ts` | Initialize sessions, persist messages, rename/delete |
+| File          | Responsibility                                        |
+| ------------- | ----------------------------------------------------- |
+| `paths.ts`    | Path encoding, session directory resolution           |
+| `types.ts`    | JSONL entry types, session interfaces                 |
+| `reading.ts`  | List sessions, read entries, extract stats            |
+| `writing.ts`  | Initialize sessions, persist messages, rename/delete  |
 | `branches.ts` | Active branch resolution (handles conversation forks) |
-| `history.ts` | Command history extraction for up/down navigation |
-| `parsing.ts` | Parse content blocks from JSONL entries |
+| `history.ts`  | Command history extraction for up/down navigation     |
+| `parsing.ts`  | Parse content blocks from JSONL entries               |
 
 ## Code Quality Standards
 
