@@ -68,7 +68,7 @@ export interface StreamingInputController {
 /** Tool permission result from canUseTool callback */
 export type ToolPermissionResult =
   | { behavior: 'allow'; updatedInput: Record<string, unknown> }
-  | { behavior: 'deny'; message: string };
+  | { behavior: 'deny'; message: string; interrupt?: boolean };
 
 /** Rewind option for file/conversation restoration */
 export type RewindOption = 'code-and-conversation' | 'conversation-only' | 'code-only';

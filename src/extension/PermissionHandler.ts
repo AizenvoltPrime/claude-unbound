@@ -6,6 +6,7 @@ export interface PermissionResult {
   behavior: 'allow' | 'deny';
   message?: string;
   updatedInput?: unknown;
+  interrupt?: boolean;
 }
 
 export interface CanUseToolContext {
@@ -48,11 +49,21 @@ interface PendingPlanApproval {
   cleanup: () => void;
 }
 
+interface EnterPlanApprovalResult {
+  approved: boolean;
+}
+
+interface PendingEnterPlanApproval {
+  resolve: (result: EnterPlanApprovalResult) => void;
+  cleanup: () => void;
+}
+
 export class PermissionHandler {
   private diffManager: DiffManager;
   private pendingApprovals: Map<string, PendingApproval> = new Map();
   private pendingQuestions: Map<string, PendingQuestion> = new Map();
   private pendingPlanApprovals: Map<string, PendingPlanApproval> = new Map();
+  private pendingEnterPlanApprovals: Map<string, PendingEnterPlanApproval> = new Map();
   private postMessageToWebview: ((msg: ExtensionToWebviewMessage) => void) | null = null;
   private _permissionMode: PermissionMode = 'default';
 
@@ -84,7 +95,21 @@ export class PermissionHandler {
       return { behavior: 'allow', updatedInput: input };
     }
 
-    if (toolName === 'EnterPlanMode' && this._permissionMode === 'plan') {
+    if (toolName === 'EnterPlanMode') {
+      if (this._permissionMode === 'plan') {
+        return { behavior: 'allow', updatedInput: input };
+      }
+
+      const result = await this.requestEnterPlanApprovalFromWebview(context);
+
+      if (!result.approved) {
+        return {
+          behavior: 'deny',
+          message: 'User chose not to enter plan mode',
+          interrupt: true,
+        };
+      }
+
       return { behavior: 'allow', updatedInput: input };
     }
 
@@ -410,6 +435,46 @@ export class PermissionHandler {
       feedback: options?.feedback,
     });
     this.pendingPlanApprovals.delete(toolUseId);
+  }
+
+  private async requestEnterPlanApprovalFromWebview(
+    context: CanUseToolContext
+  ): Promise<EnterPlanApprovalResult> {
+    const toolUseId = context.toolUseID;
+    if (!toolUseId || !this.postMessageToWebview) {
+      return { approved: false };
+    }
+
+    return new Promise<EnterPlanApprovalResult>((resolve) => {
+      const abortHandler = () => {
+        this.pendingEnterPlanApprovals.delete(toolUseId);
+        resolve({ approved: false });
+      };
+
+      const cleanup = () => {
+        context.signal.removeEventListener('abort', abortHandler);
+      };
+
+      this.pendingEnterPlanApprovals.set(toolUseId, { resolve, cleanup });
+      context.signal.addEventListener('abort', abortHandler, { once: true });
+
+      this.postMessageToWebview!({
+        type: 'requestEnterPlanMode',
+        toolUseId,
+        parentToolUseId: context.parentToolUseId,
+      });
+    });
+  }
+
+  resolveEnterPlanApproval(toolUseId: string, approved: boolean): void {
+    const pending = this.pendingEnterPlanApprovals.get(toolUseId);
+    if (!pending) {
+      return;
+    }
+
+    pending.cleanup();
+    pending.resolve({ approved });
+    this.pendingEnterPlanApprovals.delete(toolUseId);
   }
 
   async dispose(): Promise<void> {

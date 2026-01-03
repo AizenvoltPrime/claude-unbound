@@ -20,6 +20,7 @@ import DeleteSessionModal from './components/DeleteSessionModal.vue';
 import PermissionPrompt from './components/PermissionPrompt.vue';
 import QuestionPrompt from './components/QuestionPrompt.vue';
 import PlanApprovalModal from './components/PlanApprovalModal.vue';
+import EnterPlanModePrompt from './components/EnterPlanModePrompt.vue';
 import TodoListCard from './components/TodoListCard.vue';
 import { useVSCode } from './composables/useVSCode';
 import { useMessageHandler } from './composables/useMessageHandler';
@@ -104,7 +105,7 @@ const {
 } = storeToRefs(sessionStore);
 
 const permissionStore = usePermissionStore();
-const { currentPermission, pendingCount: pendingPermissionCount, pendingPlanApproval } = storeToRefs(permissionStore);
+const { currentPermission, pendingCount: pendingPermissionCount, pendingPlanApproval, pendingEnterPlanApproval } = storeToRefs(permissionStore);
 
 const streamingStore = useStreamingStore();
 const { messages, streamingMessageId, expandedMcpTool } = storeToRefs(streamingStore);
@@ -457,6 +458,25 @@ function handlePlanCancel() {
   permissionStore.clearPendingPlanApproval();
 }
 
+function handleEnterPlanApprove(approved: boolean) {
+  if (!pendingEnterPlanApproval.value) return;
+  const toolUseId = pendingEnterPlanApproval.value.toolUseId;
+
+  if (approved) {
+    streamingStore.updateToolStatus(toolUseId, 'completed');
+    permissionStore.storeEnterPlanApproval(toolUseId);
+  } else {
+    streamingStore.updateToolStatus(toolUseId, 'denied');
+  }
+
+  postMessage({
+    type: 'approveEnterPlanMode',
+    toolUseId,
+    approved,
+  });
+  permissionStore.clearPendingEnterPlanApproval();
+}
+
 const rewindMessagePreview = computed(() => {
   return selectedRewindItem.value?.content.slice(0, 100) || '';
 });
@@ -683,6 +703,13 @@ const rewindMessagePreview = computed(() => {
       :visible="true"
       @submit="handleQuestionSubmit"
       @cancel="handleQuestionCancel"
+    />
+
+    <!-- Enter Plan Mode Prompt for EnterPlanMode tool -->
+    <EnterPlanModePrompt
+      v-if="pendingEnterPlanApproval"
+      :visible="true"
+      @approve="handleEnterPlanApprove"
     />
 
     <!-- Plan Approval Modal for ExitPlanMode tool -->

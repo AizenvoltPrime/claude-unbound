@@ -4,6 +4,7 @@ import type { ChatMessage, CompactMarker as CompactMarkerType, SubagentState, To
 import ToolCallCard from "./ToolCallCard.vue";
 import QuestionToolCard from "./QuestionToolCard.vue";
 import ExitPlanModeToolCard from "./ExitPlanModeToolCard.vue";
+import EnterPlanModeToolCard from "./EnterPlanModeToolCard.vue";
 import SubagentCard from "./SubagentCard.vue";
 import CompactMarker from "./CompactMarker.vue";
 import ThinkingIndicator from "./ThinkingIndicator.vue";
@@ -71,6 +72,10 @@ function isAskUserQuestionTool(toolName: string): boolean {
 
 function isExitPlanModeTool(toolName: string): boolean {
   return toolName === 'ExitPlanMode';
+}
+
+function isEnterPlanModeTool(toolName: string): boolean {
+  return toolName === 'EnterPlanMode';
 }
 
 function getToolCallById(message: ChatMessage, toolId: string): ToolCall | undefined {
@@ -186,6 +191,10 @@ function getTrailingStreamingText(message: ChatMessage): string {
                     v-else-if="isExitPlanModeTool(block.name)"
                     :tool-call="getToolCallById(message, block.id)!"
                   />
+                  <EnterPlanModeToolCard
+                    v-else-if="isEnterPlanModeTool(block.name)"
+                    :tool-call="getToolCallById(message, block.id)!"
+                  />
                   <ToolCallCard
                     v-else-if="!isTodoWriteTool(block.name)"
                     :tool-call="getToolCallById(message, block.id)!"
@@ -221,6 +230,10 @@ function getTrailingStreamingText(message: ChatMessage): string {
               />
               <ExitPlanModeToolCard
                 v-else-if="isExitPlanModeTool(tool.name)"
+                :tool-call="tool"
+              />
+              <EnterPlanModeToolCard
+                v-else-if="isEnterPlanModeTool(tool.name)"
                 :tool-call="tool"
               />
               <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @expand="emit('expandMcpTool', $event)" />

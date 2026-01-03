@@ -181,6 +181,16 @@ export class MessageRouter {
         }
       },
 
+      approveEnterPlanMode: async (msg, ctx) => {
+        if (msg.type !== "approveEnterPlanMode") return;
+        ctx.permissionHandler.resolveEnterPlanApproval(msg.toolUseId, msg.approved);
+
+        if (msg.approved) {
+          await this.settingsManager.handleSetPermissionMode(ctx.session, ctx.permissionHandler, "plan");
+          this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
+        }
+      },
+
       // Initialization
       ready: async (msg, ctx) => {
         try {

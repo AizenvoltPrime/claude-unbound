@@ -12,10 +12,16 @@ interface ApprovedPlanInfo {
   approvalMode: 'acceptEdits' | 'manual';
 }
 
+interface PendingEnterPlanApproval {
+  toolUseId: string;
+}
+
 export const usePermissionStore = defineStore('permission', () => {
   const pendingPermissions = ref<Record<string, PendingPermissionInfo>>({});
   const pendingPlanApproval = ref<PendingPlanApproval | null>(null);
+  const pendingEnterPlanApproval = ref<PendingEnterPlanApproval | null>(null);
   const approvedPlans = ref<Record<string, ApprovedPlanInfo>>({});
+  const approvedEnterPlanModes = ref<Record<string, true>>({});
 
   const currentPermission = computed(() => {
     const entries = Object.values(pendingPermissions.value);
@@ -43,7 +49,9 @@ export const usePermissionStore = defineStore('permission', () => {
   function $reset() {
     pendingPermissions.value = {};
     pendingPlanApproval.value = null;
+    pendingEnterPlanApproval.value = null;
     approvedPlans.value = {};
+    approvedEnterPlanModes.value = {};
   }
 
   function setPendingPlanApproval(info: PendingPlanApproval | null) {
@@ -71,6 +79,22 @@ export const usePermissionStore = defineStore('permission', () => {
     return approvedPlans.value[toolUseId] ?? null;
   }
 
+  function setPendingEnterPlanApproval(info: PendingEnterPlanApproval | null) {
+    pendingEnterPlanApproval.value = info;
+  }
+
+  function clearPendingEnterPlanApproval() {
+    pendingEnterPlanApproval.value = null;
+  }
+
+  function storeEnterPlanApproval(toolUseId: string) {
+    approvedEnterPlanModes.value = { ...approvedEnterPlanModes.value, [toolUseId]: true };
+  }
+
+  function isEnterPlanApproved(toolUseId: string): boolean {
+    return !!approvedEnterPlanModes.value[toolUseId];
+  }
+
   return {
     pendingPermissions,
     currentPermission,
@@ -83,6 +107,11 @@ export const usePermissionStore = defineStore('permission', () => {
     approvedPlans,
     storePlanApproval,
     getApprovedPlan,
+    pendingEnterPlanApproval,
+    setPendingEnterPlanApproval,
+    clearPendingEnterPlanApproval,
+    storeEnterPlanApproval,
+    isEnterPlanApproved,
     $reset,
   };
 });

@@ -438,6 +438,12 @@ export type WebviewToExtensionMessage =
       approved: boolean;
       approvalMode?: "acceptEdits" | "manual";
       feedback?: string;
+    }
+  // EnterPlanMode approval response
+  | {
+      type: "approveEnterPlanMode";
+      toolUseId: string;
+      approved: boolean;
     };
 
 // Messages from Extension → Webview
@@ -542,6 +548,12 @@ export type ExtensionToWebviewMessage =
       type: "requestPlanApproval";
       toolUseId: string;
       planContent: string;
+      parentToolUseId?: string | null;
+    }
+  // EnterPlanMode approval request
+  | {
+      type: "requestEnterPlanMode";
+      toolUseId: string;
       parentToolUseId?: string | null;
     };
 

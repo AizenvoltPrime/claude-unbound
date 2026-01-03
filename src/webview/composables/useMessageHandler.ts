@@ -343,6 +343,12 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           });
           break;
 
+        case "requestEnterPlanMode":
+          permissionStore.setPendingEnterPlanApproval({
+            toolUseId: message.toolUseId,
+          });
+          break;
+
         case "notification":
           switch (message.notificationType) {
             case "success":

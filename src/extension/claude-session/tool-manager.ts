@@ -71,13 +71,14 @@ export class ToolManager {
         toolUseId,
         toolName,
         error: result.message ?? 'Permission denied',
-        isInterrupt: false,
+        isInterrupt: result.interrupt ?? false,
         parentToolUseId,
       });
     }
     return {
       behavior: 'deny' as const,
       message: result.message ?? 'Permission denied',
+      interrupt: result.interrupt,
     };
   }
 
