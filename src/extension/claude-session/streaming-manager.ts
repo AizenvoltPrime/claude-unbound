@@ -268,6 +268,12 @@ export class StreamingManager {
         cache_creation_input_tokens: msg.message.usage.cache_creation_input_tokens ?? 0,
         cache_read_input_tokens: msg.message.usage.cache_read_input_tokens ?? 0,
       };
+      this.callbacks.onMessage({
+        type: 'tokenUsageUpdate',
+        inputTokens: this.lastAssistantUsage.input_tokens,
+        cacheCreationTokens: this.lastAssistantUsage.cache_creation_input_tokens,
+        cacheReadTokens: this.lastAssistantUsage.cache_read_input_tokens,
+      });
     }
 
     if (this._sessionId !== msg.session_id) {
@@ -601,13 +607,6 @@ export class StreamingManager {
       ? Object.values(resultMsg.modelUsage)[0]?.contextWindow ?? 200000
       : 200000;
 
-    const usage = this.lastAssistantUsage ?? {
-      input_tokens: 0,
-      output_tokens: 0,
-      cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0,
-    };
-
     this.callbacks.onMessage({
       type: 'done',
       data: {
@@ -615,9 +614,6 @@ export class StreamingManager {
         session_id: resultMsg.session_id,
         is_done: !resultMsg.is_error,
         total_cost_usd: resultMsg.total_cost_usd,
-        total_input_tokens: usage.input_tokens,
-        cache_creation_tokens: usage.cache_creation_input_tokens,
-        cache_read_tokens: usage.cache_read_input_tokens,
         total_output_tokens: resultMsg.usage?.output_tokens,
         num_turns: resultMsg.num_turns,
         context_window_size: contextWindowSize,

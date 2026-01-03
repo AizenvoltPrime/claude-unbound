@@ -178,10 +178,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           streamingStore.finalizeStreamingMessage();
           sessionStore.updateStats({
             ...(resultData.total_cost_usd !== undefined && { totalCostUsd: resultData.total_cost_usd }),
-            ...(resultData.total_input_tokens !== undefined && { totalInputTokens: resultData.total_input_tokens }),
             ...(resultData.total_output_tokens !== undefined && { totalOutputTokens: resultData.total_output_tokens }),
-            ...(resultData.cache_creation_tokens !== undefined && { cacheCreationTokens: resultData.cache_creation_tokens }),
-            ...(resultData.cache_read_tokens !== undefined && { cacheReadTokens: resultData.cache_read_tokens }),
             ...(resultData.num_turns !== undefined && { numTurns: resultData.num_turns }),
             ...(resultData.context_window_size !== undefined && { contextWindowSize: resultData.context_window_size }),
           });
@@ -190,6 +187,14 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           }
           break;
         }
+
+        case "tokenUsageUpdate":
+          sessionStore.updateStats({
+            totalInputTokens: message.inputTokens,
+            cacheCreationTokens: message.cacheCreationTokens,
+            cacheReadTokens: message.cacheReadTokens,
+          });
+          break;
 
         case "processing":
           uiStore.setProcessing(message.isProcessing);

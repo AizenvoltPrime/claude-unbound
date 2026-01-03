@@ -368,10 +368,7 @@ export interface ResultMessage {
   session_id: string;
   is_done: boolean;
   total_cost_usd?: number;
-  total_input_tokens?: number;
   total_output_tokens?: number;
-  cache_creation_tokens?: number;
-  cache_read_tokens?: number;
   num_turns?: number;
   context_window_size?: number;
 }
@@ -497,6 +494,8 @@ export type ExtensionToWebviewMessage =
   | { type: "todosUpdate"; todos: TodoItem[] }
   // New: Context usage for /context command
   | { type: "contextUsage"; data: ContextUsageData }
+  // Live token usage updates during streaming
+  | { type: "tokenUsageUpdate"; inputTokens: number; cacheCreationTokens: number; cacheReadTokens: number }
   // New: Rewind history for /rewind browser
   | { type: "rewindHistory"; prompts: RewindHistoryItem[] }
   // New: User message replay (for resumed sessions)

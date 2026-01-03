@@ -118,15 +118,18 @@ export class HistoryManager {
       const stats = await extractSessionStats(this.workspacePath, sessionId);
       if (stats) {
         this.postMessage(panel, {
+          type: "tokenUsageUpdate",
+          inputTokens: stats.totalInputTokens,
+          cacheCreationTokens: stats.cacheCreationTokens,
+          cacheReadTokens: stats.cacheReadTokens,
+        });
+        this.postMessage(panel, {
           type: "done",
           data: {
             type: "result",
             session_id: sessionId,
             is_done: true,
-            total_input_tokens: stats.totalInputTokens,
             total_output_tokens: stats.totalOutputTokens,
-            cache_creation_tokens: stats.cacheCreationTokens,
-            cache_read_tokens: stats.cacheReadTokens,
             num_turns: stats.numTurns,
             context_window_size: stats.contextWindowSize,
           },
