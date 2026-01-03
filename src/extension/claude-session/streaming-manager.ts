@@ -40,6 +40,12 @@ export class StreamingManager {
   private _silentAbort = false;
   private _onTurnEndFlush: (() => void) | null = null;
   private cwd: string;
+  private lastAssistantUsage: {
+    input_tokens: number;
+    output_tokens: number;
+    cache_creation_input_tokens: number;
+    cache_read_input_tokens: number;
+  } | null = null;
 
   constructor(
     private callbacks: MessageCallbacks,
@@ -237,11 +243,32 @@ export class StreamingManager {
   /** Handle assistant message from SDK */
   private handleAssistantMessage(message: Record<string, unknown>): void {
     const msg = message as {
-      message: { id: string; content: unknown[]; model: string; stop_reason: string | null };
+      message: {
+        id: string;
+        content: unknown[];
+        model: string;
+        stop_reason: string | null;
+        usage?: {
+          input_tokens?: number;
+          output_tokens?: number;
+          cache_creation_input_tokens?: number;
+          cache_read_input_tokens?: number;
+        };
+      };
       session_id: string;
       parent_tool_use_id?: string | null;
+      isSidechain?: boolean;
     };
     const parentToolUseId = msg.parent_tool_use_id ?? null;
+
+    if (!msg.isSidechain && msg.message.usage) {
+      this.lastAssistantUsage = {
+        input_tokens: msg.message.usage.input_tokens ?? 0,
+        output_tokens: msg.message.usage.output_tokens ?? 0,
+        cache_creation_input_tokens: msg.message.usage.cache_creation_input_tokens ?? 0,
+        cache_read_input_tokens: msg.message.usage.cache_read_input_tokens ?? 0,
+      };
+    }
 
     if (this._sessionId !== msg.session_id) {
       this.sessionId = msg.session_id;
@@ -574,12 +601,12 @@ export class StreamingManager {
       ? Object.values(resultMsg.modelUsage)[0]?.contextWindow ?? 200000
       : 200000;
 
-    const hadToolsThisTurn = this.toolManager.hadToolsThisTurn;
-    const divisor = hadToolsThisTurn ? 2 : 1;
-
-    const inputTokens = resultMsg.usage?.input_tokens ?? 0;
-    const cacheCreation = resultMsg.usage?.cache_creation_input_tokens ?? 0;
-    const cacheRead = resultMsg.usage?.cache_read_input_tokens ?? 0;
+    const usage = this.lastAssistantUsage ?? {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 0,
+    };
 
     this.callbacks.onMessage({
       type: 'done',
@@ -588,9 +615,9 @@ export class StreamingManager {
         session_id: resultMsg.session_id,
         is_done: !resultMsg.is_error,
         total_cost_usd: resultMsg.total_cost_usd,
-        total_input_tokens: Math.round(inputTokens / divisor),
-        cache_creation_tokens: Math.round(cacheCreation / divisor),
-        cache_read_tokens: Math.round(cacheRead / divisor),
+        total_input_tokens: usage.input_tokens,
+        cache_creation_tokens: usage.cache_creation_input_tokens,
+        cache_read_tokens: usage.cache_read_input_tokens,
         total_output_tokens: resultMsg.usage?.output_tokens,
         num_turns: resultMsg.num_turns,
         context_window_size: contextWindowSize,

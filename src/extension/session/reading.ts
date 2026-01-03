@@ -270,19 +270,14 @@ export async function extractSessionStats(
 
   const messageData = new Map<string, {
     usage: NonNullable<ClaudeSessionEntry['message']>['usage'];
-    hadTools: boolean;
   }>();
 
   for (const entry of assistantEntries) {
     const usage = entry.message?.usage;
     const messageId = entry.message?.id;
-    const content = entry.message?.content;
     if (!usage || !messageId) continue;
 
-    const hadTools = isContentBlockArray(content) &&
-      content.some(block => block.type === 'tool_use');
-
-    messageData.set(messageId, { usage, hadTools });
+    messageData.set(messageId, { usage });
   }
 
   let totalOutputTokens = 0;
@@ -293,8 +288,7 @@ export async function extractSessionStats(
   const lastEntry = Array.from(messageData.values()).pop();
   if (!lastEntry) return undefined;
 
-  const { usage, hadTools } = lastEntry;
-  const divisor = hadTools ? 2 : 1;
+  const { usage } = lastEntry;
 
   const inputTokens = usage?.input_tokens ?? 0;
   const cacheCreation = usage?.cache_creation_input_tokens ?? 0;
@@ -302,10 +296,10 @@ export async function extractSessionStats(
 
   return {
     totalCostUsd: 0,
-    totalInputTokens: Math.round(inputTokens / divisor),
+    totalInputTokens: inputTokens,
     totalOutputTokens,
-    cacheCreationTokens: Math.round(cacheCreation / divisor),
-    cacheReadTokens: Math.round(cacheRead / divisor),
+    cacheCreationTokens: cacheCreation,
+    cacheReadTokens: cacheRead,
     numTurns: messageData.size,
     contextWindowSize: 200000,
   };
