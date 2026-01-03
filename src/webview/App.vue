@@ -36,6 +36,7 @@ import {
   useQuestionStore,
 } from './stores';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   IconGear,
   IconClipboard,
@@ -488,12 +489,25 @@ const rewindMessagePreview = computed(() => {
   <div class="flex flex-col flex-1 min-h-0 bg-background text-foreground">
     <!-- Header bar with account info and controls -->
     <div class="px-3 py-1.5 text-xs border-b border-border/50 flex items-center gap-2 bg-card">
-      <div v-if="accountInfo" class="flex items-center gap-2 text-muted-foreground">
-        <span v-if="accountInfo.email">{{ accountInfo.email }}</span>
-        <span v-if="accountInfo.subscriptionType" class="px-1.5 py-0.5 rounded bg-primary/20 text-primary">
-          {{ accountInfo.subscriptionType }}
-        </span>
-      </div>
+      <Popover v-if="accountInfo?.subscriptionType">
+        <PopoverTrigger as-child>
+          <Button
+            variant="ghost"
+            size="sm"
+            class="h-auto px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 hover:text-primary"
+          >
+            {{ accountInfo.subscriptionType }}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          v-if="accountInfo.email"
+          side="right"
+          :side-offset="8"
+          class="w-auto p-2 text-[11px]"
+        >
+          {{ accountInfo.email }}
+        </PopoverContent>
+      </Popover>
 
       <div class="flex-1"></div>
 

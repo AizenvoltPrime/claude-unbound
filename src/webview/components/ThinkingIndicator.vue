@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/collapsible';
 import { IconBrain, IconChevronDown } from '@/components/icons';
 import { useTextStreaming } from '@/composables/useTextStreaming';
+import MarkdownRenderer from './MarkdownRenderer.vue';
 
 const props = defineProps<{
   thinking?: string;
@@ -130,9 +131,11 @@ onUnmounted(() => {
     <CollapsibleContent>
       <div
         v-if="hasContent"
-        class="mt-2 py-2 px-3 border-l-2 border-border bg-muted/30 rounded-r-md overflow-hidden max-h-64 overflow-y-auto"
+        class="thinking-container mt-2 py-2 px-3 border-l-2 border-border rounded-r-md overflow-hidden max-h-64 overflow-y-auto"
       >
-        <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">{{ isStreaming ? displayedContent : thinking }}</pre>
+        <div class="thinking-content text-xs text-muted-foreground font-mono">
+          <MarkdownRenderer :content="isStreaming ? displayedContent : thinking" />
+        </div>
       </div>
     </CollapsibleContent>
   </Collapsible>
@@ -140,6 +143,28 @@ onUnmounted(() => {
 
 <style scoped>
 .thinking-indicator {
-  font-size: var(--vscode-font-size, 13px);
+  font-size: var(--vscode-font-size, 0.813rem);
+}
+
+.thinking-container {
+  background-color: var(--vscode-textCodeBlock-background, hsl(var(--muted) / 0.5));
+}
+
+.thinking-content :deep(.markdown-renderer) {
+  color: var(--vscode-descriptionForeground);
+}
+
+.thinking-content :deep(.markdown-p) {
+  margin: 0.25rem 0;
+}
+
+.thinking-content :deep(.markdown-heading) {
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.9em;
+}
+
+.thinking-content :deep(.inline-code) {
+  font-size: 0.9em;
 }
 </style>

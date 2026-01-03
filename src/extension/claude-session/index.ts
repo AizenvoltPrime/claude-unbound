@@ -99,6 +99,11 @@ export class ClaudeSession {
     }
   }
 
+  async initializeEarly(): Promise<void> {
+    const sessionToResume = this.checkpointManager.resumeSessionId || this.streamingManager.sessionId;
+    await this.queryManager.ensureStreamingQuery(sessionToResume ?? undefined, null);
+  }
+
   async sendMessage(
     prompt: ContentInput,
     agentId?: string,

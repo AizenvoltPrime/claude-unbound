@@ -247,6 +247,8 @@ export class MessageRouter {
             log("[MessageRouter] Error auto-resuming session:", err);
             this.postMessage(ctx.panel, { type: "sessionStarted", sessionId: msg.savedSessionId });
           }
+        } else {
+          await ctx.session.initializeEarly();
         }
       },
 
