@@ -3,22 +3,27 @@ import { computed } from 'vue';
 import type { ToolCall } from '@shared/types';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import {
-  IconCompass,
+  IconSparkles,
   IconCheckCircle,
   IconXCircle,
   IconBan,
   IconMessageSquare,
 } from '@/components/icons';
 import LoadingSpinner from './LoadingSpinner.vue';
-import { usePermissionStore } from '@/stores/usePermissionStore';
 
 const props = defineProps<{
   toolCall: ToolCall;
 }>();
 
-const permissionStore = usePermissionStore();
+const skillName = computed(() => {
+  const input = props.toolCall.input;
+  return typeof input?.skill === 'string' ? input.skill : 'Unknown skill';
+});
 
-const isApproved = computed(() => permissionStore.isEnterPlanApproved(props.toolCall.id));
+const skillDescription = computed(() => {
+  const metadata = props.toolCall.metadata;
+  return typeof metadata?.skillDescription === 'string' ? metadata.skillDescription : undefined;
+});
 
 const isPending = computed(() => props.toolCall.status === 'pending');
 const isRunning = computed(() => props.toolCall.status === 'running');
@@ -53,17 +58,17 @@ const cardClass = computed(() => {
 });
 
 const headerText = computed(() => {
-  if (isCompleted.value) return 'Plan mode entered';
-  if (isDenied.value) return 'Plan mode declined';
-  if (isAbandoned.value) return 'Plan mode skipped';
-  return 'Enter plan mode?';
+  if (isCompleted.value) return `Skill "${skillName.value}" executed`;
+  if (isDenied.value) return `Skill "${skillName.value}" denied`;
+  if (isAbandoned.value) return `Skill "${skillName.value}" skipped`;
+  return `Use skill "${skillName.value}"?`;
 });
 </script>
 
 <template>
   <Card class="text-sm overflow-hidden" :class="cardClass">
     <CardHeader class="flex flex-row items-center gap-2 px-3 py-2 bg-primary/10 border-b border-border/50 space-y-0">
-      <IconCompass :size="18" class="text-primary shrink-0" />
+      <IconSparkles :size="18" class="text-primary shrink-0" />
       <span class="text-foreground font-medium flex-1">{{ headerText }}</span>
 
       <LoadingSpinner v-if="isPending || isRunning || isAwaitingApproval" :size="16" :class="statusClass" class="shrink-0" />
@@ -71,22 +76,26 @@ const headerText = computed(() => {
     </CardHeader>
 
     <CardContent class="p-0">
-      <!-- Status messages -->
-      <div v-if="isAwaitingApproval" class="px-3 py-2 bg-primary/10 border-t border-primary/20">
+      <!-- Skill description -->
+      <div v-if="skillDescription" class="px-3 py-2 text-xs text-muted-foreground">
+        {{ skillDescription }}
+      </div>
+
+      <div v-if="isAwaitingApproval" class="px-3 py-2 bg-primary/10" :class="{ 'border-t border-primary/20': !skillDescription }">
         <div class="flex items-center gap-2 text-xs text-primary">
           <span class="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
           <span>Waiting for your approval...</span>
         </div>
       </div>
 
-      <div v-else-if="isCompleted" class="px-3 py-2 bg-success/10 border-t border-success/20">
+      <div v-else-if="isCompleted" class="px-3 py-2 bg-success/10" :class="{ 'border-t border-success/20': !skillDescription }">
         <div class="flex items-center gap-2 text-xs text-success">
           <IconCheckCircle :size="12" />
-          <span>Now exploring and designing an implementation approach</span>
+          <span>Skill executed successfully</span>
         </div>
       </div>
 
-      <div v-else-if="isDenied" class="px-3 py-2 bg-error/10 border-t border-error/20">
+      <div v-else-if="isDenied" class="px-3 py-2 bg-error/10" :class="{ 'border-t border-error/20': !skillDescription }">
         <div v-if="toolCall.feedback" class="space-y-1">
           <div class="flex items-center gap-2 text-xs text-error/80">
             <IconMessageSquare :size="12" />
@@ -96,14 +105,14 @@ const headerText = computed(() => {
         </div>
         <div v-else class="flex items-center gap-2 text-xs text-error/80">
           <IconXCircle :size="12" />
-          <span>User chose to start implementing directly</span>
+          <span>User denied skill execution</span>
         </div>
       </div>
 
-      <div v-else-if="isAbandoned" class="px-3 py-2 bg-muted/30 border-t border-border/30">
+      <div v-else-if="isAbandoned" class="px-3 py-2 bg-muted/30" :class="{ 'border-t border-border/30': !skillDescription }">
         <div class="flex items-center gap-2 text-xs text-muted-foreground">
           <IconBan :size="12" />
-          <span>Plan mode request was skipped</span>
+          <span>Skill request was skipped</span>
         </div>
       </div>
     </CardContent>

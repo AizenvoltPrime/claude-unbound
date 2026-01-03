@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { extractSlashCommandDisplay } from "../../shared/utils";
+import { loadSkillDescription } from "../skills/utils";
 import {
   readSessionEntriesPaginated,
   readActiveBranchEntries,
@@ -11,12 +12,13 @@ import {
   type JsonlContentBlock,
   type ClaudeSessionEntry,
 } from "../session";
-import type {
-  ExtensionToWebviewMessage,
-  HistoryMessage,
-  HistoryToolCall,
-  RewindHistoryItem,
-  ContentBlock,
+import {
+  FEEDBACK_MARKER,
+  type ExtensionToWebviewMessage,
+  type HistoryMessage,
+  type HistoryToolCall,
+  type RewindHistoryItem,
+  type ContentBlock,
 } from "../../shared/types";
 import { HISTORY_PAGE_SIZE, TOOL_RESULT_MAX_LENGTH } from "./types";
 import { log } from "../logger";
@@ -30,6 +32,7 @@ interface ToolResultData {
   result: string;
   agentId?: string;
   isError?: boolean;
+  feedback?: string;
 }
 
 interface ExtractedContent {
@@ -199,9 +202,11 @@ export class HistoryManager {
   async convertEntriesToMessages(entries: ClaudeSessionEntry[], injectedUuids?: Set<string>): Promise<HistoryMessage[]> {
     const toolResults = this.collectToolResults(entries);
     const taskToolAgents = this.collectTaskToolAgents(entries);
+    const skillToolNames = this.collectSkillToolNames(entries);
     const agentDataMap = await this.loadAgentDataForTools(taskToolAgents);
+    const skillDescriptions = await this.loadSkillDescriptions(skillToolNames);
 
-    return this.buildMessages(entries, toolResults, taskToolAgents, agentDataMap, injectedUuids);
+    return this.buildMessages(entries, toolResults, taskToolAgents, agentDataMap, skillDescriptions, injectedUuids);
   }
 
   private collectToolResults(entries: ClaudeSessionEntry[]): Map<string, ToolResultData> {
@@ -219,13 +224,18 @@ export class HistoryManager {
                 isError,
               });
             } else {
-              const result =
-                typeof block.content === "string"
-                  ? block.content.length > TOOL_RESULT_MAX_LENGTH
-                    ? block.content.slice(0, TOOL_RESULT_MAX_LENGTH) + "... (truncated)"
-                    : block.content
-                  : JSON.stringify(block.content);
-              toolResults.set(block.tool_use_id, { result, isError });
+              const rawResult = typeof block.content === "string" ? block.content : JSON.stringify(block.content);
+              const result = rawResult.length > TOOL_RESULT_MAX_LENGTH
+                ? rawResult.slice(0, TOOL_RESULT_MAX_LENGTH) + "... (truncated)"
+                : rawResult;
+
+              let feedback: string | undefined;
+              if (isError && rawResult.includes(FEEDBACK_MARKER)) {
+                const markerIndex = rawResult.indexOf(FEEDBACK_MARKER);
+                feedback = rawResult.slice(markerIndex + FEEDBACK_MARKER.length).trim();
+              }
+
+              toolResults.set(block.tool_use_id, { result, isError, feedback });
             }
           }
         }
@@ -274,11 +284,46 @@ export class HistoryManager {
     return agentDataMap;
   }
 
+  private collectSkillToolNames(entries: ClaudeSessionEntry[]): Set<string> {
+    const skillNames = new Set<string>();
+
+    for (const entry of entries) {
+      if (entry.type === "assistant" && entry.message && Array.isArray(entry.message.content)) {
+        for (const block of entry.message.content as JsonlContentBlock[]) {
+          if (block.type === "tool_use" && block.name === "Skill") {
+            const skillName = typeof block.input?.skill === "string" ? block.input.skill : null;
+            if (skillName) {
+              skillNames.add(skillName);
+            }
+          }
+        }
+      }
+    }
+
+    return skillNames;
+  }
+
+  private async loadSkillDescriptions(skillNames: Set<string>): Promise<Map<string, string>> {
+    const descriptions = new Map<string, string>();
+
+    await Promise.all(
+      Array.from(skillNames).map(async (skillName) => {
+        const description = await loadSkillDescription(skillName);
+        if (description) {
+          descriptions.set(skillName, description);
+        }
+      })
+    );
+
+    return descriptions;
+  }
+
   private extractContentFromEntry(
     entry: ClaudeSessionEntry,
     toolResults: Map<string, ToolResultData>,
     taskToolAgents: Map<string, string>,
-    agentDataMap: Map<string, AgentData>
+    agentDataMap: Map<string, AgentData>,
+    skillDescriptions: Map<string, string>
   ): ExtractedContent {
     const msgContent = entry.message?.content;
     let textContent = "";
@@ -312,6 +357,7 @@ export class HistoryManager {
           if (resultData) {
             tool.result = resultData.result;
             tool.isError = resultData.isError;
+            tool.feedback = resultData.feedback;
           }
 
           const agentId = taskToolAgents.get(block.id);
@@ -324,6 +370,16 @@ export class HistoryManager {
               }
               if (agentData.model) {
                 tool.agentModel = agentData.model;
+              }
+            }
+          }
+
+          if (block.name === "Skill") {
+            const skillName = typeof block.input?.skill === "string" ? block.input.skill : null;
+            if (skillName) {
+              const description = skillDescriptions.get(skillName);
+              if (description) {
+                tool.metadata = { skillDescription: description };
               }
             }
           }
@@ -341,6 +397,7 @@ export class HistoryManager {
     toolResults: Map<string, ToolResultData>,
     taskToolAgents: Map<string, string>,
     agentDataMap: Map<string, AgentData>,
+    skillDescriptions: Map<string, string>,
     injectedUuids?: Set<string>
   ): HistoryMessage[] {
     const messages: HistoryMessage[] = [];
@@ -354,7 +411,7 @@ export class HistoryManager {
           messages.push(userMessage);
         }
       } else if (entry.type === "assistant" && entry.message) {
-        const assistantMessage = this.buildAssistantMessage(entry, toolResults, taskToolAgents, agentDataMap);
+        const assistantMessage = this.buildAssistantMessage(entry, toolResults, taskToolAgents, agentDataMap, skillDescriptions);
         if (assistantMessage) {
           messages.push(assistantMessage);
         }
@@ -406,13 +463,15 @@ export class HistoryManager {
     entry: ClaudeSessionEntry,
     toolResults: Map<string, ToolResultData>,
     taskToolAgents: Map<string, string>,
-    agentDataMap: Map<string, AgentData>
+    agentDataMap: Map<string, AgentData>,
+    skillDescriptions: Map<string, string>
   ): HistoryMessage | null {
     const { textContent, thinkingContent, tools } = this.extractContentFromEntry(
       entry,
       toolResults,
       taskToolAgents,
-      agentDataMap
+      agentDataMap,
+      skillDescriptions
     );
 
     if (!textContent && !thinkingContent && tools.length === 0) {

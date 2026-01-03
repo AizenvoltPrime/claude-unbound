@@ -9,12 +9,13 @@ import { usePermissionStore } from "@/stores/usePermissionStore";
 import { useStreamingStore } from "@/stores/useStreamingStore";
 import { useSubagentStore } from "@/stores/useSubagentStore";
 import { useQuestionStore } from "@/stores/useQuestionStore";
-import type {
-  ChatMessage,
-  ToolCall,
-  TodoItem,
-  HistoryMessage,
-  HistoryToolCall,
+import {
+  FEEDBACK_MARKER,
+  type ChatMessage,
+  type ToolCall,
+  type TodoItem,
+  type HistoryMessage,
+  type HistoryToolCall,
 } from "@shared/types";
 
 function parseTodosFromInput(input: Record<string, unknown>): TodoItem[] | undefined {
@@ -25,6 +26,12 @@ function parseTodosFromInput(input: Record<string, unknown>): TodoItem[] | undef
     status: t.status as TodoItem['status'],
     activeForm: t.activeForm,
   }));
+}
+
+function extractUserDenialFeedback(errorMessage: string): string | undefined {
+  if (!errorMessage.includes(FEEDBACK_MARKER)) return undefined;
+  const markerIndex = errorMessage.indexOf(FEEDBACK_MARKER);
+  return errorMessage.slice(markerIndex + FEEDBACK_MARKER.length).trim();
 }
 
 export interface MessageHandlerOptions {
@@ -40,6 +47,8 @@ function convertHistoryTools(tools: HistoryToolCall[] | undefined): ToolCall[] |
     status: t.isError ? "denied" as const : "completed" as const,
     result: t.result,
     isError: t.isError,
+    metadata: t.metadata,
+    feedback: t.feedback,
   }));
 }
 
@@ -360,6 +369,19 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           });
           break;
 
+        case "requestSkillApproval":
+          permissionStore.setPendingSkillApproval({
+            toolUseId: message.toolUseId,
+            skillName: message.skillName,
+            skillDescription: message.skillDescription,
+          });
+          if (message.skillDescription) {
+            streamingStore.updateToolMetadata(message.toolUseId, {
+              skillDescription: message.skillDescription,
+            });
+          }
+          break;
+
         case "notification":
           switch (message.notificationType) {
             case "success":
@@ -410,7 +432,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         case "toolCompleted": {
           const found = subagentStore.updateSubagentToolStatus(message.toolUseId, "completed", message.result);
           if (!found) {
-            streamingStore.updateToolStatus(message.toolUseId, "completed", message.result);
+            streamingStore.updateToolStatus(message.toolUseId, "completed", { result: message.result });
           }
           if (message.toolName === "Task" && subagentStore.hasSubagent(message.toolUseId)) {
             subagentStore.completeSubagent(message.toolUseId);
@@ -438,9 +460,16 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         }
 
         case "toolFailed": {
-          const found = subagentStore.updateSubagentToolStatus(message.toolUseId, "failed", undefined, message.error);
+          const feedback = extractUserDenialFeedback(message.error);
+          const isUserDenial = feedback !== undefined;
+          const status = isUserDenial ? "denied" : "failed";
+
+          const found = subagentStore.updateSubagentToolStatus(message.toolUseId, status, undefined, message.error);
           if (!found) {
-            streamingStore.updateToolStatus(message.toolUseId, "failed", undefined, message.error);
+            streamingStore.updateToolStatus(message.toolUseId, status, {
+              errorMessage: message.error,
+              feedback,
+            });
           }
           if (message.toolName === "Task" && subagentStore.hasSubagent(message.toolUseId)) {
             subagentStore.failSubagent(message.toolUseId);

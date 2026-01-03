@@ -4,6 +4,12 @@
  */
 
 // ============================================================================
+// Shared Constants
+// ============================================================================
+
+export const FEEDBACK_MARKER = "The user provided the following reason for the rejection:";
+
+// ============================================================================
 // SDK-Related Types
 // ============================================================================
 
@@ -332,9 +338,11 @@ export interface HistoryToolCall {
   input: Record<string, unknown>;
   result?: string; // Tool result if available
   isError?: boolean; // True if tool was denied/failed (from JSONL is_error)
+  feedback?: string; // User feedback when tool was denied with custom message
   agentToolCalls?: HistoryToolCall[]; // For Task tools: nested tool calls from agent JSONL
   agentModel?: string; // For Task tools: the model used by the subagent
   sdkAgentId?: string; // For Task tools: SDK's agent ID for JSONL file access
+  metadata?: Record<string, unknown>; // For Skill tools: skill description, etc.
 }
 
 /**
@@ -453,6 +461,15 @@ export type WebviewToExtensionMessage =
       type: "approveEnterPlanMode";
       toolUseId: string;
       approved: boolean;
+      customMessage?: string;
+    }
+  // Skill approval response
+  | {
+      type: "approveSkill";
+      toolUseId: string;
+      approved: boolean;
+      approvalMode?: "acceptEdits" | "manual";
+      customMessage?: string;
     };
 
 // Messages from Extension → Webview
@@ -566,6 +583,14 @@ export type ExtensionToWebviewMessage =
       type: "requestEnterPlanMode";
       toolUseId: string;
       parentToolUseId?: string | null;
+    }
+  // Skill approval request
+  | {
+      type: "requestSkillApproval";
+      toolUseId: string;
+      skillName: string;
+      skillDescription?: string;
+      parentToolUseId?: string | null;
     };
 
 // Chat message for UI rendering
@@ -597,6 +622,8 @@ export interface ToolCall {
   result?: string;
   isError?: boolean;
   errorMessage?: string;
+  metadata?: Record<string, unknown>;
+  feedback?: string;
 }
 
 export interface SessionStats {

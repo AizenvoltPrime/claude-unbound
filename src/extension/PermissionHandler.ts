@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DiffManager } from './DiffManager';
+import { loadSkillDescription } from './skills/utils';
 import type { FileEditInput, FileWriteInput, ExtensionToWebviewMessage, PermissionMode, Question } from '../shared/types';
 
 export interface PermissionResult {
@@ -51,10 +52,22 @@ interface PendingPlanApproval {
 
 interface EnterPlanApprovalResult {
   approved: boolean;
+  customMessage?: string;
 }
 
 interface PendingEnterPlanApproval {
   resolve: (result: EnterPlanApprovalResult) => void;
+  cleanup: () => void;
+}
+
+interface SkillApprovalResult {
+  approved: boolean;
+  approvalMode?: 'acceptEdits' | 'manual';
+  customMessage?: string;
+}
+
+interface PendingSkillApproval {
+  resolve: (result: SkillApprovalResult) => void;
   cleanup: () => void;
 }
 
@@ -64,6 +77,8 @@ export class PermissionHandler {
   private pendingQuestions: Map<string, PendingQuestion> = new Map();
   private pendingPlanApprovals: Map<string, PendingPlanApproval> = new Map();
   private pendingEnterPlanApprovals: Map<string, PendingEnterPlanApproval> = new Map();
+  private pendingSkillApprovals: Map<string, PendingSkillApproval> = new Map();
+  private autoApprovedSkills: Set<string> = new Set();
   private postMessageToWebview: ((msg: ExtensionToWebviewMessage) => void) | null = null;
   private _permissionMode: PermissionMode = 'default';
 
@@ -103,10 +118,13 @@ export class PermissionHandler {
       const result = await this.requestEnterPlanApprovalFromWebview(context);
 
       if (!result.approved) {
+        const message = result.customMessage
+          ? `The user doesn't want to proceed with this tool use. The tool use was rejected. The user provided the following reason for the rejection: ${result.customMessage}`
+          : 'User chose not to enter plan mode';
         return {
           behavior: 'deny',
-          message: 'User chose not to enter plan mode',
-          interrupt: true,
+          message,
+          interrupt: !result.customMessage,
         };
       }
 
@@ -117,9 +135,12 @@ export class PermissionHandler {
       const result = await this.requestPlanApprovalFromWebview(input, context);
 
       if (!result.approved) {
+        const message = result.feedback
+          ? `The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). The user provided the following reason for the rejection: ${result.feedback}`
+          : 'User wants to revise the plan';
         return {
           behavior: 'deny',
-          message: result.feedback || 'User wants to revise the plan',
+          message,
         };
       }
 
@@ -141,9 +162,12 @@ export class PermissionHandler {
       const result = await this.requestFilePermissionFromWebview(toolName, typedInput, context);
 
       if (!result.approved) {
+        const message = result.customMessage
+          ? `The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). The user provided the following reason for the rejection: ${result.customMessage}`
+          : 'User rejected the file modification';
         return {
           behavior: 'deny',
-          message: result.customMessage || 'User rejected the file modification',
+          message,
         };
       }
 
@@ -154,9 +178,12 @@ export class PermissionHandler {
       const result = await this.requestBashPermissionFromWebview(input, context);
 
       if (!result.approved) {
+        const message = result.customMessage
+          ? `The user doesn't want to proceed with this tool use. The tool use was rejected. The user provided the following reason for the rejection: ${result.customMessage}`
+          : 'User rejected the bash command';
         return {
           behavior: 'deny',
-          message: result.customMessage || 'User rejected the bash command',
+          message,
         };
       }
 
@@ -192,6 +219,34 @@ export class PermissionHandler {
     // This mirrors Claude Code CLI behavior: enabling a server = trusting its tools.
     // The security boundary is at the server level, not individual tool level.
     if (toolName.startsWith('mcp__')) {
+      return { behavior: 'allow', updatedInput: input };
+    }
+
+    if (toolName === 'Skill') {
+      const skillName = typeof input.skill === 'string' ? input.skill : '';
+
+      if (this.autoApprovedSkills.has(skillName)) {
+        return { behavior: 'allow', updatedInput: input };
+      }
+
+      const skillDescription = await loadSkillDescription(skillName);
+      const result = await this.requestSkillApprovalFromWebview(skillName, skillDescription, context);
+
+      if (!result.approved) {
+        const message = result.customMessage
+          ? `The user doesn't want to proceed with this tool use. The tool use was rejected. The user provided the following reason for the rejection: ${result.customMessage}`
+          : `User denied permission for skill "${skillName}"`;
+        return {
+          behavior: 'deny',
+          message,
+          interrupt: !result.customMessage,
+        };
+      }
+
+      if (result.approvalMode === 'acceptEdits') {
+        this.autoApprovedSkills.add(skillName);
+      }
+
       return { behavior: 'allow', updatedInput: input };
     }
 
@@ -466,15 +521,74 @@ export class PermissionHandler {
     });
   }
 
-  resolveEnterPlanApproval(toolUseId: string, approved: boolean): void {
+  resolveEnterPlanApproval(
+    toolUseId: string,
+    approved: boolean,
+    options?: { customMessage?: string }
+  ): void {
     const pending = this.pendingEnterPlanApprovals.get(toolUseId);
     if (!pending) {
       return;
     }
 
     pending.cleanup();
-    pending.resolve({ approved });
+    pending.resolve({
+      approved,
+      customMessage: options?.customMessage,
+    });
     this.pendingEnterPlanApprovals.delete(toolUseId);
+  }
+
+  private async requestSkillApprovalFromWebview(
+    skillName: string,
+    skillDescription: string | undefined,
+    context: CanUseToolContext
+  ): Promise<SkillApprovalResult> {
+    const toolUseId = context.toolUseID;
+    if (!toolUseId || !this.postMessageToWebview) {
+      return { approved: false };
+    }
+
+    return new Promise<SkillApprovalResult>((resolve) => {
+      const abortHandler = () => {
+        this.pendingSkillApprovals.delete(toolUseId);
+        resolve({ approved: false });
+      };
+
+      const cleanup = () => {
+        context.signal.removeEventListener('abort', abortHandler);
+      };
+
+      this.pendingSkillApprovals.set(toolUseId, { resolve, cleanup });
+      context.signal.addEventListener('abort', abortHandler, { once: true });
+
+      this.postMessageToWebview!({
+        type: 'requestSkillApproval',
+        toolUseId,
+        skillName,
+        skillDescription,
+        parentToolUseId: context.parentToolUseId,
+      });
+    });
+  }
+
+  resolveSkillApproval(
+    toolUseId: string,
+    approved: boolean,
+    options?: { approvalMode?: 'acceptEdits' | 'manual'; customMessage?: string }
+  ): void {
+    const pending = this.pendingSkillApprovals.get(toolUseId);
+    if (!pending) {
+      return;
+    }
+
+    pending.cleanup();
+    pending.resolve({
+      approved,
+      approvalMode: options?.approvalMode,
+      customMessage: options?.customMessage,
+    });
+    this.pendingSkillApprovals.delete(toolUseId);
   }
 
   async dispose(): Promise<void> {

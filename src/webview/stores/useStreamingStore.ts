@@ -12,6 +12,7 @@ export interface ToolStatusEntry {
   status: ToolCall['status'];
   result?: string;
   errorMessage?: string;
+  feedback?: string;
 }
 
 export const useStreamingStore = defineStore('streaming', () => {
@@ -133,10 +134,9 @@ export const useStreamingStore = defineStore('streaming', () => {
   function updateToolStatus(
     toolUseId: string,
     status: ToolCall['status'],
-    result?: string,
-    errorMessage?: string
+    options?: { result?: string; errorMessage?: string; feedback?: string }
   ): void {
-    toolStatusCache.value.set(toolUseId, { status, result, errorMessage });
+    toolStatusCache.value.set(toolUseId, { status, ...options });
 
     for (let i = 0; i < messages.value.length; i++) {
       const msg = messages.value[i];
@@ -147,8 +147,32 @@ export const useStreamingStore = defineStore('streaming', () => {
           updatedToolCalls[toolIndex] = {
             ...updatedToolCalls[toolIndex],
             status,
-            ...(result !== undefined && { result }),
-            ...(errorMessage !== undefined && { errorMessage }),
+            ...(options?.result !== undefined && { result: options.result }),
+            ...(options?.errorMessage !== undefined && { errorMessage: options.errorMessage }),
+            ...(options?.feedback !== undefined && { feedback: options.feedback }),
+          };
+          const newMessages = [...messages.value];
+          newMessages[i] = { ...msg, toolCalls: updatedToolCalls };
+          messages.value = newMessages;
+          return;
+        }
+      }
+    }
+  }
+
+  function updateToolMetadata(
+    toolUseId: string,
+    metadata: Record<string, unknown>
+  ): void {
+    for (let i = 0; i < messages.value.length; i++) {
+      const msg = messages.value[i];
+      if (msg.toolCalls) {
+        const toolIndex = msg.toolCalls.findIndex(t => t.id === toolUseId);
+        if (toolIndex !== -1) {
+          const updatedToolCalls = [...msg.toolCalls];
+          updatedToolCalls[toolIndex] = {
+            ...updatedToolCalls[toolIndex],
+            metadata: { ...updatedToolCalls[toolIndex].metadata, ...metadata },
           };
           const newMessages = [...messages.value];
           newMessages[i] = { ...msg, toolCalls: updatedToolCalls };
@@ -178,6 +202,7 @@ export const useStreamingStore = defineStore('streaming', () => {
       status: cached?.status ?? 'pending',
       result: cached?.result,
       errorMessage: cached?.errorMessage,
+      feedback: cached?.feedback,
     };
 
     if (cached) {
@@ -244,6 +269,7 @@ export const useStreamingStore = defineStore('streaming', () => {
             status: cached.status,
             result: cached.result,
             errorMessage: cached.errorMessage,
+            feedback: cached.feedback,
           };
         }
         return {
@@ -450,6 +476,7 @@ export const useStreamingStore = defineStore('streaming', () => {
     clearQueuedBadges,
     ensureStreamingMessage,
     updateToolStatus,
+    updateToolMetadata,
     addToolCall,
     mergeToolCalls,
     extractTextFromContent,

@@ -34,6 +34,7 @@
 - **Message Queue**: Send messages while Claude is working - they're injected at the next tool boundary
 - **MCP Server Management**: Enable/disable MCP servers from the UI with settings persisted to Claude config
 - **Hooks Support**: Claude Code hooks (shell commands that run on events like tool calls) work automatically
+- **Skills Support**: Approve or deny skill invocations
 
 ## Installation
 
@@ -84,12 +85,12 @@ Attached images appear as thumbnails below the input. Hover over a thumbnail to 
 
 **Mention types:**
 
-| Syntax | Description |
-|--------|-------------|
-| `@path/to/file.ts` | Reference a workspace file |
-| `@agent-Explore` | Use the fast codebase exploration agent |
-| `@agent-Plan` | Use the architecture planning agent |
-| `@agent-<name>` | Use a custom agent from `.claude/agents/` |
+| Syntax             | Description                               |
+| ------------------ | ----------------------------------------- |
+| `@path/to/file.ts` | Reference a workspace file                |
+| `@agent-Explore`   | Use the fast codebase exploration agent   |
+| `@agent-Plan`      | Use the architecture planning agent       |
+| `@agent-<name>`    | Use a custom agent from `.claude/agents/` |
 
 Custom agents are loaded from `.claude/agents/*.md` (project) and `~/.claude/agents/*.md` (user). Project agents override user agents with the same name.
 
@@ -102,23 +103,34 @@ Custom agents are loaded from `.claude/agents/*.md` (project) and `~/.claude/age
 
 **Built-in commands:**
 
-| Command             | Description                        |
-| ------------------- | ---------------------------------- |
-| `/clear`            | Clear conversation history         |
-| `/compact`          | Compact conversation               |
-| `/context`          | Show context usage breakdown       |
-| `/cost`             | Show token usage and cost          |
-| `/rewind`           | Rewind conversation/code to a checkpoint |
-| `/export`           | Export conversation to file        |
-| `/review`           | Request code review                |
-| `/security-review`  | Security review of changes         |
-| `/init`             | Initialize CLAUDE.md               |
-| `/memory`           | Edit memory files                  |
-| `/mcp`              | Manage MCP servers                 |
-| `/permissions`      | View/update permissions            |
-| `/help`             | Get usage help                     |
+| Command            | Description                              |
+| ------------------ | ---------------------------------------- |
+| `/clear`           | Clear conversation history               |
+| `/compact`         | Compact conversation                     |
+| `/context`         | Show context usage breakdown             |
+| `/cost`            | Show token usage and cost                |
+| `/rewind`          | Rewind conversation/code to a checkpoint |
+| `/export`          | Export conversation to file              |
+| `/review`          | Request code review                      |
+| `/security-review` | Security review of changes               |
+| `/init`            | Initialize CLAUDE.md                     |
+| `/memory`          | Edit memory files                        |
+| `/mcp`             | Manage MCP servers                       |
+| `/permissions`     | View/update permissions                  |
+| `/help`            | Get usage help                           |
 
 Custom commands are loaded from `.claude/commands/*.md` (project) and `~/.claude/commands/*.md` (user).
+
+### Skills
+
+Skills are specialized tools that extend Claude's capabilities. When Claude invokes a skill, you'll see an approval prompt:
+
+- **Yes**: Approve this invocation (manual mode)
+- **Yes, don't ask again**: Auto-approve this skill for the session
+- **No**: Deny the skill
+- **Tell Claude what to do instead**: Provide custom feedback
+
+Skills are loaded from `.claude/skills/<name>/SKILL.md` (project) and `~/.claude/skills/<name>/SKILL.md` (user). The skill description is parsed from the YAML frontmatter.
 
 ## Configuration
 
@@ -187,10 +199,10 @@ Get your API key from the [Anthropic Console](https://console.anthropic.com/). T
 
 For enterprise environments using cloud-hosted Claude:
 
-| Variable | Purpose |
-|----------|---------|
-| `CLAUDE_CODE_USE_BEDROCK=1` | Use AWS Bedrock (requires AWS credentials) |
-| `CLAUDE_CODE_USE_VERTEX=1` | Use Google Vertex AI (requires GCP credentials) |
+| Variable                    | Purpose                                            |
+| --------------------------- | -------------------------------------------------- |
+| `CLAUDE_CODE_USE_BEDROCK=1` | Use AWS Bedrock (requires AWS credentials)         |
+| `CLAUDE_CODE_USE_VERTEX=1`  | Use Google Vertex AI (requires GCP credentials)    |
 | `CLAUDE_CODE_USE_FOUNDRY=1` | Use Microsoft Foundry (requires Azure credentials) |
 
 ### Verifying Authentication

@@ -21,6 +21,7 @@ import PermissionPrompt from './components/PermissionPrompt.vue';
 import QuestionPrompt from './components/QuestionPrompt.vue';
 import PlanApprovalModal from './components/PlanApprovalModal.vue';
 import EnterPlanModePrompt from './components/EnterPlanModePrompt.vue';
+import SkillApprovalPrompt from './components/SkillApprovalPrompt.vue';
 import TodoListCard from './components/TodoListCard.vue';
 import { useVSCode } from './composables/useVSCode';
 import { useMessageHandler } from './composables/useMessageHandler';
@@ -107,7 +108,7 @@ const {
 } = storeToRefs(sessionStore);
 
 const permissionStore = usePermissionStore();
-const { currentPermission, pendingCount: pendingPermissionCount, pendingPlanApproval, pendingEnterPlanApproval } = storeToRefs(permissionStore);
+const { currentPermission, pendingCount: pendingPermissionCount, pendingPlanApproval, pendingEnterPlanApproval, pendingSkillApproval } = storeToRefs(permissionStore);
 
 const streamingStore = useStreamingStore();
 const { messages, streamingMessageId, expandedMcpTool } = storeToRefs(streamingStore);
@@ -439,7 +440,7 @@ function handlePlanApprove(options: { approvalMode: 'acceptEdits' | 'manual' }) 
 function handlePlanFeedback(feedback: string) {
   if (!pendingPlanApproval.value) return;
   const toolUseId = pendingPlanApproval.value.toolUseId;
-  streamingStore.updateToolStatus(toolUseId, 'denied');
+  streamingStore.updateToolStatus(toolUseId, 'denied', { feedback });
   postMessage({
     type: 'approvePlan',
     toolUseId,
@@ -461,7 +462,7 @@ function handlePlanCancel() {
   permissionStore.clearPendingPlanApproval();
 }
 
-function handleEnterPlanApprove(approved: boolean) {
+function handleEnterPlanApprove(approved: boolean, options?: { customMessage?: string }) {
   if (!pendingEnterPlanApproval.value) return;
   const toolUseId = pendingEnterPlanApproval.value.toolUseId;
 
@@ -469,15 +470,40 @@ function handleEnterPlanApprove(approved: boolean) {
     streamingStore.updateToolStatus(toolUseId, 'completed');
     permissionStore.storeEnterPlanApproval(toolUseId);
   } else {
-    streamingStore.updateToolStatus(toolUseId, 'denied');
+    streamingStore.updateToolStatus(toolUseId, 'denied', { feedback: options?.customMessage });
   }
 
   postMessage({
     type: 'approveEnterPlanMode',
     toolUseId,
     approved,
+    customMessage: options?.customMessage,
   });
   permissionStore.clearPendingEnterPlanApproval();
+}
+
+function handleSkillApprove(approved: boolean, options?: { approvalMode?: 'acceptEdits' | 'manual'; customMessage?: string }) {
+  if (!pendingSkillApproval.value) return;
+  const toolUseId = pendingSkillApproval.value.toolUseId;
+
+  if (approved) {
+    streamingStore.updateToolStatus(toolUseId, 'completed');
+  } else {
+    streamingStore.updateToolStatus(toolUseId, 'denied', { feedback: options?.customMessage });
+  }
+
+  if (options?.approvalMode === 'acceptEdits') {
+    handleSetPermissionMode('acceptEdits');
+  }
+
+  postMessage({
+    type: 'approveSkill',
+    toolUseId,
+    approved,
+    approvalMode: options?.approvalMode,
+    customMessage: options?.customMessage,
+  });
+  permissionStore.clearPendingSkillApproval();
 }
 
 const rewindMessagePreview = computed(() => {
@@ -726,6 +752,15 @@ const rewindMessagePreview = computed(() => {
       v-if="pendingEnterPlanApproval"
       :visible="true"
       @approve="handleEnterPlanApprove"
+    />
+
+    <!-- Skill Approval Prompt for Skill tool -->
+    <SkillApprovalPrompt
+      v-if="pendingSkillApproval"
+      :visible="true"
+      :skill-name="pendingSkillApproval.skillName"
+      :skill-description="pendingSkillApproval.skillDescription"
+      @approve="handleSkillApprove"
     />
 
     <!-- Plan Approval Modal for ExitPlanMode tool -->

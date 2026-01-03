@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
   visible: boolean;
+  skillName: string;
+  skillDescription?: string;
 }>();
 
 const emit = defineEmits<{
-  (e: 'approve', approved: boolean, options?: { customMessage?: string }): void;
+  (e: 'approve', approved: boolean, options?: { approvalMode?: 'acceptEdits' | 'manual'; customMessage?: string }): void;
 }>();
 
 const showCustomInput = ref(false);
@@ -19,15 +21,20 @@ const listboxRef = ref<InstanceType<typeof ListboxRoot> | null>(null);
 const textareaRef = ref<{ $el?: HTMLElement } | null>(null);
 
 const options = [
-  { value: 'yes', label: 'Yes, enter plan mode', shortcut: '1' },
-  { value: 'no', label: 'No, start implementing now', shortcut: '2' },
+  { value: 'yes', label: 'Yes', shortcut: '1' },
+  { value: 'yes-always', label: "Yes, don't ask again", shortcut: '2' },
+  { value: 'no', label: 'No', shortcut: '3' },
   { value: 'custom', label: 'Tell Claude what to do instead', shortcut: null },
 ] as const;
 
 function handleSelect(value: string) {
   switch (value) {
     case 'yes':
-      emit('approve', true);
+      emit('approve', true, { approvalMode: 'manual' });
+      resetState();
+      break;
+    case 'yes-always':
+      emit('approve', true, { approvalMode: 'acceptEdits' });
       resetState();
       break;
     case 'no':
@@ -69,7 +76,8 @@ function handleKeydown(e: KeyboardEvent) {
 
   const shortcutMap: Record<string, string> = {
     '1': 'yes',
-    '2': 'no',
+    '2': 'yes-always',
+    '3': 'no',
   };
 
   if (shortcutMap[e.key]) {
@@ -93,25 +101,16 @@ watch(() => props.visible, (visible) => {
     v-if="visible"
     class="border-t border-border bg-background"
     role="region"
-    aria-label="Enter plan mode request"
+    aria-label="Skill approval request"
   >
     <!-- Header question -->
     <div class="px-4 py-3 text-sm text-foreground">
-      <div class="font-medium">Enter plan mode?</div>
+      <div class="font-medium">Use skill "{{ skillName }}"?</div>
       <div class="mt-2 text-muted-foreground text-xs">
-        Claude wants to enter plan mode to explore and design an implementation approach.
+        Claude may use instructions, code, or files from this Skill.
       </div>
-      <div class="mt-2 text-muted-foreground text-xs">
-        In plan mode, Claude will:
-        <ul class="list-disc list-inside mt-1 space-y-0.5">
-          <li>Explore the codebase thoroughly</li>
-          <li>Identify existing patterns</li>
-          <li>Design an implementation strategy</li>
-          <li>Present a plan for your approval</li>
-        </ul>
-      </div>
-      <div class="mt-2 text-muted-foreground text-xs italic">
-        No code changes will be made until you approve the plan.
+      <div v-if="skillDescription" class="mt-2 text-muted-foreground text-xs">
+        {{ skillDescription }}
       </div>
     </div>
 
@@ -146,7 +145,7 @@ watch(() => props.visible, (visible) => {
         ref="textareaRef"
         v-model="customMessage"
         class="min-h-20 bg-card border-border resize-none focus:border-primary mb-3"
-        placeholder="e.g., Just implement it directly, focus on a specific part first, ask me clarifying questions..."
+        placeholder="e.g., Use a different skill, skip this step, try a different approach..."
         @keydown.enter.ctrl="handleCustomSubmit"
         @keydown.escape="handleCustomBack"
       />

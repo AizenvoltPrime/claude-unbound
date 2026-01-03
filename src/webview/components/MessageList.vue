@@ -5,6 +5,7 @@ import ToolCallCard from "./ToolCallCard.vue";
 import QuestionToolCard from "./QuestionToolCard.vue";
 import ExitPlanModeToolCard from "./ExitPlanModeToolCard.vue";
 import EnterPlanModeToolCard from "./EnterPlanModeToolCard.vue";
+import SkillToolCard from "./SkillToolCard.vue";
 import SubagentCard from "./SubagentCard.vue";
 import CompactMarker from "./CompactMarker.vue";
 import ThinkingIndicator from "./ThinkingIndicator.vue";
@@ -78,6 +79,10 @@ function isExitPlanModeTool(toolName: string): boolean {
 
 function isEnterPlanModeTool(toolName: string): boolean {
   return toolName === 'EnterPlanMode';
+}
+
+function isSkillTool(toolName: string): boolean {
+  return toolName === 'Skill';
 }
 
 function getToolCallById(message: ChatMessage, toolId: string): ToolCall | undefined {
@@ -229,6 +234,10 @@ function getTrailingStreamingText(message: ChatMessage): string {
                     v-else-if="isEnterPlanModeTool(block.name)"
                     :tool-call="getToolCallById(message, block.id)!"
                   />
+                  <SkillToolCard
+                    v-else-if="isSkillTool(block.name)"
+                    :tool-call="getToolCallById(message, block.id)!"
+                  />
                   <ToolCallCard
                     v-else-if="!isTodoWriteTool(block.name)"
                     :tool-call="getToolCallById(message, block.id)!"
@@ -268,6 +277,10 @@ function getTrailingStreamingText(message: ChatMessage): string {
               />
               <EnterPlanModeToolCard
                 v-else-if="isEnterPlanModeTool(tool.name)"
+                :tool-call="tool"
+              />
+              <SkillToolCard
+                v-else-if="isSkillTool(tool.name)"
                 :tool-call="tool"
               />
               <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @expand="emit('expandMcpTool', $event)" />

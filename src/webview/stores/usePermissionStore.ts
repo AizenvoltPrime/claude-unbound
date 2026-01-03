@@ -16,10 +16,17 @@ interface PendingEnterPlanApproval {
   toolUseId: string;
 }
 
+interface PendingSkillApproval {
+  toolUseId: string;
+  skillName: string;
+  skillDescription?: string;
+}
+
 export const usePermissionStore = defineStore('permission', () => {
   const pendingPermissions = ref<Record<string, PendingPermissionInfo>>({});
   const pendingPlanApproval = ref<PendingPlanApproval | null>(null);
   const pendingEnterPlanApproval = ref<PendingEnterPlanApproval | null>(null);
+  const pendingSkillApproval = ref<PendingSkillApproval | null>(null);
   const approvedPlans = ref<Record<string, ApprovedPlanInfo>>({});
   const approvedEnterPlanModes = ref<Record<string, true>>({});
 
@@ -50,6 +57,7 @@ export const usePermissionStore = defineStore('permission', () => {
     pendingPermissions.value = {};
     pendingPlanApproval.value = null;
     pendingEnterPlanApproval.value = null;
+    pendingSkillApproval.value = null;
     approvedPlans.value = {};
     approvedEnterPlanModes.value = {};
   }
@@ -95,6 +103,14 @@ export const usePermissionStore = defineStore('permission', () => {
     return !!approvedEnterPlanModes.value[toolUseId];
   }
 
+  function setPendingSkillApproval(info: PendingSkillApproval | null) {
+    pendingSkillApproval.value = info;
+  }
+
+  function clearPendingSkillApproval() {
+    pendingSkillApproval.value = null;
+  }
+
   return {
     pendingPermissions,
     currentPermission,
@@ -112,6 +128,9 @@ export const usePermissionStore = defineStore('permission', () => {
     clearPendingEnterPlanApproval,
     storeEnterPlanApproval,
     isEnterPlanApproved,
+    pendingSkillApproval,
+    setPendingSkillApproval,
+    clearPendingSkillApproval,
     $reset,
   };
 });

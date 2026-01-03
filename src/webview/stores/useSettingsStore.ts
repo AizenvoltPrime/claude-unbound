@@ -70,7 +70,11 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function setAccountInfo(info: AccountInfo | null) {
-    accountInfo.value = info;
+    if (info === null) {
+      accountInfo.value = null;
+    } else {
+      accountInfo.value = { ...accountInfo.value, ...info };
+    }
   }
 
   function setMcpServers(servers: McpServerStatusInfo[]) {

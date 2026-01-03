@@ -9,6 +9,7 @@ import {
   IconBan,
   IconCheck,
   IconPencil,
+  IconMessageSquare,
 } from '@/components/icons';
 import MarkdownRenderer from './MarkdownRenderer.vue';
 import LoadingSpinner from './LoadingSpinner.vue';
@@ -114,9 +115,16 @@ const approvalModeIcon = computed(() => {
       </div>
 
       <div v-else-if="isDenied" class="px-3 py-2 bg-error/10 border-t border-error/20">
-        <div class="flex items-center gap-2 text-xs text-error/80">
+        <div v-if="toolCall.feedback" class="space-y-1">
+          <div class="flex items-center gap-2 text-xs text-error/80">
+            <IconMessageSquare :size="12" />
+            <span>Feedback sent to Claude:</span>
+          </div>
+          <p class="text-xs text-foreground/80 pl-5 italic">"{{ toolCall.feedback }}"</p>
+        </div>
+        <div v-else class="flex items-center gap-2 text-xs text-error/80">
           <IconXCircle :size="12" />
-          <span>Sending feedback to Claude...</span>
+          <span>Plan revision requested</span>
         </div>
       </div>
 
