@@ -10,11 +10,18 @@ import type {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
   RewindOption,
+  UserContentBlock,
 } from "../../shared/types";
 import type { PanelInstance } from "./types";
 import type { IdeContextManager } from "./ide-context-manager";
 import { getSessionFilePath, getAgentFilePath, renameSession, deleteSession, extractCommandHistory } from "../session";
 import { log } from "../logger";
+import { extractTextFromContent } from "../../shared/utils";
+
+function hasImageContent(content: string | UserContentBlock[]): boolean {
+  if (typeof content === "string") return false;
+  return content.some((block) => block.type === "image");
+}
 
 export interface MessageRouterConfig {
   workspacePath: string;
@@ -92,20 +99,28 @@ export class MessageRouter {
 
       // Chat operations
       sendMessage: async (msg, ctx) => {
-        if (msg.type !== "sendMessage" || !msg.content.trim()) return;
+        if (msg.type !== "sendMessage") return;
 
-        const isCompactCommand = msg.content.trim().toLowerCase() === "/compact";
+        const msgContent = msg.content;
+        const textContent = extractTextFromContent(msgContent);
+        if (!textContent.trim() && !hasImageContent(msgContent)) return;
+
+        const isCompactCommand = typeof msgContent === "string" &&
+          msgContent.trim().toLowerCase() === "/compact";
         const correlationId = `corr-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
         if (!isCompactCommand) {
-          this.postMessage(ctx.panel, { type: "userMessage", content: msg.content, correlationId });
+          const contentBlocks = hasImageContent(msgContent) ? (msgContent as UserContentBlock[]) : undefined;
+          this.postMessage(ctx.panel, { type: "userMessage", content: textContent, contentBlocks, correlationId });
         }
 
-        this.storageManager.broadcastCommandHistoryEntry(msg.content.trim());
+        if (textContent.trim()) {
+          this.storageManager.broadcastCommandHistoryEntry(textContent.trim());
+        }
 
         const content = msg.includeIdeContext
-          ? ctx.ideContextManager.buildContentBlocks(msg.content)
-          : msg.content;
+          ? ctx.ideContextManager.buildContentBlocks(msgContent)
+          : msgContent;
 
         await ctx.session.sendMessage(content, msg.agentId, correlationId);
       },
@@ -115,14 +130,20 @@ export class MessageRouter {
       },
 
       queueMessage: async (msg, ctx) => {
-        if (msg.type !== "queueMessage" || !msg.content.trim()) return;
+        if (msg.type !== "queueMessage") return;
 
-        const queuedMessage = createQueuedMessage(msg.content);
-        const injected = ctx.session.queueInput(msg.content, queuedMessage.id);
+        const msgContent = msg.content;
+        const textContent = extractTextFromContent(msgContent);
+        if (!textContent.trim() && !hasImageContent(msgContent)) return;
+
+        const queuedMessage = createQueuedMessage(msgContent);
+        const injected = ctx.session.queueInput(msgContent, queuedMessage.id);
 
         if (injected) {
           this.postMessage(ctx.panel, { type: "messageQueued", message: queuedMessage });
-          this.storageManager.broadcastCommandHistoryEntry(msg.content.trim());
+          if (textContent.trim()) {
+            this.storageManager.broadcastCommandHistoryEntry(textContent.trim());
+          }
         } else {
           this.postMessage(ctx.panel, {
             type: "notification",

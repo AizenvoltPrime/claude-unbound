@@ -58,3 +58,14 @@ export function formatModelDisplayName(modelId: string | undefined | null): stri
 
   return modelId.split('-').slice(1, 3).join(' ');
 }
+
+type TextContentBlock = { type: "text"; text: string };
+type ContentInput = string | Array<{ type: string; text?: string }>;
+
+export function extractTextFromContent(content: ContentInput, separator = "\n"): string {
+  if (typeof content === "string") return content;
+  return content
+    .filter((block): block is TextContentBlock => block.type === "text" && typeof block.text === "string")
+    .map((block) => block.text)
+    .join(separator);
+}

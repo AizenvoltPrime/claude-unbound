@@ -6,6 +6,7 @@ import {
   readAgentData,
   extractSessionStats,
   findUserTextBlock,
+  findUserImageBlocks,
   type AgentData,
   type JsonlContentBlock,
   type ClaudeSessionEntry,
@@ -15,6 +16,7 @@ import type {
   HistoryMessage,
   HistoryToolCall,
   RewindHistoryItem,
+  ContentBlock,
 } from "../../shared/types";
 import { HISTORY_PAGE_SIZE, TOOL_RESULT_MAX_LENGTH } from "./types";
 import { log } from "../logger";
@@ -34,6 +36,13 @@ interface ExtractedContent {
   textContent: string;
   thinkingContent: string;
   tools: HistoryToolCall[];
+}
+
+type ValidMediaType = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+const VALID_MEDIA_TYPES: ReadonlySet<string> = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+
+function isValidMediaType(mediaType: string): mediaType is ValidMediaType {
+  return VALID_MEDIA_TYPES.has(mediaType);
 }
 
 function extractDisplayableUserContent(msgContent: unknown): string | null {
@@ -95,6 +104,7 @@ export class HistoryManager {
         this.postMessage(panel, {
           type: "userReplay",
           content: msg.content,
+          contentBlocks: msg.contentBlocks,
           isSynthetic: false,
           sdkMessageId: msg.sdkMessageId,
           isInjected: msg.isInjected,
@@ -367,7 +377,29 @@ export class HistoryManager {
     }
 
     const sdkMessageId = entry.uuid;
-    return { type: "user", content, sdkMessageId, isInjected };
+
+    let contentBlocks: ContentBlock[] | undefined;
+    const msgContent = entry.message?.content;
+    if (Array.isArray(msgContent)) {
+      const imageBlocks = findUserImageBlocks(msgContent as JsonlContentBlock[]);
+      if (imageBlocks.length > 0) {
+        const textBlock = findUserTextBlock(msgContent as JsonlContentBlock[]);
+        const validImages = imageBlocks.filter(img => isValidMediaType(img.source.media_type));
+        contentBlocks = [
+          ...validImages.map(img => ({
+            type: "image" as const,
+            source: {
+              type: "base64" as const,
+              media_type: img.source.media_type as ValidMediaType,
+              data: img.source.data,
+            },
+          })),
+          ...(textBlock ? [{ type: "text" as const, text: textBlock.text }] : []),
+        ];
+      }
+    }
+
+    return { type: "user", content, contentBlocks, sdkMessageId, isInjected };
   }
 
   private buildAssistantMessage(

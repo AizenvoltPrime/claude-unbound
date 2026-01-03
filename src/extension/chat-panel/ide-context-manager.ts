@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import type { IdeContextDisplayInfo } from "../../shared/types";
+import type { IdeContextDisplayInfo, UserContentBlock } from "../../shared/types";
 
 interface SelectionContext {
   type: "selection";
@@ -20,7 +20,8 @@ interface OpenedFileContext {
 
 type FullIdeContext = SelectionContext | OpenedFileContext;
 
-type ContentBlock = { type: "text"; text: string };
+type TextBlock = { type: "text"; text: string };
+type ContentBlock = TextBlock | UserContentBlock;
 
 export class IdeContextManager {
   private currentContext: FullIdeContext | null = null;
@@ -160,19 +161,24 @@ export class IdeContextManager {
     };
   }
 
-  buildContentBlocks(message: string): string | ContentBlock[] {
-    if (!this.currentContext) {
-      return message;
-    }
-
+  buildContentBlocks(message: string): string | ContentBlock[];
+  buildContentBlocks(message: UserContentBlock[]): ContentBlock[];
+  buildContentBlocks(message: string | UserContentBlock[]): string | ContentBlock[];
+  buildContentBlocks(message: string | UserContentBlock[]): string | ContentBlock[] {
     const contextBlock = this.formatContextBlock();
-    if (!contextBlock) {
-      return message;
+
+    if (typeof message === "string") {
+      if (!contextBlock) return message;
+      return [
+        { type: "text", text: contextBlock },
+        { type: "text", text: message },
+      ];
     }
 
+    if (!contextBlock) return message;
     return [
       { type: "text", text: contextBlock },
-      { type: "text", text: message },
+      ...message,
     ];
   }
 

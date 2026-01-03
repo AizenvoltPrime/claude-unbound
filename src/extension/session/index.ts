@@ -25,7 +25,10 @@ export {
 
 export {
   findUserTextBlock,
+  findUserImageBlocks,
 } from './parsing';
+
+export type { RawImageBlock } from './parsing';
 
 export {
   listSessions,

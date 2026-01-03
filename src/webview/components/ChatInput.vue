@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, type Component } from 'vue';
-import type { PermissionMode } from '@shared/types';
+import type { PermissionMode, UserContentBlock } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import {
   IconPencil,
@@ -14,9 +14,11 @@ import {
 import { useCommandHistory } from '@/composables/useCommandHistory';
 import { useAtMentionAutocomplete } from '@/composables/useAtMentionAutocomplete';
 import { useSlashCommandAutocomplete } from '@/composables/useSlashCommandAutocomplete';
+import { useImageAttachments } from '@/composables/useImageAttachments';
 import { useUIStore } from '@/stores/useUIStore';
 import AtMentionPopup from './AtMentionPopup.vue';
 import SlashCommandPopup from './SlashCommandPopup.vue';
+import ImageThumbnailStrip from './ImageThumbnailStrip.vue';
 
 const uiStore = useUIStore();
 
@@ -29,8 +31,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  send: [content: string, includeIdeContext: boolean];
-  queue: [content: string];
+  send: [content: string | UserContentBlock[], includeIdeContext: boolean];
+  queue: [content: string | UserContentBlock[]];
   cancel: [];
   changeMode: [mode: PermissionMode];
 }>();
@@ -62,6 +64,15 @@ const {
   selectItem: selectSlashCommandItem,
   close: closeSlashCommand,
 } = useSlashCommandAutocomplete(inputText, textareaRef);
+
+const {
+  attachments: imageAttachments,
+  hasAttachments: hasImageAttachments,
+  addFromClipboard: addImageFromClipboard,
+  remove: removeImage,
+  clear: clearImages,
+  toContentBlocks: imagesToContentBlocks,
+} = useImageAttachments();
 
 function adjustTextareaHeight() {
   const textarea = textareaRef.value;
@@ -120,7 +131,7 @@ function setInput(value: string) {
 
 defineExpose({ focus, setInput });
 
-const canSend = computed(() => inputText.value.trim().length > 0);
+const canSend = computed(() => inputText.value.trim().length > 0 || hasImageAttachments.value);
 
 // Permission mode configuration
 const modeConfig: Record<PermissionMode, { icon: Component; label: string; shortLabel: string }> = {
@@ -166,16 +177,22 @@ function toggleIdeContext() {
 
 function handleSend() {
   if (!canSend.value) return;
-  const message = inputText.value.trim();
-  addEntry(message);
+  const text = inputText.value.trim();
+  addEntry(text);
+
+  const imageBlocks = imagesToContentBlocks();
+  const content: string | UserContentBlock[] = imageBlocks.length > 0
+    ? [...imageBlocks, ...(text ? [{ type: 'text' as const, text }] : [])]
+    : text;
 
   if (props.isProcessing) {
-    emit('queue', message);
+    emit('queue', content);
   } else {
-    emit('send', message, ideContextEnabled.value);
+    emit('send', content, ideContextEnabled.value);
   }
 
   inputText.value = '';
+  clearImages();
   resetHistory();
 }
 
@@ -218,6 +235,7 @@ function handleKeydown(event: KeyboardEvent) {
         inputText.value = inputText.value.substring(0, start) + '\n' + inputText.value.substring(end);
         nextTick(() => {
           textarea.selectionStart = textarea.selectionEnd = start + 1;
+          textarea.scrollTop = textarea.scrollHeight;
         });
       }
     } else {
@@ -256,6 +274,19 @@ function handleInput() {
   }
   checkAndUpdateMention();
   checkAndUpdateSlashCommand();
+}
+
+async function handlePaste(event: ClipboardEvent) {
+  if (!event.clipboardData) return;
+
+  const hasImages = Array.from(event.clipboardData.items).some(
+    (item) => item.kind === 'file' && item.type.startsWith('image/')
+  );
+
+  if (hasImages) {
+    event.preventDefault();
+    await addImageFromClipboard(event.clipboardData);
+  }
 }
 
 function handleCancel() {
@@ -318,6 +349,13 @@ onUnmounted(() => {
           :style="{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }"
           @keydown="handleKeydown"
           @input="handleInput"
+          @paste="handlePaste"
+        />
+
+        <!-- Image attachments strip -->
+        <ImageThumbnailStrip
+          :attachments="imageAttachments"
+          @remove="removeImage"
         />
 
         <!-- Bottom bar inside input -->

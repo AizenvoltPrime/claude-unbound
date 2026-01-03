@@ -6,6 +6,7 @@ import type { PersistUserMessageOptions, PersistPartialAssistantOptions, Persist
 import { EXTENSION_VERSION, INTERRUPT_MARKER } from './types';
 import { getSessionDir, getSessionFilePath, isValidSessionId, buildSessionFilePath } from './paths';
 import { readSessionFileLines, parseSessionEntry } from './parsing';
+import type { UserContentBlock } from '../../shared/types';
 
 export async function initializeSession(workspacePath: string, sessionId: string): Promise<void> {
   const sessionDir = await getSessionDir(workspacePath);
@@ -96,7 +97,7 @@ export async function persistUserMessage(options: PersistUserMessageOptions): Pr
 export interface PersistInjectedMessageOptions {
   workspacePath: string;
   sessionId: string;
-  content: string;
+  content: string | UserContentBlock[];
   parentUuid: string | null;
   gitBranch?: string;
   uuid?: string;
@@ -108,6 +109,10 @@ export async function persistInjectedMessage(options: PersistInjectedMessageOpti
   const timestamp = new Date().toISOString();
   const sessionDir = await getSessionDir(workspacePath);
   const filePath = buildSessionFilePath(sessionDir, sessionId);
+
+  const contentBlocks = typeof content === 'string'
+    ? [{ type: 'text' as const, text: content }]
+    : content;
 
   const userEntry = {
     parentUuid,
@@ -121,7 +126,7 @@ export async function persistInjectedMessage(options: PersistInjectedMessageOpti
     isInjected: true,
     message: {
       role: 'user',
-      content: [{ type: 'text', text: content }],
+      content: contentBlocks,
     },
     uuid: messageUuid,
     timestamp,

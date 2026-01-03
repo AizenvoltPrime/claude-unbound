@@ -64,6 +64,12 @@ export function findUserTextBlock(
   );
 }
 
+export type RawImageBlock = { type: 'image'; source: { type: 'base64'; media_type: string; data: string } };
+
+export function findUserImageBlocks(content: JsonlContentBlock[]): RawImageBlock[] {
+  return content.filter((b): b is RawImageBlock => b.type === 'image');
+}
+
 export function isDisplayableMessage(entry: ClaudeSessionEntry): boolean {
   if (entry.type === 'user' && entry.message && !entry.isMeta) {
     return true;

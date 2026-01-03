@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
 import { log } from "../logger";
 import { persistInjectedMessage, findLastMessageInCurrentTurn } from "../session";
-import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, TextContentBlock } from "./types";
+import { extractTextFromContent } from "../../shared/utils";
+import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, ContentInput } from "./types";
 import type { ToolManager } from "./tool-manager";
 import type { StreamingManager } from "./streaming-manager";
 import type { AccountInfo, ModelInfo, SlashCommandInfo, McpServerStatusInfo, PermissionMode, SandboxConfig } from "../../shared/types";
@@ -52,7 +53,7 @@ export class QueryManager {
   private _currentModel: string | null = null;
   private cachedModels: ModelInfo[] | null = null;
   private maxBudgetUsd: number | null = null;
-  private _queuedMessages: Array<{ id: string | null; content: string }> = [];
+  private _queuedMessages: Array<{ id: string | null; content: ContentInput }> = [];
 
   constructor(
     private options: SessionOptions,
@@ -105,7 +106,6 @@ export class QueryManager {
       return;
     }
 
-    type ContentInput = string | TextContentBlock[];
     type UserMessage = {
       type: "user";
       message: { role: "user"; content: ContentInput };
@@ -279,7 +279,7 @@ export class QueryManager {
 
               if (this._queuedMessages.length > 0) {
                 const queued = this._queuedMessages.splice(0);
-                const context = queued.map((m) => `[User interjection]: ${m.content}`).join("\n\n");
+                const context = queued.map((m) => `[User interjection]: ${extractTextFromContent(m.content, "")}`).join("\n\n");
                 log("[QueryManager] PostToolUse: injecting queued messages as additionalContext");
 
                 const sessionId = this.streamingManager.sessionId;
@@ -456,7 +456,7 @@ export class QueryManager {
   }
 
   /** Send message through streaming input controller */
-  sendMessage(content: string | Array<{ type: "text"; text: string }>): Promise<void> {
+  sendMessage(content: ContentInput): Promise<void> {
     return new Promise<void>((resolve) => {
       this.streamingManager.onTurnComplete = resolve;
       this._streamingInputController?.sendMessage(content);
@@ -472,7 +472,7 @@ export class QueryManager {
    *
    * This mirrors Claude Code CLI's h2A queue mechanism for mid-stream messages.
    */
-  queueInput(content: string, messageId?: string): boolean {
+  queueInput(content: ContentInput, messageId?: string): boolean {
     if (!this._streamingInputController) {
       log("[QueryManager] queueInput: no active query");
       return false;
@@ -497,14 +497,15 @@ export class QueryManager {
     const queued = this._queuedMessages.splice(0);
     log("[QueryManager] Flushing %d queued messages as new turn", queued.length);
 
-    const combinedContent = queued.map((m) => m.content).join("\n\n");
+    const combinedContent = this.combineQueuedContent(queued.map((m) => m.content));
+    const displayText = extractTextFromContent(combinedContent, "");
 
     const messageIds = queued.map((m) => m.id).filter((id): id is string => id !== null);
     if (messageIds.length > 0) {
       this.callbacks.onMessage({
         type: "queueBatchProcessed",
         messageIds,
-        combinedContent,
+        combinedContent: displayText,
       });
     }
 
@@ -514,13 +515,35 @@ export class QueryManager {
       const callback = this.callbacks.onFlushedMessageComplete;
       this.streamingManager.onTurnComplete = () => {
         log("[QueryManager] Flushed turn complete, triggering UUID assignment");
-        callback(combinedContent, messageIds).catch((err) => {
+        callback(displayText, messageIds).catch((err) => {
           log("[QueryManager] Error in onFlushedMessageComplete:", err);
         });
       };
     }
 
     this._streamingInputController.sendMessage(combinedContent);
+  }
+
+  private combineQueuedContent(contents: ContentInput[]): ContentInput {
+    const hasMultimodal = contents.some((c) => Array.isArray(c));
+    if (!hasMultimodal) {
+      return (contents as string[]).join("\n\n");
+    }
+
+    const blocks: import("../../shared/types").UserContentBlock[] = [];
+    for (let i = 0; i < contents.length; i++) {
+      const content = contents[i];
+      if (typeof content === "string") {
+        if (i > 0) blocks.push({ type: "text", text: "\n\n" });
+        blocks.push({ type: "text", text: content });
+      } else {
+        if (i > 0 && blocks.length > 0) {
+          blocks.push({ type: "text", text: "\n\n" });
+        }
+        blocks.push(...content);
+      }
+    }
+    return blocks;
   }
 
   /** Abort the current query */

@@ -5,6 +5,7 @@ import type {
   ToolCall,
   ContentBlock,
   QueuedMessage,
+  UserContentBlock,
 } from '@shared/types';
 
 export interface ToolStatusEntry {
@@ -262,13 +263,14 @@ export const useStreamingStore = defineStore('streaming', () => {
     return thinkingBlocks.map((block) => block.thinking).join('\n\n');
   }
 
-  function addUserMessage(content: string, isReplay = false, sdkMessageId?: string, isInjected?: boolean, correlationId?: string): ChatMessage {
+  function addUserMessage(content: string | UserContentBlock[], isReplay = false, sdkMessageId?: string, isInjected?: boolean, correlationId?: string): ChatMessage {
     const msg: ChatMessage = {
       id: generateId(),
       sdkMessageId,
       correlationId,
       role: 'user',
-      content,
+      content: extractDisplayContent(content),
+      contentBlocks: contentBlocksFromUserContent(content),
       timestamp: Date.now(),
       isReplay,
       isInjected,
@@ -342,12 +344,29 @@ export const useStreamingStore = defineStore('streaming', () => {
     }
   }
 
+  function extractDisplayContent(content: string | UserContentBlock[]): string {
+    if (typeof content === 'string') return content;
+    const textBlocks = content.filter((b): b is { type: 'text'; text: string } => b.type === 'text');
+    const imageCount = content.filter(b => b.type === 'image').length;
+    const textContent = textBlocks.map(b => b.text).join('\n');
+    if (imageCount > 0 && !textContent) {
+      return `[${imageCount} image${imageCount > 1 ? 's' : ''}]`;
+    }
+    return textContent;
+  }
+
+  function contentBlocksFromUserContent(content: string | UserContentBlock[]): ContentBlock[] | undefined {
+    if (typeof content === 'string') return undefined;
+    return content;
+  }
+
   function addQueuedMessage(message: QueuedMessage): void {
     const chatMessage: ChatMessage = {
       id: message.id,
       sdkMessageId: message.id,
       role: 'user',
-      content: message.content,
+      content: extractDisplayContent(message.content),
+      contentBlocks: contentBlocksFromUserContent(message.content),
       timestamp: message.timestamp,
       isQueued: true,
       isInjected: true,

@@ -1,6 +1,7 @@
 import { log } from '../logger';
 import { persistQueuedMessage } from '../session';
-import type { SessionOptions, MessageCallbacks, RewindOption } from './types';
+import { extractTextFromContent } from '../../shared/utils';
+import type { SessionOptions, MessageCallbacks, RewindOption, ContentInput } from './types';
 import type { McpServerConfig } from '../../shared/types';
 import { ToolManager } from './tool-manager';
 import { StreamingManager, type CheckpointTracker } from './streaming-manager';
@@ -99,7 +100,7 @@ export class ClaudeSession {
   }
 
   async sendMessage(
-    prompt: string | Array<{ type: 'text'; text: string }>,
+    prompt: ContentInput,
     agentId?: string,
     correlationId?: string
   ): Promise<void> {
@@ -129,7 +130,7 @@ export class ClaudeSession {
     }
 
     const plainPrompt = Array.isArray(prompt)
-      ? prompt.map(block => block.text).join('\n')
+      ? prompt.filter((block): block is { type: 'text'; text: string } => block.type === 'text').map(block => block.text).join('\n')
       : prompt;
 
     this.streamingManager.processing = true;
@@ -210,15 +211,18 @@ export class ClaudeSession {
    *
    * Returns true if the message was queued, false if no active session.
    */
-  queueInput(content: string, messageId?: string): boolean {
+  queueInput(content: ContentInput, messageId?: string): boolean {
     const injected = this.queryManager.queueInput(content, messageId);
 
     if (injected) {
       const sessionId = this.currentSessionId;
       if (sessionId) {
-        persistQueuedMessage(this.options.cwd, sessionId, content).catch(err => {
-          log('[ClaudeSession] Failed to persist queued message:', err);
-        });
+        const textContent = extractTextFromContent(content);
+        if (textContent) {
+          persistQueuedMessage(this.options.cwd, sessionId, textContent).catch(err => {
+            log('[ClaudeSession] Failed to persist queued message:', err);
+          });
+        }
       }
     }
 

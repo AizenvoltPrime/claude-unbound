@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import type { ChatMessage, CompactMarker as CompactMarkerType, SubagentState, ToolCall, ContentBlock } from "@shared/types";
+import type { ChatMessage, CompactMarker as CompactMarkerType, SubagentState, ToolCall, ContentBlock, ImageBlock } from "@shared/types";
 import ToolCallCard from "./ToolCallCard.vue";
 import QuestionToolCard from "./QuestionToolCard.vue";
 import ExitPlanModeToolCard from "./ExitPlanModeToolCard.vue";
@@ -10,9 +10,11 @@ import CompactMarker from "./CompactMarker.vue";
 import ThinkingIndicator from "./ThinkingIndicator.vue";
 import MarkdownRenderer from "./MarkdownRenderer.vue";
 import MessageContent from "./MessageContent.vue";
+import ImageLightbox from "./ImageLightbox.vue";
 import { Button } from "@/components/ui/button";
 
 const logoUri = ref("");
+const lightboxImageUrl = ref<string | null>(null);
 
 onMounted(() => {
   logoUri.value = document.getElementById("app")?.dataset.logoUri ?? "";
@@ -94,6 +96,27 @@ function isToolUseBlock(block: ContentBlock): block is { type: 'tool_use'; id: s
   return block.type === 'tool_use';
 }
 
+function isImageBlock(block: ContentBlock): block is ImageBlock {
+  return block.type === 'image';
+}
+
+function getImageBlocks(message: ChatMessage): ImageBlock[] {
+  if (!message.contentBlocks) return [];
+  return message.contentBlocks.filter(isImageBlock);
+}
+
+function imageBlockToDataUrl(block: ImageBlock): string {
+  return `data:${block.source.media_type};base64,${block.source.data}`;
+}
+
+function openImageLightbox(block: ImageBlock): void {
+  lightboxImageUrl.value = imageBlockToDataUrl(block);
+}
+
+function closeLightbox(): void {
+  lightboxImageUrl.value = null;
+}
+
 function getBlockKey(block: ContentBlock, index: number): string {
   if (isToolUseBlock(block)) return block.id;
   return `block-${index}`;
@@ -146,7 +169,18 @@ function getTrailingStreamingText(message: ChatMessage): string {
             <span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">↳ sent mid-stream</span>
             <span v-if="message.isQueued" class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">queued</span>
           </div>
-          <MarkdownRenderer :content="message.content" class="text-foreground" />
+          <MarkdownRenderer v-if="message.content" :content="message.content" class="text-foreground" />
+          <!-- User-attached images (after text) -->
+          <div v-if="getImageBlocks(message).length > 0" class="flex flex-wrap gap-2 mt-2">
+            <img
+              v-for="(img, imgIdx) in getImageBlocks(message)"
+              :key="`img-${imgIdx}`"
+              :src="imageBlockToDataUrl(img)"
+              alt="Attached image"
+              class="max-w-32 max-h-32 rounded-md border border-border object-contain cursor-pointer hover:opacity-80 transition-opacity"
+              @click="openImageLightbox(img)"
+            />
+          </div>
         </div>
       </div>
 
@@ -256,6 +290,13 @@ function getTrailingStreamingText(message: ChatMessage): string {
       v-for="marker in getTrailingMarkers()"
       :key="marker.id"
       :marker="marker"
+    />
+
+    <!-- Image lightbox -->
+    <ImageLightbox
+      :open="lightboxImageUrl !== null"
+      :image-url="lightboxImageUrl ?? ''"
+      @close="closeLightbox"
     />
   </div>
 </template>

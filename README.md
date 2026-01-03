@@ -15,6 +15,7 @@
 - **Streaming Responses**: Watch Claude's responses as they're generated
 - **@ Mentions**: Type `@` to reference workspace files or agents (`@agent-Explore`, etc.) with fuzzy search autocomplete
 - **Custom Agents**: Define custom agents in `.claude/agents/*.md` (project) or `~/.claude/agents/*.md` (user)
+- **Image Attachments**: Paste images from clipboard directly into chat (supports PNG, JPEG, GIF, WebP up to 5MB)
 - **IDE Context**: Automatically include the active file or selected code in your message (toggleable in input bar)
 - **Slash Commands**: Type `/` for built-in commands (`/clear`, `/compact`, `/rewind`, etc.) and custom commands from `.claude/commands/`
 - **Command History**: Navigate previous prompts with arrow keys (shell-style)
@@ -63,6 +64,16 @@ The input bar shows a context indicator that tracks your active editor:
 - **Code icon + filename**: When a file is open without selection, shows the filename
 
 Click the indicator to toggle whether the context is included in your next message. When enabled, the selected code (or entire file) is automatically injected into your prompt—no need to manually @mention or paste code.
+
+### Image Attachments
+
+Paste images directly into the chat input with `Ctrl+V` / `Cmd+V`:
+
+- **Supported formats**: PNG, JPEG, GIF, WebP
+- **Size limit**: 5MB per image
+- **Max attachments**: 10 images per message
+
+Attached images appear as thumbnails below the input. Hover over a thumbnail to reveal the remove button. Click any image in the conversation to open it in a lightbox.
 
 #### @ Mention Autocomplete
 

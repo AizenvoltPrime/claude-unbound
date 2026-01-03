@@ -51,6 +51,7 @@ import type {
   PermissionMode,
   RewindOption,
   RewindHistoryItem,
+  UserContentBlock,
 } from '@shared/types';
 
 const { postMessage, setState, getState } = useVSCode();
@@ -158,18 +159,19 @@ useDoubleKeyStroke('Escape', () => {
   }
 });
 
-function handleSendMessage(content: string, includeIdeContext: boolean) {
-  const trimmed = content.trim();
-
-  if (trimmed === '/rewind' || trimmed.startsWith('/rewind ')) {
-    openRewindFlow();
-    return;
+function handleSendMessage(content: string | UserContentBlock[], includeIdeContext: boolean) {
+  if (typeof content === 'string') {
+    const trimmed = content.trim();
+    if (trimmed === '/rewind' || trimmed.startsWith('/rewind ')) {
+      openRewindFlow();
+      return;
+    }
   }
 
   postMessage({ type: 'sendMessage', content, includeIdeContext });
 }
 
-function handleQueueMessage(content: string) {
+function handleQueueMessage(content: string | UserContentBlock[]) {
   postMessage({ type: 'queueMessage', content });
 }
 

@@ -61,7 +61,13 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
       switch (message.type) {
         case "userMessage":
-          streamingStore.addUserMessage(message.content, false, undefined, undefined, message.correlationId);
+          streamingStore.addUserMessage(
+            message.contentBlocks ?? message.content,
+            false,
+            undefined,
+            undefined,
+            message.correlationId
+          );
           forceScrollToBottom = true;
           break;
 
@@ -530,7 +536,12 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
 
         case "userReplay":
-          streamingStore.addUserMessage(message.content, true, message.sdkMessageId, message.isInjected);
+          streamingStore.addUserMessage(
+            message.contentBlocks ?? message.content,
+            true,
+            message.sdkMessageId,
+            message.isInjected
+          );
           break;
 
         case "assistantReplay": {
@@ -597,6 +608,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               sdkMessageId: msg.sdkMessageId,
               role: msg.type,
               content: msg.content,
+              contentBlocks: msg.contentBlocks,
               thinking: msg.thinking,
               toolCalls: convertHistoryTools(msg.tools),
               timestamp: Date.now(),

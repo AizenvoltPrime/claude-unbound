@@ -111,7 +111,7 @@ export interface AgentDefinition {
 // Queued message with unique ID for tracking (message queue injection)
 export interface QueuedMessage {
   id: string;
-  content: string;
+  content: string | UserContentBlock[];
   timestamp: number;
 }
 
@@ -309,7 +309,18 @@ export interface ThinkingBlock {
   thinking: string;
 }
 
-export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | ThinkingBlock;
+export interface ImageBlock {
+  type: "image";
+  source: {
+    type: "base64";
+    media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+    data: string;
+  };
+}
+
+export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | ThinkingBlock | ImageBlock;
+
+export type UserContentBlock = TextBlock | ImageBlock;
 
 /**
  * Tool call info for session history (simplified from live ToolCall).
@@ -333,6 +344,7 @@ export interface HistoryToolCall {
 export interface HistoryMessage {
   type: "user" | "assistant" | "error";
   content: string;
+  contentBlocks?: ContentBlock[]; // For user messages with images
   thinking?: string;
   tools?: HistoryToolCall[]; // Tool calls for this message
   sdkMessageId?: string; // SDK's message UUID for rewind correlation
@@ -376,7 +388,7 @@ export interface ResultMessage {
 // Messages from Webview → Extension
 export type WebviewToExtensionMessage =
   | { type: "log"; message: string }
-  | { type: "sendMessage"; content: string; agentId?: string; includeIdeContext?: boolean }
+  | { type: "sendMessage"; content: string | UserContentBlock[]; agentId?: string; includeIdeContext?: boolean }
   | { type: "cancelSession" }
   | { type: "resumeSession"; sessionId: string }
   | {
@@ -422,7 +434,7 @@ export type WebviewToExtensionMessage =
   // Custom agents from .claude/agents/
   | { type: "requestCustomAgents" }
   // Message queue injection
-  | { type: "queueMessage"; content: string }
+  | { type: "queueMessage"; content: string | UserContentBlock[] }
   | { type: "cancelQueuedMessage"; messageId: string }
   // MCP server control
   | { type: "toggleMcpServer"; serverName: string; enabled: boolean }
@@ -448,7 +460,7 @@ export type ExtensionToWebviewMessage =
   | { type: "assistant"; data: AssistantMessage; parentToolUseId?: string | null }
   | { type: "partial"; data: PartialMessage; parentToolUseId?: string | null }
   | { type: "done"; data: ResultMessage }
-  | { type: "userMessage"; content: string; correlationId: string }
+  | { type: "userMessage"; content: string; contentBlocks?: UserContentBlock[]; correlationId: string }
   | { type: "userMessageIdAssigned"; sdkMessageId: string; correlationId: string }
   | { type: "toolPending"; toolUseId: string; toolName: string; input: unknown; parentToolUseId?: string | null }
   | { type: "error"; message: string }
@@ -499,7 +511,7 @@ export type ExtensionToWebviewMessage =
   // New: Rewind history for /rewind browser
   | { type: "rewindHistory"; prompts: RewindHistoryItem[] }
   // New: User message replay (for resumed sessions)
-  | { type: "userReplay"; content: string; isSynthetic?: boolean; sdkMessageId?: string; isInjected?: boolean }
+  | { type: "userReplay"; content: string; contentBlocks?: ContentBlock[]; isSynthetic?: boolean; sdkMessageId?: string; isInjected?: boolean }
   // New: Assistant message replay (for resumed sessions)
   | { type: "assistantReplay"; content: string; thinking?: string; tools?: HistoryToolCall[] }
   // New: Error message replay (for interrupted sessions loaded from history)

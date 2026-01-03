@@ -3,6 +3,8 @@ import type {
   ExtensionToWebviewMessage,
   McpServerConfig,
   ContentBlock,
+  ImageBlock,
+  UserContentBlock,
 } from '../../shared/types';
 
 /** Type for the Query object returned by the SDK */
@@ -59,9 +61,12 @@ export interface StreamedToolInfo {
 /** Content block for multi-part user messages */
 export type TextContentBlock = { type: 'text'; text: string };
 
+/** Content input type for SDK - text string or array of content blocks (text + images) */
+export type ContentInput = string | UserContentBlock[];
+
 /** Controller for streaming input mode - allows sending messages to an active query */
 export interface StreamingInputController {
-  sendMessage: (content: string | TextContentBlock[]) => void;
+  sendMessage: (content: ContentInput) => void;
   close: () => void;
 }
 
