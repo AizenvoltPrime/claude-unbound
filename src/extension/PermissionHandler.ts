@@ -37,10 +37,22 @@ interface PendingQuestion {
   cleanup: () => void;
 }
 
+interface PlanApprovalResult {
+  approved: boolean;
+  approvalMode?: 'acceptEdits' | 'manual';
+  feedback?: string;
+}
+
+interface PendingPlanApproval {
+  resolve: (result: PlanApprovalResult) => void;
+  cleanup: () => void;
+}
+
 export class PermissionHandler {
   private diffManager: DiffManager;
   private pendingApprovals: Map<string, PendingApproval> = new Map();
   private pendingQuestions: Map<string, PendingQuestion> = new Map();
+  private pendingPlanApprovals: Map<string, PendingPlanApproval> = new Map();
   private postMessageToWebview: ((msg: ExtensionToWebviewMessage) => void) | null = null;
   private _permissionMode: PermissionMode = 'default';
 
@@ -72,8 +84,28 @@ export class PermissionHandler {
       return { behavior: 'allow', updatedInput: input };
     }
 
-    if (this._permissionMode === 'plan') {
-      return { behavior: 'deny', message: 'Plan mode: tools are disabled' };
+    if (toolName === 'EnterPlanMode' && this._permissionMode === 'plan') {
+      return { behavior: 'allow', updatedInput: input };
+    }
+
+    if (toolName === 'ExitPlanMode' && this._permissionMode === 'plan') {
+      const result = await this.requestPlanApprovalFromWebview(input, context);
+
+      if (!result.approved) {
+        return {
+          behavior: 'deny',
+          message: result.feedback || 'User wants to revise the plan',
+        };
+      }
+
+      return {
+        behavior: 'allow',
+        updatedInput: {
+          ...input,
+          approved: true,
+          approvalMode: result.approvalMode,
+        },
+      };
     }
 
     if (toolName === 'Edit' || toolName === 'Write') {
@@ -326,6 +358,58 @@ export class PermissionHandler {
       answers: answers ?? undefined,
     });
     this.pendingQuestions.delete(toolUseId);
+  }
+
+  private async requestPlanApprovalFromWebview(
+    input: Record<string, unknown>,
+    context: CanUseToolContext
+  ): Promise<PlanApprovalResult> {
+    const toolUseId = context.toolUseID;
+    if (!toolUseId || !this.postMessageToWebview) {
+      return { approved: false };
+    }
+
+    const planContent = typeof input.plan === 'string' ? input.plan : '';
+
+    return new Promise<PlanApprovalResult>((resolve) => {
+      const abortHandler = () => {
+        this.pendingPlanApprovals.delete(toolUseId);
+        resolve({ approved: false });
+      };
+
+      const cleanup = () => {
+        context.signal.removeEventListener('abort', abortHandler);
+      };
+
+      this.pendingPlanApprovals.set(toolUseId, { resolve, cleanup });
+      context.signal.addEventListener('abort', abortHandler, { once: true });
+
+      this.postMessageToWebview!({
+        type: 'requestPlanApproval',
+        toolUseId,
+        planContent,
+        parentToolUseId: context.parentToolUseId,
+      });
+    });
+  }
+
+  resolvePlanApproval(
+    toolUseId: string,
+    approved: boolean,
+    options?: { approvalMode?: 'acceptEdits' | 'manual'; feedback?: string }
+  ): void {
+    const pending = this.pendingPlanApprovals.get(toolUseId);
+    if (!pending) {
+      return;
+    }
+
+    pending.cleanup();
+    pending.resolve({
+      approved,
+      approvalMode: options?.approvalMode,
+      feedback: options?.feedback,
+    });
+    this.pendingPlanApprovals.delete(toolUseId);
   }
 
   async dispose(): Promise<void> {

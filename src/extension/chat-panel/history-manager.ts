@@ -27,6 +27,7 @@ export interface HistoryManagerConfig {
 interface ToolResultData {
   result: string;
   agentId?: string;
+  isError?: boolean;
 }
 
 interface ExtractedContent {
@@ -197,10 +198,12 @@ export class HistoryManager {
       if (entry.type === "user" && entry.message && Array.isArray(entry.message.content)) {
         for (const block of entry.message.content as JsonlContentBlock[]) {
           if (block.type === "tool_result") {
+            const isError = block.is_error === true;
             if (this.shouldUseToolUseResultAsDisplay(entry.toolUseResult)) {
               toolResults.set(block.tool_use_id, {
                 result: JSON.stringify(entry.toolUseResult),
                 agentId: entry.toolUseResult?.agentId,
+                isError,
               });
             } else {
               const result =
@@ -209,7 +212,7 @@ export class HistoryManager {
                     ? block.content.slice(0, TOOL_RESULT_MAX_LENGTH) + "... (truncated)"
                     : block.content
                   : JSON.stringify(block.content);
-              toolResults.set(block.tool_use_id, { result });
+              toolResults.set(block.tool_use_id, { result, isError });
             }
           }
         }
@@ -295,6 +298,7 @@ export class HistoryManager {
           const resultData = toolResults.get(block.id);
           if (resultData) {
             tool.result = resultData.result;
+            tool.isError = resultData.isError;
           }
 
           const agentId = taskToolAgents.get(block.id);

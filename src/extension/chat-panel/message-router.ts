@@ -167,6 +167,20 @@ export class MessageRouter {
         ctx.permissionHandler.resolveQuestion(msg.toolUseId, msg.answers);
       },
 
+      approvePlan: async (msg, ctx) => {
+        if (msg.type !== "approvePlan") return;
+        ctx.permissionHandler.resolvePlanApproval(msg.toolUseId, msg.approved, {
+          approvalMode: msg.approvalMode,
+          feedback: msg.feedback,
+        });
+
+        if (msg.approved && msg.approvalMode) {
+          const newMode = msg.approvalMode === "acceptEdits" ? "acceptEdits" : "default";
+          await this.settingsManager.handleSetPermissionMode(ctx.session, ctx.permissionHandler, newMode);
+          this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
+        }
+      },
+
       // Initialization
       ready: async (msg, ctx) => {
         try {

@@ -1,33 +1,28 @@
-import * as vscode from 'vscode';
-import { log } from '../logger';
-import { persistInjectedMessage, findLastMessageInCurrentTurn } from '../session';
-import type {
-  Query,
-  SessionOptions,
-  StreamingInputController,
-  MessageCallbacks,
-  TextContentBlock,
-} from './types';
-import type { ToolManager } from './tool-manager';
-import type { StreamingManager } from './streaming-manager';
-import type { AccountInfo, ModelInfo, SlashCommandInfo, McpServerStatusInfo, PermissionMode, SandboxConfig } from '../../shared/types';
+import * as vscode from "vscode";
+import { log } from "../logger";
+import { persistInjectedMessage, findLastMessageInCurrentTurn } from "../session";
+import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, TextContentBlock } from "./types";
+import type { ToolManager } from "./tool-manager";
+import type { StreamingManager } from "./streaming-manager";
+import type { AccountInfo, ModelInfo, SlashCommandInfo, McpServerStatusInfo, PermissionMode, SandboxConfig } from "../../shared/types";
 import type {
   PreToolUseHookInput,
   PostToolUseHookInput,
   PostToolUseFailureHookInput,
   NotificationHookInput,
+  UserPromptSubmitHookInput,
   SessionStartHookInput,
   SessionEndHookInput,
   SubagentStartHookInput,
   SubagentStopHookInput,
   PreCompactHookInput,
-} from '@anthropic-ai/claude-agent-sdk';
+} from "@anthropic-ai/claude-agent-sdk";
 
-let queryFn: typeof import('@anthropic-ai/claude-agent-sdk').query | undefined;
+let queryFn: typeof import("@anthropic-ai/claude-agent-sdk").query | undefined;
 
 async function loadSDK() {
   if (!queryFn) {
-    const sdk = await import('@anthropic-ai/claude-agent-sdk');
+    const sdk = await import("@anthropic-ai/claude-agent-sdk");
     queryFn = sdk.query;
   }
   return queryFn;
@@ -36,7 +31,7 @@ async function loadSDK() {
 /** Callbacks for SDK hooks */
 export interface HookCallbacks {
   onFlush: () => void;
-  onMessage: (message: import('../../shared/types').ExtensionToWebviewMessage) => void;
+  onMessage: (message: import("../../shared/types").ExtensionToWebviewMessage) => void;
 }
 
 /**
@@ -97,10 +92,7 @@ export class QueryManager {
    * Note: The SDK prompt parameter accepts string | AsyncIterable, but TypeScript types
    * don't properly reflect AsyncIterable support, requiring an `as unknown as string` cast.
    */
-  async ensureStreamingQuery(
-    resumeSessionId: string | undefined,
-    pendingResumeAt: string | null
-  ): Promise<void> {
+  async ensureStreamingQuery(resumeSessionId: string | undefined, pendingResumeAt: string | null): Promise<void> {
     if (this._streamingInputController || this._sessionInitializing) {
       return;
     }
@@ -115,8 +107,8 @@ export class QueryManager {
 
     type ContentInput = string | TextContentBlock[];
     type UserMessage = {
-      type: 'user';
-      message: { role: 'user'; content: ContentInput };
+      type: "user";
+      message: { role: "user"; content: ContentInput };
       parent_tool_use_id: null;
     };
 
@@ -124,15 +116,15 @@ export class QueryManager {
 
     async function* inputStream(): AsyncGenerator<UserMessage, void, unknown> {
       while (true) {
-        const content = await new Promise<ContentInput | null>(resolve => {
+        const content = await new Promise<ContentInput | null>((resolve) => {
           resolveNext = resolve;
         });
         if (content === null) {
           break;
         }
         yield {
-          type: 'user',
-          message: { role: 'user', content },
+          type: "user",
+          message: { role: "user", content },
           parent_tool_use_id: null,
         };
       }
@@ -151,18 +143,16 @@ export class QueryManager {
       },
     };
 
-    const config = vscode.workspace.getConfiguration('claude-unbound');
-    const maxTurns = config.get<number>('maxTurns', 50);
-    const configuredModel = config.get<string>('model', '');
-    const model = configuredModel || 'claude-opus-4-5-20251101';
-    this.maxBudgetUsd = config.get<number | null>('maxBudgetUsd', null);
-    const maxThinkingTokens = config.get<number | null>('maxThinkingTokens', null);
-    const betasEnabledRaw = config.get<string[]>('betasEnabled', []);
-    const betasEnabled = betasEnabledRaw.filter(
-      (b): b is 'context-1m-2025-08-07' => b === 'context-1m-2025-08-07'
-    );
-    const enableFileCheckpointing = config.get<boolean>('enableFileCheckpointing', true);
-    const sandboxConfig = config.get<SandboxConfig>('sandbox', { enabled: false });
+    const config = vscode.workspace.getConfiguration("claude-unbound");
+    const maxTurns = config.get<number>("maxTurns", 50);
+    const configuredModel = config.get<string>("model", "");
+    const model = configuredModel || "claude-opus-4-5-20251101";
+    this.maxBudgetUsd = config.get<number | null>("maxBudgetUsd", null);
+    const maxThinkingTokens = config.get<number | null>("maxThinkingTokens", null);
+    const betasEnabledRaw = config.get<string[]>("betasEnabled", []);
+    const betasEnabled = betasEnabledRaw.filter((b): b is "context-1m-2025-08-07" => b === "context-1m-2025-08-07");
+    const enableFileCheckpointing = config.get<boolean>("enableFileCheckpointing", true);
+    const sandboxConfig = config.get<SandboxConfig>("sandbox", { enabled: false });
 
     const queryOptions: Record<string, unknown> = {
       cwd: this.options.cwd,
@@ -187,22 +177,18 @@ export class QueryManager {
         },
       }),
       // Pass MCP servers explicitly - SDK doesn't auto-discover from settings
-      ...(this.options.mcpServers && Object.keys(this.options.mcpServers).length > 0 && {
-        mcpServers: this.options.mcpServers,
-      }),
+      ...(this.options.mcpServers &&
+        Object.keys(this.options.mcpServers).length > 0 && {
+          mcpServers: this.options.mcpServers,
+        }),
       // Agents loaded from .claude/agents/ via settingSources
       canUseTool: async (toolName: string, input: Record<string, unknown>, context: { signal: AbortSignal }) => {
-        return this.toolManager.handleCanUseTool(
-          toolName,
-          input,
-          context,
-          () => this.streamingManager.flushPendingAssistant()
-        );
+        return this.toolManager.handleCanUseTool(toolName, input, context, () => this.streamingManager.flushPendingAssistant());
       },
       // Load all settings for hooks, CLAUDE.md, etc.
-      settingSources: ['user', 'project', 'local'],
-      systemPrompt: { type: 'preset', preset: 'claude_code' },
-      tools: { type: 'preset', preset: 'claude_code' },
+      settingSources: ["user", "project", "local"],
+      systemPrompt: { type: "preset", preset: "claude_code" },
+      tools: { type: "preset", preset: "claude_code" },
       hooks: this.buildHooks(),
     };
 
@@ -217,7 +203,7 @@ export class QueryManager {
     try {
       const result = queryFn({
         prompt: inputStream() as unknown as string,
-        options: queryOptions as Parameters<typeof queryFn>[0]['options'],
+        options: queryOptions as Parameters<typeof queryFn>[0]["options"],
       });
 
       this._currentQuery = result;
@@ -226,13 +212,13 @@ export class QueryManager {
       this._sessionInitializing = false;
 
       result.setMaxThinkingTokens(maxThinkingTokens).catch((err) => {
-        log('[QueryManager] Failed to set thinking tokens:', err);
+        log("[QueryManager] Failed to set thinking tokens:", err);
       });
 
       result.accountInfo().then(
         (account) => {
           this.callbacks.onMessage({
-            type: 'accountInfo',
+            type: "accountInfo",
             data: {
               email: account.email,
               subscriptionType: account.subscriptionType,
@@ -241,7 +227,7 @@ export class QueryManager {
           });
         },
         (err) => {
-          log('[QueryManager] Failed to get account info:', err);
+          log("[QueryManager] Failed to get account info:", err);
         }
       );
 
@@ -251,23 +237,19 @@ export class QueryManager {
         this.flushQueuedMessagesAsNewTurn();
       };
 
-      this.streamingManager.consumeQueryInBackground(
-        result,
-        this.maxBudgetUsd,
-        this.abortController.signal,
-        () => {
+      this.streamingManager
+        .consumeQueryInBackground(result, this.maxBudgetUsd, this.abortController.signal, () => {
           if (this._streamingInputController === controllerForThisQuery) {
             this._streamingInputController = null;
           }
           this.streamingManager.onTurnComplete = null;
           this.streamingManager.onTurnEndFlush = null;
-        }
-      ).catch(err => {
-        log('[QueryManager] Background query consumption error:', err);
-      });
-
+        })
+        .catch((err) => {
+          log("[QueryManager] Background query consumption error:", err);
+        });
     } catch (err) {
-      log('[QueryManager] Failed to create streaming query:', err);
+      log("[QueryManager] Failed to create streaming query:", err);
       this._sessionInitializing = false;
       this._streamingInputController = null;
     }
@@ -276,166 +258,205 @@ export class QueryManager {
   /** Build hooks configuration for the query */
   private buildHooks() {
     return {
-      PreToolUse: [{
-        hooks: [
-          async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-            const p = params as PreToolUseHookInput;
-            this.toolManager.handlePreToolUse(p.tool_name, toolUseId, p.tool_input);
-            return {};
-          },
-        ],
-      }],
-      PostToolUse: [{
-        hooks: [
-          async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-            const p = params as PostToolUseHookInput;
-            const id = toolUseId ?? p.tool_use_id;
-            this.toolManager.handlePostToolUse(p.tool_name, id, p.tool_response);
+      PreToolUse: [
+        {
+          hooks: [
+            async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
+              const p = params as PreToolUseHookInput;
+              this.toolManager.handlePreToolUse(p.tool_name, toolUseId, p.tool_input);
+              return {};
+            },
+          ],
+        },
+      ],
+      PostToolUse: [
+        {
+          hooks: [
+            async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
+              const p = params as PostToolUseHookInput;
+              const id = toolUseId ?? p.tool_use_id;
+              this.toolManager.handlePostToolUse(p.tool_name, id, p.tool_response);
 
-            if (this._queuedMessages.length > 0) {
-              const queued = this._queuedMessages.splice(0);
-              const context = queued.map(m => `[User interjection]: ${m.content}`).join('\n\n');
-              log('[QueryManager] PostToolUse: injecting queued messages as additionalContext');
+              if (this._queuedMessages.length > 0) {
+                const queued = this._queuedMessages.splice(0);
+                const context = queued.map((m) => `[User interjection]: ${m.content}`).join("\n\n");
+                log("[QueryManager] PostToolUse: injecting queued messages as additionalContext");
 
-              const sessionId = this.streamingManager.sessionId;
-              let parentUuid = this.streamingManager.lastUserMessageId;
+                const sessionId = this.streamingManager.sessionId;
+                let parentUuid = this.streamingManager.lastUserMessageId;
 
-              if (sessionId) {
-                const lastMsgUuid = await findLastMessageInCurrentTurn(this.options.cwd, sessionId);
-                if (lastMsgUuid) {
-                  parentUuid = lastMsgUuid;
-                }
-              }
-
-              for (const msg of queued) {
                 if (sessionId) {
-                  try {
-                    await persistInjectedMessage({
-                      workspacePath: this.options.cwd,
-                      sessionId,
-                      content: msg.content,
-                      parentUuid,
-                      uuid: msg.id ?? undefined,
-                    });
-                    if (msg.id) {
-                      parentUuid = msg.id;
-                    }
-                  } catch (err) {
-                    log('[QueryManager] Failed to persist injected message:', err);
+                  const lastMsgUuid = await findLastMessageInCurrentTurn(this.options.cwd, sessionId);
+                  if (lastMsgUuid) {
+                    parentUuid = lastMsgUuid;
                   }
                 }
 
-                if (msg.id) {
-                  this.callbacks.onMessage({ type: 'queueProcessed', messageId: msg.id });
-                }
-              }
+                for (const msg of queued) {
+                  if (sessionId) {
+                    try {
+                      await persistInjectedMessage({
+                        workspacePath: this.options.cwd,
+                        sessionId,
+                        content: msg.content,
+                        parentUuid,
+                        uuid: msg.id ?? undefined,
+                      });
+                      if (msg.id) {
+                        parentUuid = msg.id;
+                      }
+                    } catch (err) {
+                      log("[QueryManager] Failed to persist injected message:", err);
+                    }
+                  }
 
-              return {
-                hookSpecificOutput: {
-                  hookEventName: 'PostToolUse',
-                  additionalContext: context,
-                },
-              };
-            }
-            return {};
-          },
-        ],
-      }],
-      PostToolUseFailure: [{
-        hooks: [
-          async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-            const p = params as PostToolUseFailureHookInput;
-            const id = toolUseId ?? p.tool_use_id;
-            this.toolManager.handlePostToolUseFailure(p.tool_name, id, p.error, p.is_interrupt);
-            return {};
-          },
-        ],
-      }],
-      Notification: [{
-        hooks: [
-          async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as NotificationHookInput;
-            if (p.message) {
+                  if (msg.id) {
+                    this.callbacks.onMessage({ type: "queueProcessed", messageId: msg.id });
+                  }
+                }
+
+                return {
+                  hookSpecificOutput: {
+                    hookEventName: "PostToolUse",
+                    additionalContext: context,
+                  },
+                };
+              }
+              return {};
+            },
+          ],
+        },
+      ],
+      PostToolUseFailure: [
+        {
+          hooks: [
+            async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
+              const p = params as PostToolUseFailureHookInput;
+              const id = toolUseId ?? p.tool_use_id;
+              this.toolManager.handlePostToolUseFailure(p.tool_name, id, p.error, p.is_interrupt);
+              return {};
+            },
+          ],
+        },
+      ],
+      Notification: [
+        {
+          hooks: [
+            async (params: unknown): Promise<Record<string, unknown>> => {
+              const p = params as NotificationHookInput;
+              if (p.message) {
+                this.callbacks.onMessage({
+                  type: "notification",
+                  message: p.message,
+                  notificationType: p.notification_type || "info",
+                } as import("../../shared/types").ExtensionToWebviewMessage);
+              }
+              return {};
+            },
+          ],
+        },
+      ],
+      SessionStart: [
+        {
+          hooks: [
+            async (params: unknown): Promise<Record<string, unknown>> => {
+              const p = params as SessionStartHookInput;
               this.callbacks.onMessage({
-                type: 'notification',
-                message: p.message,
-                notificationType: p.notification_type || 'info',
-              } as import('../../shared/types').ExtensionToWebviewMessage);
-            }
-            return {};
-          },
-        ],
-      }],
-      SessionStart: [{
-        hooks: [
-          async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as SessionStartHookInput;
-            this.callbacks.onMessage({
-              type: 'sessionStart',
-              source: p.source || 'startup',
-            });
-            return {};
-          },
-        ],
-      }],
-      SessionEnd: [{
-        hooks: [
-          async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as SessionEndHookInput;
-            this.callbacks.onMessage({
-              type: 'sessionEnd',
-              reason: p.reason || 'completed',
-            });
-            return {};
-          },
-        ],
-      }],
-      SubagentStart: [{
-        hooks: [
-          async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as SubagentStartHookInput;
-            if (p.agent_id) {
-              this.callbacks.onMessage({
-                type: 'subagentStart',
-                agentId: p.agent_id,
-                agentType: p.agent_type || 'unknown',
+                type: "sessionStart",
+                source: p.source || "startup",
               });
-            }
-            return {};
-          },
-        ],
-      }],
-      SubagentStop: [{
-        hooks: [
-          async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as SubagentStopHookInput;
-            if (p.agent_id) {
+              return {};
+            },
+          ],
+        },
+      ],
+      SessionEnd: [
+        {
+          hooks: [
+            async (params: unknown): Promise<Record<string, unknown>> => {
+              const p = params as SessionEndHookInput;
               this.callbacks.onMessage({
-                type: 'subagentStop',
-                agentId: p.agent_id,
+                type: "sessionEnd",
+                reason: p.reason || "completed",
               });
-            }
-            return {};
-          },
-        ],
-      }],
-      PreCompact: [{
-        hooks: [
-          async (params: unknown): Promise<Record<string, unknown>> => {
-            const p = params as PreCompactHookInput;
-            this.callbacks.onMessage({
-              type: 'preCompact',
-              trigger: p.trigger || 'auto',
-            });
-            return {};
-          },
-        ],
-      }],
+              return {};
+            },
+          ],
+        },
+      ],
+      UserPromptSubmit: [
+        {
+          hooks: [
+            async (params: unknown): Promise<Record<string, unknown>> => {
+              const p = params as UserPromptSubmitHookInput;
+              if (this.options.permissionHandler.getPermissionMode() === "plan") {
+                const planModeInstruction =
+                  "<MANDATORY_INSTRUCTION>PLAN MODE ACTIVE: You MUST call EnterPlanMode immediately as your first action. No other tools or responses allowed until you enter plan mode.</MANDATORY_INSTRUCTION>";
+
+                return {
+                  hookSpecificOutput: {
+                    hookEventName: "UserPromptSubmit",
+                    additionalContext: planModeInstruction,
+                  },
+                };
+              }
+              return {};
+            },
+          ],
+        },
+      ],
+      SubagentStart: [
+        {
+          hooks: [
+            async (params: unknown): Promise<Record<string, unknown>> => {
+              const p = params as SubagentStartHookInput;
+              if (p.agent_id) {
+                this.callbacks.onMessage({
+                  type: "subagentStart",
+                  agentId: p.agent_id,
+                  agentType: p.agent_type || "unknown",
+                });
+              }
+              return {};
+            },
+          ],
+        },
+      ],
+      SubagentStop: [
+        {
+          hooks: [
+            async (params: unknown): Promise<Record<string, unknown>> => {
+              const p = params as SubagentStopHookInput;
+              if (p.agent_id) {
+                this.callbacks.onMessage({
+                  type: "subagentStop",
+                  agentId: p.agent_id,
+                });
+              }
+              return {};
+            },
+          ],
+        },
+      ],
+      PreCompact: [
+        {
+          hooks: [
+            async (params: unknown): Promise<Record<string, unknown>> => {
+              const p = params as PreCompactHookInput;
+              this.callbacks.onMessage({
+                type: "preCompact",
+                trigger: p.trigger || "auto",
+              });
+              return {};
+            },
+          ],
+        },
+      ],
     };
   }
 
   /** Send message through streaming input controller */
-  sendMessage(content: string | Array<{ type: 'text'; text: string }>): Promise<void> {
+  sendMessage(content: string | Array<{ type: "text"; text: string }>): Promise<void> {
     return new Promise<void>((resolve) => {
       this.streamingManager.onTurnComplete = resolve;
       this._streamingInputController?.sendMessage(content);
@@ -453,10 +474,10 @@ export class QueryManager {
    */
   queueInput(content: string, messageId?: string): boolean {
     if (!this._streamingInputController) {
-      log('[QueryManager] queueInput: no active query');
+      log("[QueryManager] queueInput: no active query");
       return false;
     }
-    log('[QueryManager] queueInput: queuing message for PostToolUse injection');
+    log("[QueryManager] queueInput: queuing message for PostToolUse injection");
     this._queuedMessages.push({ id: messageId ?? null, content });
     return true;
   }
@@ -474,14 +495,14 @@ export class QueryManager {
     }
 
     const queued = this._queuedMessages.splice(0);
-    log('[QueryManager] Flushing %d queued messages as new turn', queued.length);
+    log("[QueryManager] Flushing %d queued messages as new turn", queued.length);
 
-    const combinedContent = queued.map(m => m.content).join('\n\n');
+    const combinedContent = queued.map((m) => m.content).join("\n\n");
 
-    const messageIds = queued.map(m => m.id).filter((id): id is string => id !== null);
+    const messageIds = queued.map((m) => m.id).filter((id): id is string => id !== null);
     if (messageIds.length > 0) {
       this.callbacks.onMessage({
-        type: 'queueBatchProcessed',
+        type: "queueBatchProcessed",
         messageIds,
         combinedContent,
       });
@@ -492,9 +513,9 @@ export class QueryManager {
     if (this.callbacks.onFlushedMessageComplete) {
       const callback = this.callbacks.onFlushedMessageComplete;
       this.streamingManager.onTurnComplete = () => {
-        log('[QueryManager] Flushed turn complete, triggering UUID assignment');
-        callback(combinedContent, messageIds).catch(err => {
-          log('[QueryManager] Error in onFlushedMessageComplete:', err);
+        log("[QueryManager] Flushed turn complete, triggering UUID assignment");
+        callback(combinedContent, messageIds).catch((err) => {
+          log("[QueryManager] Error in onFlushedMessageComplete:", err);
         });
       };
     }
@@ -520,7 +541,7 @@ export class QueryManager {
       try {
         await this._currentQuery.interrupt();
       } catch (err) {
-        log('[QueryManager] Interrupt failed (expected if not streaming):', err);
+        log("[QueryManager] Interrupt failed (expected if not streaming):", err);
       }
     }
   }
@@ -553,7 +574,7 @@ export class QueryManager {
    * Update MCP servers configuration.
    * Called when user toggles MCP servers in the UI.
    */
-  setMcpServers(mcpServers: Record<string, import('../../shared/types').McpServerConfig>): void {
+  setMcpServers(mcpServers: Record<string, import("../../shared/types").McpServerConfig>): void {
     this.options.mcpServers = mcpServers;
   }
 
@@ -574,7 +595,7 @@ export class QueryManager {
       try {
         await this._currentQuery.setPermissionMode(mode);
       } catch (err) {
-        log('[QueryManager] setPermissionMode failed:', err);
+        log("[QueryManager] setPermissionMode failed:", err);
       }
     }
   }
@@ -585,7 +606,7 @@ export class QueryManager {
       try {
         await this._currentQuery.setModel(model);
       } catch (err) {
-        log('[QueryManager] setModel failed:', err);
+        log("[QueryManager] setModel failed:", err);
       }
     }
   }
@@ -596,7 +617,7 @@ export class QueryManager {
       try {
         await this._currentQuery.setMaxThinkingTokens(tokens);
       } catch (err) {
-        log('[QueryManager] setMaxThinkingTokens failed:', err);
+        log("[QueryManager] setMaxThinkingTokens failed:", err);
       }
     }
   }
@@ -611,7 +632,7 @@ export class QueryManager {
         this.cachedModels = models as ModelInfo[];
         return this.cachedModels;
       } catch (err) {
-        log('[QueryManager] getSupportedModels failed:', err);
+        log("[QueryManager] getSupportedModels failed:", err);
         return [];
       }
     }
@@ -624,7 +645,7 @@ export class QueryManager {
         const commands = await this._currentQuery.supportedCommands();
         return commands as SlashCommandInfo[];
       } catch (err) {
-        log('[QueryManager] getSupportedCommands failed:', err);
+        log("[QueryManager] getSupportedCommands failed:", err);
         return [];
       }
     }
@@ -637,7 +658,7 @@ export class QueryManager {
         const status = await this._currentQuery.mcpServerStatus();
         return status as McpServerStatusInfo[];
       } catch (err) {
-        log('[QueryManager] getMcpServerStatus failed:', err);
+        log("[QueryManager] getMcpServerStatus failed:", err);
         return [];
       }
     }

@@ -2,8 +2,20 @@ import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
 import type { PendingPermissionInfo } from '@shared/types';
 
+interface PendingPlanApproval {
+  toolUseId: string;
+  planContent: string;
+}
+
+interface ApprovedPlanInfo {
+  planContent: string;
+  approvalMode: 'acceptEdits' | 'manual';
+}
+
 export const usePermissionStore = defineStore('permission', () => {
   const pendingPermissions = ref<Record<string, PendingPermissionInfo>>({});
+  const pendingPlanApproval = ref<PendingPlanApproval | null>(null);
+  const approvedPlans = ref<Record<string, ApprovedPlanInfo>>({});
 
   const currentPermission = computed(() => {
     const entries = Object.values(pendingPermissions.value);
@@ -30,6 +42,33 @@ export const usePermissionStore = defineStore('permission', () => {
 
   function $reset() {
     pendingPermissions.value = {};
+    pendingPlanApproval.value = null;
+    approvedPlans.value = {};
+  }
+
+  function setPendingPlanApproval(info: PendingPlanApproval | null) {
+    pendingPlanApproval.value = info;
+  }
+
+  function clearPendingPlanApproval() {
+    pendingPlanApproval.value = null;
+  }
+
+  function storePlanApproval(toolUseId: string, approvalMode: 'acceptEdits' | 'manual') {
+    if (!pendingPlanApproval.value || pendingPlanApproval.value.toolUseId !== toolUseId) {
+      return;
+    }
+    approvedPlans.value = {
+      ...approvedPlans.value,
+      [toolUseId]: {
+        planContent: pendingPlanApproval.value.planContent,
+        approvalMode,
+      },
+    };
+  }
+
+  function getApprovedPlan(toolUseId: string): ApprovedPlanInfo | null {
+    return approvedPlans.value[toolUseId] ?? null;
   }
 
   return {
@@ -38,6 +77,12 @@ export const usePermissionStore = defineStore('permission', () => {
     pendingCount,
     addPermission,
     removePermission,
+    pendingPlanApproval,
+    setPendingPlanApproval,
+    clearPendingPlanApproval,
+    approvedPlans,
+    storePlanApproval,
+    getApprovedPlan,
     $reset,
   };
 });

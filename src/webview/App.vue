@@ -19,6 +19,7 @@ import RewindConfirmModal from './components/RewindConfirmModal.vue';
 import DeleteSessionModal from './components/DeleteSessionModal.vue';
 import PermissionPrompt from './components/PermissionPrompt.vue';
 import QuestionPrompt from './components/QuestionPrompt.vue';
+import PlanApprovalModal from './components/PlanApprovalModal.vue';
 import TodoListCard from './components/TodoListCard.vue';
 import { useVSCode } from './composables/useVSCode';
 import { useMessageHandler } from './composables/useMessageHandler';
@@ -103,7 +104,7 @@ const {
 } = storeToRefs(sessionStore);
 
 const permissionStore = usePermissionStore();
-const { currentPermission, pendingCount: pendingPermissionCount } = storeToRefs(permissionStore);
+const { currentPermission, pendingCount: pendingPermissionCount, pendingPlanApproval } = storeToRefs(permissionStore);
 
 const streamingStore = useStreamingStore();
 const { messages, streamingMessageId, expandedMcpTool } = storeToRefs(streamingStore);
@@ -417,6 +418,45 @@ function handleDismissBudgetWarning() {
   settingsStore.dismissBudgetWarning();
 }
 
+function handlePlanApprove(options: { approvalMode: 'acceptEdits' | 'manual' }) {
+  if (!pendingPlanApproval.value) return;
+  const toolUseId = pendingPlanApproval.value.toolUseId;
+  streamingStore.updateToolStatus(toolUseId, 'completed');
+  permissionStore.storePlanApproval(toolUseId, options.approvalMode);
+  postMessage({
+    type: 'approvePlan',
+    toolUseId,
+    approved: true,
+    approvalMode: options.approvalMode,
+  });
+  permissionStore.clearPendingPlanApproval();
+}
+
+function handlePlanFeedback(feedback: string) {
+  if (!pendingPlanApproval.value) return;
+  const toolUseId = pendingPlanApproval.value.toolUseId;
+  streamingStore.updateToolStatus(toolUseId, 'denied');
+  postMessage({
+    type: 'approvePlan',
+    toolUseId,
+    approved: false,
+    feedback,
+  });
+  permissionStore.clearPendingPlanApproval();
+}
+
+function handlePlanCancel() {
+  if (!pendingPlanApproval.value) return;
+  const toolUseId = pendingPlanApproval.value.toolUseId;
+  streamingStore.updateToolStatus(toolUseId, 'denied');
+  postMessage({
+    type: 'approvePlan',
+    toolUseId,
+    approved: false,
+  });
+  permissionStore.clearPendingPlanApproval();
+}
+
 const rewindMessagePreview = computed(() => {
   return selectedRewindItem.value?.content.slice(0, 100) || '';
 });
@@ -643,6 +683,16 @@ const rewindMessagePreview = computed(() => {
       :visible="true"
       @submit="handleQuestionSubmit"
       @cancel="handleQuestionCancel"
+    />
+
+    <!-- Plan Approval Modal for ExitPlanMode tool -->
+    <PlanApprovalModal
+      :visible="!!pendingPlanApproval"
+      :plan-content="pendingPlanApproval?.planContent ?? ''"
+      :tool-use-id="pendingPlanApproval?.toolUseId ?? ''"
+      @approve="handlePlanApprove"
+      @feedback="handlePlanFeedback"
+      @cancel="handlePlanCancel"
     />
 
     <!-- Status Bar with witty phrases (above input) -->

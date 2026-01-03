@@ -37,8 +37,9 @@ function convertHistoryTools(tools: HistoryToolCall[] | undefined): ToolCall[] |
     id: t.id,
     name: t.name,
     input: t.input,
-    status: "completed" as const,
+    status: t.isError ? "denied" as const : "completed" as const,
     result: t.result,
+    isError: t.isError,
   }));
 }
 
@@ -334,6 +335,13 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           });
           break;
         }
+
+        case "requestPlanApproval":
+          permissionStore.setPendingPlanApproval({
+            toolUseId: message.toolUseId,
+            planContent: message.planContent,
+          });
+          break;
 
         case "notification":
           switch (message.notificationType) {

@@ -27,6 +27,7 @@
 - **Model Selection**: Switch between Opus 4.5, Sonnet 4.5, and Haiku 4.5
 - **Extended Thinking**: Toggle thinking mode on/off with adjustable token budget (1K-64K)
 - **Per-Panel Permission Mode**: Each panel can have its own permission mode independent of the global default
+- **Plan Mode**: When enabled, Claude creates implementation plans for your approval before making changes. Review plans in a modal, approve with auto-accept or manual mode, or request revisions with feedback
 - **File Checkpointing**: Track file changes and rewind to any previous state with the Rewind Browser (`/rewind`)
 - **Todo List**: Visual display of Claude's current task list with real-time progress tracking
 - **Message Queue**: Send messages while Claude is working - they're injected at the next tool boundary

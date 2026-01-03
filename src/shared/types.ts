@@ -320,6 +320,7 @@ export interface HistoryToolCall {
   name: string;
   input: Record<string, unknown>;
   result?: string; // Tool result if available
+  isError?: boolean; // True if tool was denied/failed (from JSONL is_error)
   agentToolCalls?: HistoryToolCall[]; // For Task tools: nested tool calls from agent JSONL
   agentModel?: string; // For Task tools: the model used by the subagent
   sdkAgentId?: string; // For Task tools: SDK's agent ID for JSONL file access
@@ -429,7 +430,15 @@ export type WebviewToExtensionMessage =
   // MCP server control
   | { type: "toggleMcpServer"; serverName: string; enabled: boolean }
   // AskUserQuestion response
-  | { type: "answerQuestion"; toolUseId: string; answers: Record<string, string> | null };
+  | { type: "answerQuestion"; toolUseId: string; answers: Record<string, string> | null }
+  // Plan approval response
+  | {
+      type: "approvePlan";
+      toolUseId: string;
+      approved: boolean;
+      approvalMode?: "acceptEdits" | "manual";
+      feedback?: string;
+    };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
@@ -527,7 +536,14 @@ export type ExtensionToWebviewMessage =
   // AskUserQuestion request
   | { type: "requestQuestion"; toolUseId: string; questions: Question[]; parentToolUseId?: string | null }
   // IDE context update (active file/selection in editor)
-  | { type: "ideContextUpdate"; context: IdeContextDisplayInfo | null };
+  | { type: "ideContextUpdate"; context: IdeContextDisplayInfo | null }
+  // Plan approval request (ExitPlanMode tool)
+  | {
+      type: "requestPlanApproval";
+      toolUseId: string;
+      planContent: string;
+      parentToolUseId?: string | null;
+    };
 
 // Chat message for UI rendering
 export interface ChatMessage {

@@ -20,7 +20,7 @@ export type JsonlContentBlock =
   | { type: 'text'; text: string }
   | { type: 'thinking'; thinking: string }
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
-  | { type: 'tool_result'; tool_use_id: string; content: string };
+  | { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean };
 
 export interface ClaudeSessionEntry {
   type: string;

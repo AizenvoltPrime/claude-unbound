@@ -111,8 +111,11 @@ export const useQuestionStore = defineStore('question', () => {
       const newSet = new Set([optionLabel]);
       selectedOptions.value = new Map(selectedOptions.value).set(questionText, newSet);
       customInputs.value = new Map(customInputs.value).set(questionText, '');
-      if (!isOnSubmitTab.value && currentTabIndex.value < questions.value.length - 1) {
-        nextTab();
+      if (!isOnSubmitTab.value) {
+        const isLastQuestion = currentTabIndex.value === questions.value.length - 1;
+        if (!isLastQuestion || allAnswered.value) {
+          nextTab();
+        }
       }
     }
   }
