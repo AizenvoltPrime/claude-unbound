@@ -217,5 +217,8 @@
     "type": "command",
     "command": "python -X utf8 .claude/scripts/statusline.py"
   },
-  "outputStyle": "Explanatory"
+  "outputStyle": "Explanatory",
+  "disabledMcpjsonServers": [
+    "context7"
+  ]
 }
