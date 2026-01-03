@@ -210,7 +210,7 @@ export class SettingsManager {
 
     const settings: ExtensionSettings = {
       model,
-      maxTurns: config.get<number>("maxTurns", 50),
+      maxTurns: config.get<number>("maxTurns", 100),
       maxBudgetUsd: config.get<number | null>("maxBudgetUsd", null),
       maxThinkingTokens: config.get<number | null>("maxThinkingTokens", null),
       betasEnabled: effectiveBetas,

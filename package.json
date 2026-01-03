@@ -89,7 +89,7 @@
         },
         "claude-unbound.maxTurns": {
           "type": "number",
-          "default": 50,
+          "default": 100,
           "minimum": 1,
           "maximum": 200,
           "description": "Maximum conversation turns per session"

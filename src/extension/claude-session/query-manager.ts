@@ -144,7 +144,7 @@ export class QueryManager {
     };
 
     const config = vscode.workspace.getConfiguration("claude-unbound");
-    const maxTurns = config.get<number>("maxTurns", 50);
+    const maxTurns = config.get<number>("maxTurns", 100);
     const configuredModel = config.get<string>("model", "");
     const model = configuredModel || "claude-opus-4-5-20251101";
     this.maxBudgetUsd = config.get<number | null>("maxBudgetUsd", null);

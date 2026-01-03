@@ -208,10 +208,23 @@ function handleKeydown(event: KeyboardEvent) {
     }
   }
 
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault();
-    event.stopPropagation();
-    handleSend();
+  if (event.key === 'Enter') {
+    if (event.shiftKey) {
+      event.preventDefault();
+      const textarea = textareaRef.value;
+      if (textarea) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        inputText.value = inputText.value.substring(0, start) + '\n' + inputText.value.substring(end);
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + 1;
+        });
+      }
+    } else {
+      event.preventDefault();
+      event.stopPropagation();
+      handleSend();
+    }
     return;
   }
 
