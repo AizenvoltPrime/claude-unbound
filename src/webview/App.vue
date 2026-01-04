@@ -375,7 +375,12 @@ function handleTypeSelected(option: RewindOption) {
   }
 
   if (selectedRewindItem.value) {
-    postMessage({ type: 'rewindToMessage', userMessageId: selectedRewindItem.value.messageId, option });
+    postMessage({
+      type: 'rewindToMessage',
+      userMessageId: selectedRewindItem.value.messageId,
+      option,
+      promptContent: selectedRewindItem.value.content,
+    });
     uiStore.cancelRewind();
   }
   uiStore.closeRewindTypeModal();

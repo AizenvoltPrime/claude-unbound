@@ -229,6 +229,7 @@ export interface RewindHistoryItem {
   content: string;
   timestamp: number;
   filesAffected: number;
+  files?: string[];
   linesChanged?: { added: number; removed: number };
 }
 
@@ -415,7 +416,7 @@ export type WebviewToExtensionMessage =
   | { type: "setPermissionMode"; mode: PermissionMode }
   | { type: "setDefaultPermissionMode"; mode: PermissionMode }
   // New: File rewind
-  | { type: "rewindToMessage"; userMessageId: string; option: RewindOption }
+  | { type: "rewindToMessage"; userMessageId: string; option: RewindOption; promptContent?: string }
   | { type: "requestRewindHistory" }
   // New: Session control
   | { type: "interrupt" }
@@ -501,7 +502,7 @@ export type ExtensionToWebviewMessage =
   | { type: "mcpServerStatus"; servers: McpServerStatusInfo[] }
   // New: File checkpointing
   | { type: "checkpointInfo"; checkpoints: MessageCheckpoint[] }
-  | { type: "rewindComplete"; rewindToMessageId: string; option: RewindOption; fileRewindWarning?: string }
+  | { type: "rewindComplete"; rewindToMessageId: string; option: RewindOption; promptContent?: string; fileRewindWarning?: string }
   | { type: "rewindError"; message: string }
   // New: Tool lifecycle
   | { type: "toolStreaming"; messageId: string; tool: { id: string; name: string; input: Record<string, unknown> }; contentBlocks: ContentBlock[]; parentToolUseId?: string | null }
@@ -591,6 +592,12 @@ export type ExtensionToWebviewMessage =
       skillName: string;
       skillDescription?: string;
       parentToolUseId?: string | null;
+    }
+  // Interrupt recovery (early ESC before SDK wrote message)
+  | {
+      type: "interruptRecovery";
+      correlationId: string;
+      promptContent: string;
     };
 
 // Chat message for UI rendering

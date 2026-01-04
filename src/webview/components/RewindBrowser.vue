@@ -181,19 +181,33 @@ onUnmounted(() => {
             v-if="filteredPrompts.length > 0 && filteredPrompts[selectedIndex]"
             class="px-4 py-3 border-t border-border/30 bg-card/30"
           >
-            <div class="flex items-center gap-2 text-xs text-muted-foreground">
-              <IconFile :size="14" />
-              <span>{{ filteredPrompts[selectedIndex].filesAffected }} files will be restored</span>
-              <template v-if="filteredPrompts[selectedIndex].linesChanged">
-                <span class="text-success">
-                  +{{ filteredPrompts[selectedIndex].linesChanged.added }}
-                </span>
-                <span class="text-error">
-                  -{{ filteredPrompts[selectedIndex].linesChanged.removed }}
-                </span>
-              </template>
+            <div class="flex items-start gap-2 text-xs text-muted-foreground">
+              <IconFile :size="14" class="mt-0.5 shrink-0" />
+              <div class="flex-1 min-w-0">
+                <template v-if="filteredPrompts[selectedIndex].filesAffected === 0">
+                  <span>No files will be restored</span>
+                </template>
+                <template v-else-if="filteredPrompts[selectedIndex].files">
+                  <span>{{ filteredPrompts[selectedIndex].filesAffected }} file{{ filteredPrompts[selectedIndex].filesAffected > 1 ? 's' : '' }} will be restored:</span>
+                  <div class="flex flex-wrap gap-1 mt-1">
+                    <span
+                      v-for="file in filteredPrompts[selectedIndex].files.slice(0, 5)"
+                      :key="file"
+                      class="px-1.5 py-0.5 bg-primary/20 rounded text-[10px] font-mono truncate max-w-[120px]"
+                      :title="file"
+                    >{{ file }}</span>
+                    <span
+                      v-if="filteredPrompts[selectedIndex].files.length > 5"
+                      class="px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                    >+{{ filteredPrompts[selectedIndex].files.length - 5 }} more</span>
+                  </div>
+                </template>
+                <template v-else>
+                  <span>{{ filteredPrompts[selectedIndex].filesAffected }} file{{ filteredPrompts[selectedIndex].filesAffected > 1 ? 's' : '' }} will be restored</span>
+                </template>
+              </div>
             </div>
-            <div class="flex items-center gap-2 text-xs text-warning mt-1">
+            <div class="flex items-center gap-2 text-xs text-warning mt-2">
               <IconWarning :size="14" />
               <span>Does not affect manually edited files</span>
             </div>

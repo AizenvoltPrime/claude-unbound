@@ -1,7 +1,6 @@
 import { log } from '../logger';
 import {
   persistInterruptMarker,
-  persistUserMessage,
   persistPartialAssistant,
   findUserMessageInCurrentTurn,
   findLastMessageInCurrentTurn,
@@ -28,6 +27,8 @@ export class CheckpointManager {
   private _accumulatedCost = 0;
   private _wasInterrupted = false;
   private _currentPrompt: string | null = null;
+  private _currentCorrelationId: string | null = null;
+  private _rewindEpoch = 0;
 
   constructor(
     private cwd: string,
@@ -72,6 +73,18 @@ export class CheckpointManager {
     this._currentPrompt = value;
   }
 
+  get currentCorrelationId(): string | null {
+    return this._currentCorrelationId;
+  }
+
+  set currentCorrelationId(value: string | null) {
+    this._currentCorrelationId = value;
+  }
+
+  get rewindEpoch(): number {
+    return this._rewindEpoch;
+  }
+
   /** Track checkpoint mapping assistant message → user message */
   trackCheckpoint(assistantMessageId: string, userMessageId: string): void {
     this.messageCheckpoints.set(assistantMessageId, userMessageId);
@@ -107,6 +120,7 @@ export class CheckpointManager {
     option: RewindOption,
     sessionId: string | null,
     query: Query | null,
+    promptContent: string | undefined,
     onResetQuery: (clearSession: boolean) => void
   ): Promise<void> {
     const needsFileRewind = option === 'code-and-conversation' || option === 'code-only';
@@ -114,8 +128,15 @@ export class CheckpointManager {
 
     let fileRewindError: string | null = null;
 
+    // Increment epoch to invalidate any pending async operations from before this rewind
+    this._rewindEpoch++;
+
+    // Clear pending interrupt state - any in-flight interrupt recovery is now stale
+    this._currentPrompt = null;
+    this._currentCorrelationId = null;
+    this._wasInterrupted = false;
+
     try {
-      // Get parentUuid first - needed for conversation fork decision
       let parentUuid: string | null = null;
       if (sessionId) {
         parentUuid = await getMessageParentUuid(this.cwd, sessionId, userMessageId);
@@ -137,10 +158,7 @@ export class CheckpointManager {
 
       if (needsConversationFork) {
         if (!sessionId) {
-          this.callbacks.onMessage({
-            type: 'rewindError',
-            message: 'No active session for conversation fork',
-          });
+          this.callbacks.onMessage({ type: 'rewindError', message: 'No active session for conversation fork' });
           return;
         }
 
@@ -157,6 +175,7 @@ export class CheckpointManager {
         type: 'rewindComplete',
         rewindToMessageId: userMessageId,
         option,
+        ...(promptContent && { promptContent }),
         ...(fileRewindError && { fileRewindWarning: fileRewindError }),
       });
     } catch (error) {
@@ -170,6 +189,10 @@ export class CheckpointManager {
 
   /**
    * Handle interrupt persistence after message processing.
+   *
+   * This method captures the rewind epoch at the start and checks it before
+   * sending any messages. If a rewind occurred during the async operations,
+   * the interrupt recovery is discarded as stale.
    */
   async handleInterruptPersistence(
     sessionId: string,
@@ -181,16 +204,32 @@ export class CheckpointManager {
       return null;
     }
 
+    // Capture epoch at start - if it changes during async operations, a rewind occurred
+    const epochAtStart = this._rewindEpoch;
+    const correlationIdAtStart = this._currentCorrelationId;
+    const promptAtStart = this._currentPrompt;
+
     try {
-      const prompt = this._currentPrompt;
       const sdkUserMessage = await retryWithBackoff(
-        () => findUserMessageInCurrentTurn(this.cwd, sessionId, prompt),
+        () => findUserMessageInCurrentTurn(this.cwd, sessionId, promptAtStart),
         (msg) => msg !== null
       );
 
-      const sdkWroteUserMessage = sdkUserMessage !== null;
+      // Check if rewind occurred during async operation
+      if (this._rewindEpoch !== epochAtStart) {
+        return null;
+      }
 
-      if (sdkWroteUserMessage && sdkUserMessage) {
+      if (sdkUserMessage) {
+        // Send userMessageIdAssigned so webview can link the message for rewind
+        if (correlationIdAtStart && sdkUserMessage.uuid) {
+          this.callbacks.onMessage({
+            type: 'userMessageIdAssigned',
+            sdkMessageId: sdkUserMessage.uuid,
+            correlationId: correlationIdAtStart,
+          });
+        }
+
         const lastMsgUuid = await findLastMessageInCurrentTurn(this.cwd, sessionId);
         let lastUuidForChain = lastMsgUuid ?? sdkUserMessage.uuid;
 
@@ -213,26 +252,22 @@ export class CheckpointManager {
           });
         }
       } else {
-        let parentUuid = lastUserMessageId;
-        if (!parentUuid) {
-          parentUuid = await getLastMessageUuid(this.cwd, sessionId);
+        // Check epoch again before sending interruptRecovery
+        if (this._rewindEpoch !== epochAtStart) {
+          return null;
         }
 
-        const userMessageUuid = await persistUserMessage({
-          workspacePath: this.cwd,
-          sessionId,
-          content: this._currentPrompt,
-          parentUuid: parentUuid ?? undefined,
-        });
-
-        return await persistInterruptMarker({
-          workspacePath: this.cwd,
-          sessionId,
-          parentUuid: userMessageUuid,
-        });
+        if (correlationIdAtStart && promptAtStart) {
+          this.callbacks.onMessage({
+            type: 'interruptRecovery',
+            correlationId: correlationIdAtStart,
+            promptContent: promptAtStart,
+          });
+        }
+        return null;
       }
     } catch (err) {
-      log('[CheckpointManager] Error persisting interrupt:', err);
+      log('[CheckpointManager] handleInterruptPersistence error:', err);
     }
 
     return null;
@@ -303,5 +338,7 @@ export class CheckpointManager {
     this._accumulatedCost = 0;
     this._wasInterrupted = false;
     this._currentPrompt = null;
+    this._currentCorrelationId = null;
+    // Note: we don't reset _rewindEpoch - it should only increment
   }
 }

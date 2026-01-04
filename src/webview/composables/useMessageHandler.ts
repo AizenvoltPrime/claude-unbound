@@ -507,6 +507,16 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           permissionStore.$reset();
           break;
 
+        case "interruptRecovery": {
+          const removedContent = streamingStore.removeMessageByCorrelationId(message.correlationId);
+          const contentToRecover = removedContent ?? message.promptContent;
+          if (contentToRecover) {
+            chatInputRef.value?.setInput(contentToRecover);
+            toast.info("Message interrupted - prompt restored to input");
+          }
+          break;
+        }
+
         case "compactBoundary":
           // Only reset messages for live compacts, not historical ones
           if (!message.isHistorical) {
@@ -540,7 +550,8 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             sessionStore.updateTodos([]);
             uiStore.setTodosPanelCollapsed(true);
 
-            const removedContent = streamingStore.truncateFromSdkMessageId(message.rewindToMessageId);
+            // Use bulletproof truncation that tries sdkMessageId first, then content matching
+            const removedContent = streamingStore.truncateToMessage(message.rewindToMessageId, message.promptContent);
             if (removedContent !== null) {
               chatInputRef.value?.setInput(removedContent);
               if (option === 'code-and-conversation') {

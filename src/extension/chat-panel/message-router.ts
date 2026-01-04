@@ -300,13 +300,8 @@ export class MessageRouter {
       // Rewind operations
       rewindToMessage: async (msg, ctx) => {
         if (msg.type !== "rewindToMessage") return;
-
-        const option = msg.option as RewindOption;
-        log("[MessageRouter] Rewind requested:", { option, userMessageId: msg.userMessageId });
-
-        if (option === "cancel") return;
-
-        await ctx.session.rewindFiles(msg.userMessageId, option);
+        if (msg.option === "cancel") return;
+        await ctx.session.rewindFiles(msg.userMessageId, msg.option, msg.promptContent);
       },
 
       requestRewindHistory: async (msg, ctx) => {

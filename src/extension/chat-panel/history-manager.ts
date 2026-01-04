@@ -4,6 +4,7 @@ import { loadSkillDescription } from "../skills/utils";
 import {
   readSessionEntriesPaginated,
   readActiveBranchEntries,
+  readSessionEntries,
   readAgentData,
   extractSessionStats,
   findUserTextBlock,
@@ -175,11 +176,28 @@ export class HistoryManager {
   }
 
   async extractRewindHistory(sessionId: string, conversationHead?: string | null): Promise<RewindHistoryItem[]> {
-    const entries = await readActiveBranchEntries(this.workspacePath, sessionId, conversationHead ?? undefined);
-    const history: RewindHistoryItem[] = [];
+    // Read ALL entries for file change data (captures changes from any branch)
+    const allEntries = await readSessionEntries(this.workspacePath, sessionId);
+    // Read BRANCH entries for user messages (shows messages on current branch only)
+    const branchEntries = await readActiveBranchEntries(this.workspacePath, sessionId, conversationHead ?? undefined);
 
-    for (const entry of entries) {
+    // First pass: collect ALL file changes with timestamps from entire session
+    // This ensures we count files from forked-off branches too
+    const fileChangesByTimestamp: Array<{ timestamp: number; file: string }> = [];
+    for (const entry of allEntries) {
+      const result = entry.toolUseResult;
+      if (result?.filePath && this.isFileOperation(result.type)) {
+        const displayName = this.getFileDisplayName(result.filePath);
+        const timestamp = entry.timestamp ? new Date(entry.timestamp).getTime() : 0;
+        fileChangesByTimestamp.push({ timestamp, file: displayName });
+      }
+    }
+
+    // Second pass: collect user messages from CURRENT BRANCH with timestamps
+    const userMessages: Array<{ entry: ClaudeSessionEntry; timestamp: number }> = [];
+    for (const entry of branchEntries) {
       if (entry.type !== "user" || !entry.uuid || entry.isMeta || entry.isCompactSummary) continue;
+      if (entry.toolUseResult) continue; // Skip tool result messages
 
       const content = extractDisplayableUserContent(entry.message?.content);
       if (!content) continue;
@@ -188,15 +206,55 @@ export class HistoryManager {
         continue;
       }
 
+      const timestamp = entry.timestamp ? new Date(entry.timestamp).getTime() : 0;
+      userMessages.push({ entry, timestamp });
+    }
+
+    // Third pass: for each user message, count unique files changed after its timestamp
+    // This correctly counts files from ALL branches (including forked-off ones)
+    const history: RewindHistoryItem[] = [];
+    for (const { entry, timestamp } of userMessages) {
+      const filesAfter = new Set<string>();
+      for (const change of fileChangesByTimestamp) {
+        if (change.timestamp > timestamp) {
+          filesAfter.add(change.file);
+        }
+      }
+
+      const content = extractDisplayableUserContent(entry.message?.content);
+      const filesArray = Array.from(filesAfter).sort();
       history.push({
-        messageId: entry.uuid,
-        content: content.slice(0, 200),
-        timestamp: entry.timestamp ? new Date(entry.timestamp).getTime() : Date.now(),
-        filesAffected: 0,
+        messageId: entry.uuid!,
+        content: (content || "").slice(0, 200),
+        timestamp,
+        filesAffected: filesArray.length,
+        files: filesArray.length > 0 ? filesArray : undefined,
       });
     }
 
     return history.reverse();
+  }
+
+  private isFileOperation(type: string | undefined): boolean {
+    if (!type) return false;
+    // Known file operation types from Write/Edit/NotebookEdit tools
+    return ["create", "edit", "modify", "replace", "delete"].includes(type.toLowerCase());
+  }
+
+  private getFileDisplayName(filePath: string): string {
+    // Extract relative path from workspace if possible, otherwise use basename
+    const normalizedPath = filePath.replace(/\\/g, "/");
+    const normalizedWorkspace = this.workspacePath.replace(/\\/g, "/");
+
+    if (normalizedPath.toLowerCase().startsWith(normalizedWorkspace.toLowerCase())) {
+      // Return path relative to workspace (without leading slash)
+      let relative = normalizedPath.slice(normalizedWorkspace.length);
+      if (relative.startsWith("/")) relative = relative.slice(1);
+      return relative || normalizedPath.split("/").pop() || filePath;
+    }
+
+    // Fallback to basename
+    return normalizedPath.split("/").pop() || filePath;
   }
 
   async convertEntriesToMessages(entries: ClaudeSessionEntry[], injectedUuids?: Set<string>): Promise<HistoryMessage[]> {

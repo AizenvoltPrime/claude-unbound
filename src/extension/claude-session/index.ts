@@ -141,6 +141,7 @@ export class ClaudeSession {
     this.streamingManager.processing = true;
     this.streamingManager.resetTurn();
     this.checkpointManager.currentPrompt = plainPrompt;
+    this.checkpointManager.currentCorrelationId = correlationId ?? null;
     this.checkpointManager.wasInterrupted = false;
 
     const lastKnownUserUuid = this.streamingManager.lastUserMessageId;
@@ -161,15 +162,23 @@ export class ClaudeSession {
       }
     }
 
-    if (this.checkpointManager.wasInterrupted && sessionId) {
-      const interruptUuid = await this.checkpointManager.handleInterruptPersistence(
-        sessionId,
-        this.streamingManager.lastUserMessageId,
-        this.streamingManager.currentStreamingContent,
-        this.queryManager.currentModel
-      );
-      if (interruptUuid) {
-        this.streamingManager.lastUserMessageId = interruptUuid;
+    if (this.checkpointManager.wasInterrupted) {
+      if (sessionId) {
+        const interruptUuid = await this.checkpointManager.handleInterruptPersistence(
+          sessionId,
+          this.streamingManager.lastUserMessageId,
+          this.streamingManager.currentStreamingContent,
+          this.queryManager.currentModel
+        );
+        if (interruptUuid) {
+          this.streamingManager.lastUserMessageId = interruptUuid;
+        }
+      } else if (this.checkpointManager.currentCorrelationId && this.checkpointManager.currentPrompt) {
+        this.options.onMessage({
+          type: 'interruptRecovery',
+          correlationId: this.checkpointManager.currentCorrelationId,
+          promptContent: this.checkpointManager.currentPrompt,
+        });
       }
     } else if (sessionId) {
       const lastUuid = await this.checkpointManager.getLastMessageUuid(sessionId);
@@ -179,6 +188,7 @@ export class ClaudeSession {
     }
 
     this.checkpointManager.currentPrompt = null;
+    this.checkpointManager.currentCorrelationId = null;
   }
 
   cancel(): void {
@@ -187,6 +197,34 @@ export class ClaudeSession {
     this.options.onMessage({ type: 'sessionCancelled' });
     this.queryManager.abort();
     this.streamingManager.processing = false;
+
+    const sessionId = this.streamingManager.sessionId;
+    const correlationId = this.checkpointManager.currentCorrelationId;
+    const prompt = this.checkpointManager.currentPrompt;
+
+    if (correlationId && prompt) {
+      if (!sessionId) {
+        this.options.onMessage({
+          type: 'interruptRecovery',
+          correlationId,
+          promptContent: prompt,
+        });
+        this.checkpointManager.currentPrompt = null;
+        this.checkpointManager.currentCorrelationId = null;
+      } else {
+        this.checkpointManager.handleInterruptPersistence(
+          sessionId,
+          this.streamingManager.lastUserMessageId,
+          this.streamingManager.currentStreamingContent,
+          this.queryManager.currentModel
+        ).then(() => {
+          this.checkpointManager.currentPrompt = null;
+          this.checkpointManager.currentCorrelationId = null;
+        }).catch(err => {
+          log('[ClaudeSession] handleInterruptPersistence error:', err);
+        });
+      }
+    }
   }
 
   reset(): void {
@@ -267,7 +305,7 @@ export class ClaudeSession {
     this.queryManager.restartForMcpChanges();
   }
 
-  async rewindFiles(userMessageId: string, option: RewindOption = 'code-only'): Promise<void> {
+  async rewindFiles(userMessageId: string, option: RewindOption = 'code-only', promptContent?: string): Promise<void> {
     const sessionId = this.streamingManager.sessionId;
     const needsFileRewind = option === 'code-and-conversation' || option === 'code-only';
 
@@ -282,6 +320,7 @@ export class ClaudeSession {
       option,
       sessionId,
       this.queryManager.query,
+      promptContent,
       (clearSession: boolean) => {
         this.queryManager.closeAndReset();
         if (clearSession) {
