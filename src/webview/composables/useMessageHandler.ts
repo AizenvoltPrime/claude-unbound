@@ -256,7 +256,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           subagentStore.$reset();
           questionStore.$reset();
           permissionStore.$reset();
-          sessionStore.updateTodos([]);
+          sessionStore.clearSessionData();
           uiStore.setProcessing(false);
           uiStore.setTodosPanelCollapsed(true);
           toast.success("Conversation cleared");
