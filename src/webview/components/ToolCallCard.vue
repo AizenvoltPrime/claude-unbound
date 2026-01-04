@@ -1,16 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, type Component } from 'vue';
+import { computed, type Component } from 'vue';
 import type { ToolCall } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from '@/components/ui/dialog';
+import type { ExpandedDiff } from '@/stores/useDiffStore';
 import {
   IconGear,
   IconLock,
@@ -37,6 +31,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'expand', toolId: string): void;
+  (e: 'expandDiff', diff: ExpandedDiff): void;
 }>();
 
 const isMcpTool = computed(() => props.toolCall.name.startsWith('mcp__'));
@@ -47,7 +42,16 @@ function handleCardClick(): void {
   }
 }
 
-const isDialogOpen = ref(false);
+function handleDiffClick(): void {
+  if (diffContent.value && filePath.value) {
+    emit('expandDiff', {
+      filePath: filePath.value,
+      oldContent: diffContent.value.oldContent,
+      newContent: diffContent.value.newContent,
+      isNewFile: isNewFile.value,
+    });
+  }
+}
 
 const isFileOperation = computed(() =>
   props.toolCall.name === 'Edit' || props.toolCall.name === 'Write'
@@ -78,41 +82,6 @@ const diffContent = computed(() => {
     oldContent: '',
     newContent: (input.content as string) || '',
   };
-});
-
-const diffStats = computed(() => {
-  if (!diffContent.value) return null;
-
-  const oldLines = diffContent.value.oldContent
-    ? diffContent.value.oldContent.split('\n')
-    : [];
-  const newLines = diffContent.value.newContent
-    ? diffContent.value.newContent.split('\n')
-    : [];
-
-  const added = newLines.filter(l => !oldLines.includes(l)).length;
-  const removed = oldLines.filter(l => !newLines.includes(l)).length;
-
-  return { added, removed };
-});
-
-const diffSummary = computed(() => {
-  if (!diffStats.value) return '';
-  const { added, removed } = diffStats.value;
-  const parts: string[] = [];
-  if (added > 0) parts.push(`Added ${added} line${added !== 1 ? 's' : ''}`);
-  if (removed > 0) parts.push(`Removed ${removed} line${removed !== 1 ? 's' : ''}`);
-  return parts.join(', ') || 'No changes';
-});
-
-const previewLines = computed(() => {
-  if (!diffContent.value) return [];
-  const { oldContent, newContent } = diffContent.value;
-  const oldLines = oldContent ? oldContent.split('\n') : [];
-  const newLines = newContent ? newContent.split('\n') : [];
-
-  const addedLines = newLines.filter(l => !oldLines.includes(l));
-  return addedLines.filter(l => l.trim()).slice(0, 5);
 });
 
 const isPending = computed(() => props.toolCall.status === 'pending');
@@ -225,29 +194,25 @@ function formatInput(input: Record<string, unknown>): string {
       <component v-else :is="statusIconComponent" :size="16" :class="statusClass" class="ml-auto shrink-0" />
     </CardHeader>
 
-    <CardContent v-if="isFileOperation && diffContent" class="p-0">
-      <div class="px-3 py-2 text-xs text-muted-foreground">
-        {{ diffSummary }}
-      </div>
-
+    <CardContent v-if="isFileOperation && diffContent" class="p-2">
       <div
-        v-if="previewLines.length > 0"
-        class="relative group cursor-pointer"
-        @click="isDialogOpen = true"
+        class="relative group cursor-pointer rounded border border-border/50 overflow-hidden shadow-[inset_0_1px_4px_rgba(0,0,0,0.3)]"
+        @click="handleDiffClick"
       >
-        <div class="px-3 py-2 bg-muted/50 border-t border-border/30 overflow-hidden max-h-32">
-          <pre class="text-xs font-mono leading-relaxed m-0 p-0"><code><div
-  v-for="(line, idx) in previewLines"
-  :key="idx"
-  class="px-2 py-0.5 diff-added"
-><span class="diff-added-indicator mr-1 select-none">+</span>{{ line }}</div></code></pre>
-        </div>
+        <DiffView
+          :old-content="diffContent.oldContent"
+          :new-content="diffContent.newContent"
+          :file-name="filePath"
+          :is-new-file="isNewFile"
+          :show-header="false"
+          max-height="300px"
+        />
 
-        <div class="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-colors">
+        <div class="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-colors pointer-events-none">
           <Button
             variant="secondary"
             size="sm"
-            class="opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+            class="opacity-0 group-hover:opacity-100 transition-opacity text-xs pointer-events-none"
           >
             Click to expand
           </Button>
@@ -275,26 +240,6 @@ function formatInput(input: Record<string, unknown>): string {
       <div v-if="isRunning" class="h-0.5 bg-muted rounded overflow-hidden mx-3 mb-2">
         <div class="h-full bg-primary animate-progress"></div>
       </div>
-
-      <Dialog v-model:open="isDialogOpen">
-        <DialogContent class="max-w-4xl max-h-[80vh] p-0 bg-card border-border">
-          <DialogHeader class="px-4 py-3 border-b border-border/50 flex flex-row items-center justify-between space-y-0">
-            <DialogTitle class="text-sm font-mono text-foreground">{{ filePath }}</DialogTitle>
-            <DialogClose class="text-muted-foreground hover:text-foreground" />
-          </DialogHeader>
-
-          <div class="p-0">
-            <DiffView
-              :old-content="diffContent.oldContent"
-              :new-content="diffContent.newContent"
-              :file-name="filePath"
-              :is-new-file="isNewFile"
-              :show-header="false"
-              max-height="calc(80vh - 60px)"
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
     </CardContent>
 
     <CardContent v-else class="p-3 space-y-2">
@@ -366,14 +311,5 @@ function formatInput(input: Record<string, unknown>): string {
 
 .animate-progress {
   animation: progress 1.5s ease-in-out infinite;
-}
-
-.diff-added {
-  background-color: var(--vscode-diffEditor-insertedTextBackground, rgba(34, 197, 94, 0.2));
-  color: var(--vscode-diffEditor-insertedTextForeground, #86efac);
-}
-
-.diff-added-indicator {
-  color: var(--vscode-gitDecoration-addedResourceForeground, #4ade80);
 }
 </style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import type { ChatMessage, CompactMarker as CompactMarkerType, SubagentState, ToolCall, ContentBlock, ImageBlock } from "@shared/types";
+import type { ExpandedDiff } from "@/stores/useDiffStore";
 import ToolCallCard from "./ToolCallCard.vue";
 import QuestionToolCard from "./QuestionToolCard.vue";
 import ExitPlanModeToolCard from "./ExitPlanModeToolCard.vue";
@@ -33,6 +34,7 @@ const emit = defineEmits<{
   (e: "rewind"): void;
   (e: "expandSubagent", subagentId: string): void;
   (e: "expandMcpTool", toolId: string): void;
+  (e: "expandDiff", diff: ExpandedDiff): void;
 }>();
 
 function isStreamingMessage(message: ChatMessage): boolean {
@@ -242,6 +244,7 @@ function getTrailingStreamingText(message: ChatMessage): string {
                     v-else-if="!isTodoWriteTool(block.name)"
                     :tool-call="getToolCallById(message, block.id)!"
                     @expand="emit('expandMcpTool', $event)"
+                    @expand-diff="emit('expandDiff', $event)"
                   />
                 </template>
               </div>
@@ -283,7 +286,7 @@ function getTrailingStreamingText(message: ChatMessage): string {
                 v-else-if="isSkillTool(tool.name)"
                 :tool-call="tool"
               />
-              <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @expand="emit('expandMcpTool', $event)" />
+              <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @expand="emit('expandMcpTool', $event)" @expand-diff="emit('expandDiff', $event)" />
             </template>
           </div>
 

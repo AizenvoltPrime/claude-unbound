@@ -11,6 +11,7 @@ import McpStatusIndicator from './components/McpStatusIndicator.vue';
 import McpStatusPanel from './components/McpStatusPanel.vue';
 import SubagentIndicator from './components/SubagentIndicator.vue';
 import SubagentOverlay from './components/SubagentOverlay.vue';
+import DiffOverlay from './components/DiffOverlay.vue';
 import McpToolOverlay from './components/McpToolOverlay.vue';
 import StatusBar from './components/StatusBar.vue';
 import BudgetWarning from './components/BudgetWarning.vue';
@@ -35,6 +36,7 @@ import {
   useStreamingStore,
   useSubagentStore,
   useQuestionStore,
+  useDiffStore,
 } from './stores';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -118,6 +120,9 @@ const { subagents, expandedSubagent } = storeToRefs(subagentStore);
 
 const questionStore = useQuestionStore();
 const { pendingQuestion } = storeToRefs(questionStore);
+
+const diffStore = useDiffStore();
+const { expandedDiff } = storeToRefs(diffStore);
 
 const messageContainerRef = ref<HTMLElement | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
@@ -701,6 +706,7 @@ const rewindMessagePreview = computed(() => {
           @rewind="openRewindFlow"
           @expand-subagent="subagentStore.expandSubagent"
           @expand-mcp-tool="streamingStore.expandMcpTool"
+          @expand-diff="diffStore.expandDiff"
         />
       </div>
 
@@ -864,6 +870,13 @@ const rewindMessagePreview = computed(() => {
       v-if="expandedMcpTool"
       :tool="expandedMcpTool"
       @close="streamingStore.collapseMcpTool"
+    />
+
+    <!-- Diff Overlay (full-screen) -->
+    <DiffOverlay
+      v-if="expandedDiff"
+      :diff="expandedDiff"
+      @close="diffStore.collapseDiff"
     />
 
   </div>

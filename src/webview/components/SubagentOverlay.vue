@@ -38,16 +38,25 @@ const props = defineProps<{
   streaming?: StreamingState;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'openLog', agentId: string): void;
 }>();
+
+function handleKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape') {
+    e.stopPropagation();
+    e.preventDefault();
+    emit('close');
+  }
+}
 
 const isPromptExpanded = ref(false);
 const elapsedSeconds = ref(0);
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 
 onMounted(() => {
+  document.addEventListener('keydown', handleKeydown);
   if (props.subagent.status === 'running') {
     updateElapsed();
     timerInterval = setInterval(updateElapsed, 1000);
@@ -57,6 +66,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
@@ -164,7 +174,7 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
         variant="ghost"
         size="icon-sm"
         class="text-muted-foreground hover:text-foreground hover:bg-background shrink-0"
-        @click="$emit('close')"
+        @click="emit('close')"
       >
         <IconArrowLeft :size="18" />
       </Button>
@@ -187,7 +197,7 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
         size="icon-sm"
         class="text-muted-foreground hover:text-foreground hover:bg-background shrink-0"
         title="Open agent log file"
-        @click="$emit('openLog', subagent.sdkAgentId!)"
+        @click="emit('openLog', subagent.sdkAgentId!)"
       >
         <IconFile :size="16" />
       </Button>
