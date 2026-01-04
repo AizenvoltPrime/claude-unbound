@@ -452,7 +452,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     messages.value = messages.value.filter((m) => m.id !== messageId);
   }
 
-  function combineQueuedMessages(messageIds: string[], combinedContent: string): void {
+  function combineQueuedMessages(messageIds: string[], combinedContent: string, contentBlocks?: UserContentBlock[]): void {
     const idsSet = new Set(messageIds);
     const firstQueuedIndex = messages.value.findIndex((m) => idsSet.has(m.id));
     const timestamp = firstQueuedIndex !== -1 ? messages.value[firstQueuedIndex].timestamp : Date.now();
@@ -463,6 +463,7 @@ export const useStreamingStore = defineStore("streaming", () => {
       id: messageIds[0],
       role: "user",
       content: combinedContent,
+      contentBlocks,
       timestamp,
     };
     messages.value = [...messages.value, combinedMessage];

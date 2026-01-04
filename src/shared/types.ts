@@ -565,7 +565,7 @@ export type ExtensionToWebviewMessage =
   // Message queue injection
   | { type: "messageQueued"; message: QueuedMessage }
   | { type: "queueProcessed"; messageId: string }
-  | { type: "queueBatchProcessed"; messageIds: string[]; combinedContent: string }
+  | { type: "queueBatchProcessed"; messageIds: string[]; combinedContent: string; contentBlocks?: UserContentBlock[] }
   | { type: "queueCancelled"; messageId: string }
   | { type: "flushedMessagesAssigned"; queueMessageIds: string[]; sdkMessageId: string }
   // MCP configuration update (all servers with enabled state)

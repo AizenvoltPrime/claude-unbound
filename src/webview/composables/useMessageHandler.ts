@@ -701,7 +701,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
 
         case "queueBatchProcessed":
-          streamingStore.combineQueuedMessages(message.messageIds, message.combinedContent);
+          streamingStore.combineQueuedMessages(message.messageIds, message.combinedContent, message.contentBlocks);
           break;
 
         case "queueCancelled":

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { log } from "../logger";
 import { persistInjectedMessage, findLastMessageInCurrentTurn } from "../session";
-import { extractTextFromContent } from "../../shared/utils";
+import { extractTextFromContent, hasImageContent } from "../../shared/utils";
 import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, ContentInput } from "./types";
 import type { ToolManager } from "./tool-manager";
 import type { StreamingManager } from "./streaming-manager";
@@ -278,6 +278,13 @@ export class QueryManager {
               this.toolManager.handlePostToolUse(p.tool_name, id, p.tool_response);
 
               if (this._queuedMessages.length > 0) {
+                const queueHasImages = this._queuedMessages.some((m) => hasImageContent(m.content));
+
+                if (queueHasImages) {
+                  log("[QueryManager] PostToolUse: queued messages contain images, deferring to turn-end flush");
+                  return {};
+                }
+
                 const queued = this._queuedMessages.splice(0);
                 const context = queued.map((m) => `[User interjection]: ${extractTextFromContent(m.content, "")}`).join("\n\n");
                 log("[QueryManager] PostToolUse: injecting queued messages as additionalContext");
@@ -499,6 +506,7 @@ export class QueryManager {
 
     const combinedContent = this.combineQueuedContent(queued.map((m) => m.content));
     const displayText = extractTextFromContent(combinedContent, "");
+    const contentBlocks = Array.isArray(combinedContent) ? combinedContent : undefined;
 
     const messageIds = queued.map((m) => m.id).filter((id): id is string => id !== null);
     if (messageIds.length > 0) {
@@ -506,6 +514,7 @@ export class QueryManager {
         type: "queueBatchProcessed",
         messageIds,
         combinedContent: displayText,
+        contentBlocks,
       });
     }
 

@@ -16,12 +16,7 @@ import type { PanelInstance } from "./types";
 import type { IdeContextManager } from "./ide-context-manager";
 import { getSessionFilePath, getAgentFilePath, renameSession, deleteSession, extractCommandHistory } from "../session";
 import { log } from "../logger";
-import { extractTextFromContent } from "../../shared/utils";
-
-function hasImageContent(content: string | UserContentBlock[]): boolean {
-  if (typeof content === "string") return false;
-  return content.some((block) => block.type === "image");
-}
+import { extractTextFromContent, hasImageContent } from "../../shared/utils";
 
 export interface MessageRouterConfig {
   workspacePath: string;

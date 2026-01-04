@@ -1,3 +1,5 @@
+import type { UserContentBlock, TextBlock } from "./types";
+
 /**
  * Strips ASCII control characters from a string, preserving normal whitespace.
  * Removes characters 0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F, and 0x7F.
@@ -59,13 +61,17 @@ export function formatModelDisplayName(modelId: string | undefined | null): stri
   return modelId.split('-').slice(1, 3).join(' ');
 }
 
-type TextContentBlock = { type: "text"; text: string };
-type ContentInput = string | Array<{ type: string; text?: string }>;
+type ContentInput = string | UserContentBlock[];
+
+export function hasImageContent(content: ContentInput): boolean {
+  if (typeof content === "string") return false;
+  return content.some((block) => block.type === "image");
+}
 
 export function extractTextFromContent(content: ContentInput, separator = "\n"): string {
   if (typeof content === "string") return content;
   return content
-    .filter((block): block is TextContentBlock => block.type === "text" && typeof block.text === "string")
+    .filter((block): block is TextBlock => block.type === "text")
     .map((block) => block.text)
     .join(separator);
 }
