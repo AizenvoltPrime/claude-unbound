@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import type { ExtensionSettings, ModelInfo, PermissionMode } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
 import {
   Sheet,
   SheetContent,
@@ -47,6 +46,20 @@ const permissionModeOptions: { value: PermissionMode; label: string; description
 function handleDefaultModeChange(mode: string) {
   emit('setDefaultPermissionMode', mode as PermissionMode);
 }
+
+function handleKeyDown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && props.visible) {
+    emit('close');
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
+});
 
 // Local state for form inputs
 const localModel = ref(props.settings.model);
@@ -96,15 +109,6 @@ const is1MContextEnabled = computed({
   }
 });
 
-// Computed for Slider (needs array format)
-const thinkingTokensSliderValue = computed({
-  get: () => [localMaxThinkingTokens.value ?? 10000],
-  set: (val: number[]) => {
-    localMaxThinkingTokens.value = val[0];
-    emit('setMaxThinkingTokens', val[0]);
-  }
-});
-
 function handleModelChange(value: string) {
   localModel.value = value;
   emit('setModel', value);
@@ -115,6 +119,14 @@ function handleBudgetChange(event: Event) {
   const value = inputValue ? parseFloat(inputValue) : null;
   localBudgetLimit.value = value;
   emit('setBudgetLimit', value);
+}
+
+function handleThinkingTokensChange(event: Event) {
+  const inputValue = (event.target as HTMLInputElement).value;
+  const value = inputValue ? parseInt(inputValue, 10) : 10000;
+  const clamped = Math.min(63999, Math.max(1000, value));
+  localMaxThinkingTokens.value = clamped;
+  emit('setMaxThinkingTokens', clamped);
 }
 
 // Default model options (always available)
@@ -217,19 +229,17 @@ const currentModelDisplayName = computed(() => {
             v-model:checked="enableExtendedThinking"
           />
         </div>
-        <div v-if="enableExtendedThinking" class="mt-3">
-          <Slider
-            v-model="thinkingTokensSliderValue"
+        <div v-if="enableExtendedThinking" class="mt-3 flex items-center gap-2">
+          <Input
+            type="number"
+            :model-value="localMaxThinkingTokens ?? 10000"
             :min="1000"
             :max="63999"
             :step="1000"
-            class="w-full"
+            class="bg-input border-border text-center"
+            @change="handleThinkingTokensChange"
           />
-          <div class="flex justify-between text-xs text-muted-foreground mt-1">
-            <span>1K</span>
-            <span class="font-medium text-foreground">{{ ((localMaxThinkingTokens ?? 10000) / 1000).toFixed(0) }}K tokens</span>
-            <span>~64K</span>
-          </div>
+          <span class="text-sm text-muted-foreground whitespace-nowrap">tokens</span>
         </div>
       </div>
 

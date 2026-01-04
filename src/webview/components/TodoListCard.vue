@@ -84,10 +84,10 @@ function getStatusEmoji(status: TodoItem['status']): string {
         <div
           v-for="(todo, index) in todos"
           :key="index"
-          class="flex items-start gap-2 py-1 text-sm"
+          class="flex items-center gap-2 py-1 text-sm"
         >
           <span
-            class="mt-0.5 w-4 text-center shrink-0"
+            class="w-4 text-center shrink-0"
             :class="getStatusIcon(todo.status).class"
           >
             {{ getStatusEmoji(todo.status) }}
