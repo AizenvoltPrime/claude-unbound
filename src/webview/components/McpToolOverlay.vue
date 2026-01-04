@@ -12,6 +12,7 @@ import {
 } from '@/components/icons';
 import LoadingSpinner from './LoadingSpinner.vue';
 import MarkdownRenderer from './MarkdownRenderer.vue';
+import { useOverlayEscape } from '@/composables/useOverlayEscape';
 
 interface ContentBlock {
   type: string;
@@ -22,9 +23,11 @@ const props = defineProps<{
   tool: ToolCall;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'close'): void;
 }>();
+
+useOverlayEscape(() => emit('close'));
 
 const parsedToolName = computed(() => {
   const name = props.tool.name;
@@ -101,7 +104,7 @@ const hasResult = computed(() => Boolean(parsedResult.value?.trim()));
         variant="ghost"
         size="icon-sm"
         class="text-muted-foreground hover:text-foreground hover:bg-background shrink-0"
-        @click="$emit('close')"
+        @click="emit('close')"
       >
         <IconArrowLeft :size="18" />
       </Button>

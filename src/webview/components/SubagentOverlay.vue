@@ -25,6 +25,7 @@ import LoadingSpinner from './LoadingSpinner.vue';
 import ToolCallCard from './ToolCallCard.vue';
 import ThinkingIndicator from './ThinkingIndicator.vue';
 import MarkdownRenderer from './MarkdownRenderer.vue';
+import { useOverlayEscape } from '@/composables/useOverlayEscape';
 
 interface StreamingState {
   content?: string;
@@ -43,20 +44,13 @@ const emit = defineEmits<{
   (e: 'openLog', agentId: string): void;
 }>();
 
-function handleKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') {
-    e.stopPropagation();
-    e.preventDefault();
-    emit('close');
-  }
-}
+useOverlayEscape(() => emit('close'));
 
 const isPromptExpanded = ref(false);
 const elapsedSeconds = ref(0);
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 
 onMounted(() => {
-  document.addEventListener('keydown', handleKeydown);
   if (props.subagent.status === 'running') {
     updateElapsed();
     timerInterval = setInterval(updateElapsed, 1000);
@@ -66,7 +60,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;

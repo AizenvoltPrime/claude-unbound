@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed } from 'vue';
 import type { ExpandedDiff } from '@/stores/useDiffStore';
 import { Button } from '@/components/ui/button';
 import { IconArrowLeft, IconPencilSquare, IconPencil } from '@/components/icons';
 import DiffView from './DiffView.vue';
 import { computeDiff, computeNewFileOnlyDiff } from '@/utils/parseUnifiedDiff';
+import { useOverlayEscape } from '@/composables/useOverlayEscape';
 
 const props = defineProps<{
   diff: ExpandedDiff;
@@ -13,6 +14,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void;
 }>();
+
+useOverlayEscape(() => emit('close'));
 
 const fileName = computed(() => {
   const parts = props.diff.filePath.split(/[/\\]/);
@@ -29,22 +32,6 @@ const diffStats = computed(() => {
 
 const toolIcon = computed(() => props.diff.isNewFile ? IconPencil : IconPencilSquare);
 const toolName = computed(() => props.diff.isNewFile ? 'Write' : 'Edit');
-
-function handleKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') {
-    e.stopPropagation();
-    e.preventDefault();
-    emit('close');
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
-});
 </script>
 
 <template>

@@ -22,7 +22,7 @@ import RewindConfirmModal from './components/RewindConfirmModal.vue';
 import DeleteSessionModal from './components/DeleteSessionModal.vue';
 import PermissionPrompt from './components/PermissionPrompt.vue';
 import QuestionPrompt from './components/QuestionPrompt.vue';
-import PlanApprovalModal from './components/PlanApprovalModal.vue';
+import PlanApprovalOverlay from './components/PlanApprovalOverlay.vue';
 import EnterPlanModePrompt from './components/EnterPlanModePrompt.vue';
 import SkillApprovalPrompt from './components/SkillApprovalPrompt.vue';
 import TodoListCard from './components/TodoListCard.vue';
@@ -798,16 +798,6 @@ const rewindMessagePreview = computed(() => {
       @approve="handleSkillApprove"
     />
 
-    <!-- Plan Approval Modal for ExitPlanMode tool -->
-    <PlanApprovalModal
-      :visible="!!pendingPlanApproval"
-      :plan-content="pendingPlanApproval?.planContent ?? ''"
-      :tool-use-id="pendingPlanApproval?.toolUseId ?? ''"
-      @approve="handlePlanApprove"
-      @feedback="handlePlanFeedback"
-      @cancel="handlePlanCancel"
-    />
-
     <!-- Status Bar with witty phrases (above input) -->
     <StatusBar
       :is-processing="isProcessing"
@@ -910,6 +900,15 @@ const rewindMessagePreview = computed(() => {
       v-if="expandedDiff"
       :diff="expandedDiff"
       @close="diffStore.collapseDiff"
+    />
+
+    <!-- Plan Approval Overlay (full-screen) -->
+    <PlanApprovalOverlay
+      v-if="pendingPlanApproval"
+      :plan-content="pendingPlanApproval.planContent"
+      @approve="handlePlanApprove"
+      @feedback="handlePlanFeedback"
+      @cancel="handlePlanCancel"
     />
 
   </div>
