@@ -7,3 +7,4 @@ logs/
 .DS_Store
 Thumbs.db
 .env
+.claude/settings.local.json
