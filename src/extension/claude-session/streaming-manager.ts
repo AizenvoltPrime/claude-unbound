@@ -8,7 +8,7 @@ import type {
   Query,
 } from './types';
 import { createEmptyStreamingContent } from './types';
-import { serializeContent, isLocalCommandOutput, isLocalCommandText, isToolResultMessage } from './utils';
+import { serializeContent, isLocalCommandOutput, isLocalCommandText, isToolResultMessage, extractErrorToolResults } from './utils';
 import type { ToolManager } from './tool-manager';
 import type { SystemInitData, AccountInfo } from '../../shared/types';
 
@@ -513,6 +513,16 @@ export class StreamingManager {
 
     if (userMsg.uuid && !isToolResultMessage(userMsg.message?.content)) {
       this._lastUserMessageId = userMsg.uuid;
+    }
+
+    const errorResults = extractErrorToolResults(userMsg.message?.content);
+    for (const { toolUseId, error } of errorResults) {
+      const toolInfo = this.toolManager.getStreamedToolInfo(toolUseId);
+      if (toolInfo) {
+        this.toolManager.handlePostToolUseFailure(toolInfo.toolName, toolUseId, error, false);
+      } else {
+        log('[StreamingManager] Error tool_result for unknown tool: %s', toolUseId);
+      }
     }
 
     if (userMsg.isCompactSummary && userMsg.message?.content) {

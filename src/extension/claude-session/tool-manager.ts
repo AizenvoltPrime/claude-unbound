@@ -103,6 +103,11 @@ export class ToolManager {
     return info;
   }
 
+  /** Get streamed tool info by ID without removing it */
+  getStreamedToolInfo(toolUseId: string): StreamedToolInfo | undefined {
+    return this.streamedToolIds.get(toolUseId);
+  }
+
   /** Send abandoned tools for a specific message ID (only non-approved tools) */
   sendAbandonedTools(messageId: string): void {
     for (const [toolUseId, info] of this.streamedToolIds.entries()) {

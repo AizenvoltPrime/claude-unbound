@@ -83,3 +83,28 @@ export function isToolResultMessage(content: unknown): boolean {
     (block as { type: string }).type === 'tool_result'
   );
 }
+
+/** Extract error tool_result blocks from message content (for external hook rejections) */
+export function extractErrorToolResults(content: unknown): Array<{
+  toolUseId: string;
+  error: string;
+}> {
+  if (!Array.isArray(content)) return [];
+  return content
+    .filter(block =>
+      typeof block === 'object' &&
+      block !== null &&
+      'type' in block &&
+      (block as { type: string }).type === 'tool_result' &&
+      'is_error' in block &&
+      (block as { is_error: boolean }).is_error === true &&
+      'tool_use_id' in block &&
+      typeof (block as { tool_use_id: unknown }).tool_use_id === 'string'
+    )
+    .map(block => ({
+      toolUseId: (block as { tool_use_id: string }).tool_use_id,
+      error: typeof (block as { content: unknown }).content === 'string'
+        ? (block as { content: string }).content
+        : 'Hook blocked execution',
+    }));
+}
