@@ -419,6 +419,7 @@ export type WebviewToExtensionMessage =
   | { type: "rewindToMessage"; userMessageId: string; option: RewindOption; promptContent?: string }
   | { type: "requestRewindHistory" }
   // New: Session control
+  | { type: "clearSession" }
   | { type: "interrupt" }
   | { type: "requestMcpStatus" }
   | { type: "requestSupportedCommands" }
@@ -486,6 +487,7 @@ export type ExtensionToWebviewMessage =
   | { type: "processing"; isProcessing: boolean }
   | { type: "storedSessions"; sessions: StoredSession[]; hasMore?: boolean; nextOffset?: number; isFirstPage?: boolean }
   | { type: "sessionCleared" }
+  | { type: "conversationCleared" }
   | { type: "sessionRenamed"; sessionId: string; newName: string }
   | { type: "sessionDeleted"; sessionId: string }
   | { type: "notification"; message: string; notificationType: string }

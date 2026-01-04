@@ -129,6 +129,11 @@ export class MessageRouter {
         ctx.session.cancel();
       },
 
+      clearSession: (_msg, ctx) => {
+        ctx.session.clear();
+        this.postMessage(ctx.panel, { type: "conversationCleared" });
+      },
+
       queueMessage: async (msg, ctx) => {
         if (msg.type !== "queueMessage") return;
 

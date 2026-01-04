@@ -173,6 +173,10 @@ function handleSendMessage(content: string | UserContentBlock[], includeIdeConte
       openRewindFlow();
       return;
     }
+    if (trimmed === '/clear') {
+      postMessage({ type: 'clearSession' });
+      return;
+    }
   }
 
   postMessage({ type: 'sendMessage', content, includeIdeContext });

@@ -237,6 +237,15 @@ export class ClaudeSession {
     this.checkpointManager.reset();
   }
 
+  clear(): void {
+    this.streamingManager.silentAbort = true;
+    this.queryManager.closeAndReset();
+    this.streamingManager.processing = false;
+    this.streamingManager.resetStreaming();
+    this.streamingManager.sessionId = null;
+    this.checkpointManager.setResumeSession(null);
+  }
+
   async interrupt(): Promise<void> {
     this.checkpointManager.wasInterrupted = true;
     this.streamingManager.silentAbort = true;

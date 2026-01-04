@@ -251,6 +251,17 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           uiStore.setTodosPanelCollapsed(true);
           break;
 
+        case "conversationCleared":
+          streamingStore.$reset();
+          subagentStore.$reset();
+          questionStore.$reset();
+          permissionStore.$reset();
+          sessionStore.updateTodos([]);
+          uiStore.setProcessing(false);
+          uiStore.setTodosPanelCollapsed(true);
+          toast.success("Conversation cleared");
+          break;
+
         case "sessionRenamed":
           break;
 
