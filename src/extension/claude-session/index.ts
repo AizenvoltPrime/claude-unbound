@@ -93,6 +93,9 @@ export class ClaudeSession {
     this.checkpointManager.setResumeSession(sessionId);
     this.streamingManager.sessionId = sessionId;
     if (sessionId) {
+      this.streamingManager.silentAbort = true;
+      this.queryManager.closeAndReset();
+      this.streamingManager.silentAbort = false;
       this.queryManager.ensureStreamingQuery(sessionId, null).catch(err => {
         log('[ClaudeSession] Failed to initialize resumed session:', err);
       });

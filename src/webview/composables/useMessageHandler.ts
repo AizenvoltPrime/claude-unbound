@@ -532,6 +532,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           // Only reset messages for live compacts, not historical ones
           if (!message.isHistorical) {
             streamingStore.$reset();
+            sessionStore.clearCompactMarkers();
           }
           sessionStore.addCompactMarker(message.trigger, message.preTokens, message.postTokens, message.summary, message.timestamp);
           break;

@@ -141,6 +141,10 @@ export const useSessionStore = defineStore('session', () => {
     compactMarkers.value = markers;
   }
 
+  function clearCompactMarkers() {
+    compactMarkers.value = [];
+  }
+
   function updateTodos(todos: TodoItem[]) {
     currentTodos.value = todos;
   }
@@ -207,6 +211,7 @@ export const useSessionStore = defineStore('session', () => {
     setCheckpointMessages,
     addCompactMarker,
     updateLastCompactMarkerSummary,
+    clearCompactMarkers,
     updateTodos,
     updateStats,
     clearSessionData,
