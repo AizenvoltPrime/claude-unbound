@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { log } from "../logger";
+import { readThinkingTokensFromClaudeSettings } from "../claude-settings";
 import { persistInjectedMessage, findLastMessageInCurrentTurn } from "../session";
 import { extractTextFromContent, hasImageContent } from "../../shared/utils";
 import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, ContentInput } from "./types";
@@ -148,7 +149,7 @@ export class QueryManager {
     const configuredModel = config.get<string>("model", "");
     const model = configuredModel || "claude-opus-4-5-20251101";
     this.maxBudgetUsd = config.get<number | null>("maxBudgetUsd", null);
-    const maxThinkingTokens = config.get<number | null>("maxThinkingTokens", null);
+    const maxThinkingTokens = await readThinkingTokensFromClaudeSettings();
     const betasEnabledRaw = config.get<string[]>("betasEnabled", []);
     const betasEnabled = betasEnabledRaw.filter((b): b is "context-1m-2025-08-07" => b === "context-1m-2025-08-07");
     const enableFileCheckpointing = config.get<boolean>("enableFileCheckpointing", true);

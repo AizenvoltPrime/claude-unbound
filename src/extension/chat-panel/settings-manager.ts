@@ -1,12 +1,17 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import * as os from "os";
 import type { ClaudeSession } from "../claude-session";
 import type { PermissionHandler } from "../PermissionHandler";
 import type { PluginService } from "../PluginService";
 import type { ExtensionToWebviewMessage, McpServerConfig, McpServerStatusInfo, PluginConfig, PluginStatusInfo, ExtensionSettings, PermissionMode } from "../../shared/types";
 import { log } from "../logger";
+import {
+  getClaudeSettingsPath,
+  readClaudeSettings,
+  readThinkingTokensFromClaudeSettings,
+  syncThinkingTokensToClaudeSettings,
+} from "../claude-settings";
 
 async function syncDisabledServersToClaudeSettings(serverName: string, disabled: boolean): Promise<void> {
   const settingsPath = await getClaudeSettingsPath();
@@ -55,33 +60,6 @@ async function syncEnabledPluginsToClaudeSettings(pluginFullId: string, enabled:
   }
 }
 
-async function getClaudeSettingsPath(): Promise<string> {
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  const projectSettingsPath = workspaceFolder
-    ? path.join(workspaceFolder.uri.fsPath, ".claude", "settings.local.json")
-    : null;
-  const userSettingsPath = path.join(os.homedir(), ".claude", "settings.local.json");
-
-  if (projectSettingsPath) {
-    try {
-      await fs.promises.access(projectSettingsPath);
-      return projectSettingsPath;
-    } catch {
-      // Project settings doesn't exist, use user settings
-    }
-  }
-  return userSettingsPath;
-}
-
-async function readClaudeSettings(): Promise<Record<string, unknown>> {
-  const settingsPath = await getClaudeSettingsPath();
-  try {
-    const content = await fs.promises.readFile(settingsPath, "utf-8");
-    return JSON.parse(content);
-  } catch {
-    return {};
-  }
-}
 
 interface McpServerEntry {
   name: string;
@@ -213,12 +191,11 @@ export class SettingsManager {
     this.mcpConfigLoaded = true;
   }
 
-  sendCurrentSettings(panel: vscode.WebviewPanel, permissionHandler: PermissionHandler): void {
+  async sendCurrentSettings(panel: vscode.WebviewPanel, permissionHandler: PermissionHandler): Promise<void> {
     const config = vscode.workspace.getConfiguration("claude-unbound");
     const model = config.get<string>("model", "");
     const betasEnabled = config.get<string[]>("betasEnabled", []);
 
-    // Filter out 1M beta if current model doesn't support it
     const effectiveBetas = betasEnabled.filter(beta => {
       if (beta === CONTEXT_1M_BETA && !modelSupports1MContext(model)) {
         return false;
@@ -230,7 +207,7 @@ export class SettingsManager {
       model,
       maxTurns: config.get<number>("maxTurns", 100),
       maxBudgetUsd: config.get<number | null>("maxBudgetUsd", null),
-      maxThinkingTokens: config.get<number | null>("maxThinkingTokens", null),
+      maxThinkingTokens: await readThinkingTokensFromClaudeSettings(),
       betasEnabled: effectiveBetas,
       permissionMode: permissionHandler.getPermissionMode(),
       defaultPermissionMode: config.get<PermissionMode>("permissionMode", "default"),
@@ -366,7 +343,7 @@ export class SettingsManager {
   }
 
   async handleSetMaxThinkingTokens(session: ClaudeSession, tokens: number | null): Promise<void> {
-    await updateConfigAtEffectiveScope("claude-unbound", "maxThinkingTokens", tokens);
+    await syncThinkingTokensToClaudeSettings(tokens);
     await session.setMaxThinkingTokens(tokens);
   }
 

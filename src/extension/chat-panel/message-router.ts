@@ -198,7 +198,7 @@ export class MessageRouter {
         if (msg.approved && msg.approvalMode) {
           const newMode = msg.approvalMode === "acceptEdits" ? "acceptEdits" : "default";
           await this.settingsManager.handleSetPermissionMode(ctx.session, ctx.permissionHandler, newMode);
-          this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
+          await this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
         }
       },
 
@@ -210,7 +210,7 @@ export class MessageRouter {
 
         if (msg.approved) {
           await this.settingsManager.handleSetPermissionMode(ctx.session, ctx.permissionHandler, "plan");
-          this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
+          await this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
         }
       },
 
@@ -237,7 +237,7 @@ export class MessageRouter {
           log("[MessageRouter] Error fetching sessions:", err);
         }
 
-        this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
+        await this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
         this.settingsManager.sendAvailableModels(ctx.session, ctx.panel);
         this.settingsManager.sendMcpConfig(ctx.panel);
         this.settingsManager.sendPluginConfig(ctx.panel);

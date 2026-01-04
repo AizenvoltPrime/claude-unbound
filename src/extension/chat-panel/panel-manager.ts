@@ -12,7 +12,7 @@ export interface PanelManagerConfig {
     permissionHandler: PermissionHandler
   ) => Promise<ClaudeSession>;
   handleWebviewMessage: (message: WebviewToExtensionMessage, panelId: string) => Promise<void>;
-  sendCurrentSettings: (panel: vscode.WebviewPanel, permissionHandler: PermissionHandler) => void;
+  sendCurrentSettings: (panel: vscode.WebviewPanel, permissionHandler: PermissionHandler) => Promise<void>;
   getStoredSessions: () => Promise<{ sessions: StoredSession[]; hasMore: boolean; nextOffset: number }>;
   invalidateSessionsCache: () => void;
 }
@@ -125,7 +125,7 @@ export class PanelManager {
     panelDisposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration("claude-unbound")) {
-          this.sendCurrentSettings(panel, permissionHandler);
+          void this.sendCurrentSettings(panel, permissionHandler);
         }
       })
     );

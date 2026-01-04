@@ -108,16 +108,6 @@
           "minimum": 0,
           "description": "Maximum budget in USD per session (null for unlimited)"
         },
-        "claude-unbound.maxThinkingTokens": {
-          "type": [
-            "number",
-            "null"
-          ],
-          "default": null,
-          "minimum": 1000,
-          "maximum": 63999,
-          "description": "Maximum tokens for extended thinking/reasoning (null to disable)"
-        },
         "claude-unbound.betasEnabled": {
           "type": "array",
           "items": {
