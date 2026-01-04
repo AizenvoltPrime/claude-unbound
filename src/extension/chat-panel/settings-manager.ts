@@ -4,56 +4,28 @@ import * as fs from "fs";
 import * as os from "os";
 import type { ClaudeSession } from "../claude-session";
 import type { PermissionHandler } from "../PermissionHandler";
-import type { ExtensionToWebviewMessage, McpServerConfig, McpServerStatusInfo, ExtensionSettings, PermissionMode } from "../../shared/types";
+import type { PluginService } from "../PluginService";
+import type { ExtensionToWebviewMessage, McpServerConfig, McpServerStatusInfo, PluginConfig, PluginStatusInfo, ExtensionSettings, PermissionMode } from "../../shared/types";
 import { log } from "../logger";
 
-/**
- * Updates the disabledMcpjsonServers array in Claude's settings file.
- * This is required because the CLI reads from these files, not VS Code settings.
- */
 async function syncDisabledServersToClaudeSettings(serverName: string, disabled: boolean): Promise<void> {
-  // Try project settings first, then user settings
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  const projectSettingsPath = workspaceFolder
-    ? path.join(workspaceFolder.uri.fsPath, ".claude", "settings.local.json")
-    : null;
-  const userSettingsPath = path.join(os.homedir(), ".claude", "settings.local.json");
-
-  // Use project settings if it exists, otherwise user settings
-  let settingsPath = userSettingsPath;
-  if (projectSettingsPath) {
-    try {
-      await fs.promises.access(projectSettingsPath);
-      settingsPath = projectSettingsPath;
-    } catch {
-      // Project settings doesn't exist, use user settings
-    }
-  }
+  const settingsPath = await getClaudeSettingsPath();
 
   try {
-    let settings: Record<string, unknown> = {};
-    try {
-      const content = await fs.promises.readFile(settingsPath, "utf-8");
-      settings = JSON.parse(content);
-    } catch {
-      // File doesn't exist or invalid JSON, start fresh
-    }
+    const settings = await readClaudeSettings();
 
     const disabledServers = Array.isArray(settings.disabledMcpjsonServers)
       ? settings.disabledMcpjsonServers as string[]
       : [];
 
     if (disabled) {
-      // Add to disabled list
       if (!disabledServers.includes(serverName)) {
         settings.disabledMcpjsonServers = [...disabledServers, serverName];
       }
     } else {
-      // Remove from disabled list
       settings.disabledMcpjsonServers = disabledServers.filter(s => s !== serverName);
     }
 
-    // Ensure directory exists
     await fs.promises.mkdir(path.dirname(settingsPath), { recursive: true });
     await fs.promises.writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
     log("[SettingsManager] syncDisabledServersToClaudeSettings: wrote to", settingsPath);
@@ -62,9 +34,67 @@ async function syncDisabledServersToClaudeSettings(serverName: string, disabled:
   }
 }
 
+async function syncEnabledPluginsToClaudeSettings(pluginFullId: string, enabled: boolean): Promise<void> {
+  const settingsPath = await getClaudeSettingsPath();
+
+  try {
+    const settings = await readClaudeSettings();
+
+    const enabledPlugins = (typeof settings.enabledPlugins === "object" && settings.enabledPlugins !== null)
+      ? settings.enabledPlugins as Record<string, boolean>
+      : {};
+
+    enabledPlugins[pluginFullId] = enabled;
+    settings.enabledPlugins = enabledPlugins;
+
+    await fs.promises.mkdir(path.dirname(settingsPath), { recursive: true });
+    await fs.promises.writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
+    log("[SettingsManager] syncEnabledPluginsToClaudeSettings: wrote to", settingsPath);
+  } catch (err) {
+    log("[SettingsManager] syncEnabledPluginsToClaudeSettings: failed to write", err);
+  }
+}
+
+async function getClaudeSettingsPath(): Promise<string> {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  const projectSettingsPath = workspaceFolder
+    ? path.join(workspaceFolder.uri.fsPath, ".claude", "settings.local.json")
+    : null;
+  const userSettingsPath = path.join(os.homedir(), ".claude", "settings.local.json");
+
+  if (projectSettingsPath) {
+    try {
+      await fs.promises.access(projectSettingsPath);
+      return projectSettingsPath;
+    } catch {
+      // Project settings doesn't exist, use user settings
+    }
+  }
+  return userSettingsPath;
+}
+
+async function readClaudeSettings(): Promise<Record<string, unknown>> {
+  const settingsPath = await getClaudeSettingsPath();
+  try {
+    const content = await fs.promises.readFile(settingsPath, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return {};
+  }
+}
+
 interface McpServerEntry {
   name: string;
   config: McpServerConfig;
+  enabled: boolean;
+}
+
+interface PluginEntry {
+  name: string;
+  fullId: string;
+  path: string;
+  version?: string;
+  description?: string;
   enabled: boolean;
 }
 
@@ -103,38 +133,23 @@ export interface SettingsManagerConfig {
 export class SettingsManager {
   private mcpServerEntries: McpServerEntry[] = [];
   private mcpConfigLoaded = false;
+  private pluginEntries: PluginEntry[] = [];
+  private pluginConfigLoaded = false;
   private readonly postMessage: SettingsManagerConfig["postMessage"];
   private serverToggleLock: Promise<void> = Promise.resolve();
+  private pluginToggleLock: Promise<void> = Promise.resolve();
 
   constructor(config: SettingsManagerConfig) {
     this.postMessage = config.postMessage;
   }
 
-  private getDisabledServers(): string[] {
-    const config = vscode.workspace.getConfiguration("claude-unbound");
-    return config.get<string[]>("disabledMcpServers", []);
-  }
-
   async setServerEnabled(serverName: string, enabled: boolean): Promise<void> {
-    // Use mutex to prevent race conditions from rapid toggling
     const previousLock = this.serverToggleLock;
     let releaseLock: () => void;
     this.serverToggleLock = new Promise(resolve => { releaseLock = resolve; });
 
     try {
       await previousLock;
-
-      const config = vscode.workspace.getConfiguration("claude-unbound");
-      const disabled = config.get<string[]>("disabledMcpServers", []);
-
-      if (enabled) {
-        const newDisabled = disabled.filter(s => s !== serverName);
-        await config.update("disabledMcpServers", newDisabled, vscode.ConfigurationTarget.Workspace);
-      } else {
-        if (!disabled.includes(serverName)) {
-          await config.update("disabledMcpServers", [...disabled, serverName], vscode.ConfigurationTarget.Workspace);
-        }
-      }
 
       await syncDisabledServersToClaudeSettings(serverName, !enabled);
 
@@ -182,12 +197,15 @@ export class SettingsManager {
       const content = await fs.promises.readFile(mcpConfigPath, "utf-8");
       const config = JSON.parse(content);
       const servers: Record<string, McpServerConfig> = config.mcpServers || config;
-      const disabled = this.getDisabledServers();
+      const claudeSettings = await readClaudeSettings();
+      const disabledServers = Array.isArray(claudeSettings.disabledMcpjsonServers)
+        ? claudeSettings.disabledMcpjsonServers as string[]
+        : [];
 
       this.mcpServerEntries = Object.entries(servers).map(([name, serverConfig]) => ({
         name,
         config: serverConfig,
-        enabled: !disabled.includes(name),
+        enabled: !disabledServers.includes(name),
       }));
     } catch {
       this.mcpServerEntries = [];
@@ -250,6 +268,79 @@ export class SettingsManager {
 
   sendMcpConfig(panel: vscode.WebviewPanel): void {
     this.postMessage(panel, { type: "mcpConfigUpdate", servers: this.getMcpServersForUI() });
+  }
+
+  async setPluginEnabled(pluginFullId: string, enabled: boolean): Promise<void> {
+    const previousLock = this.pluginToggleLock;
+    let releaseLock: () => void;
+    this.pluginToggleLock = new Promise(resolve => { releaseLock = resolve; });
+
+    try {
+      await previousLock;
+
+      await syncEnabledPluginsToClaudeSettings(pluginFullId, enabled);
+
+      const entry = this.pluginEntries.find(e => e.fullId === pluginFullId);
+      if (entry) {
+        entry.enabled = enabled;
+      } else {
+        log("[SettingsManager] setPluginEnabled: entry not found for", pluginFullId);
+      }
+    } finally {
+      releaseLock!();
+    }
+  }
+
+  getEnabledPlugins(): PluginConfig[] {
+    return this.pluginEntries
+      .filter(entry => entry.enabled)
+      .map(entry => ({ type: "local" as const, path: entry.path }));
+  }
+
+  getEnabledPluginIds(): Set<string> {
+    return new Set(
+      this.pluginEntries
+        .filter(entry => entry.enabled)
+        .map(entry => entry.fullId)
+    );
+  }
+
+  getPluginsForUI(): PluginStatusInfo[] {
+    return this.pluginEntries.map(entry => ({
+      name: entry.name,
+      fullId: entry.fullId,
+      path: entry.path,
+      status: entry.enabled ? "idle" : "disabled",
+      enabled: entry.enabled,
+      version: entry.version,
+      description: entry.description,
+    }));
+  }
+
+  getPluginConfigLoaded(): boolean {
+    return this.pluginConfigLoaded;
+  }
+
+  async loadPluginConfig(pluginService: PluginService): Promise<void> {
+    const plugins = await pluginService.getPlugins();
+    const claudeSettings = await readClaudeSettings();
+    const enabledPlugins = (typeof claudeSettings.enabledPlugins === "object" && claudeSettings.enabledPlugins !== null)
+      ? claudeSettings.enabledPlugins as Record<string, boolean>
+      : {};
+
+    this.pluginEntries = plugins.map(plugin => ({
+      name: plugin.name,
+      fullId: plugin.fullId,
+      path: plugin.path,
+      version: plugin.version,
+      description: plugin.description,
+      enabled: enabledPlugins[plugin.fullId] !== false,
+    }));
+    this.pluginConfigLoaded = true;
+  }
+
+  sendPluginConfig(panel: vscode.WebviewPanel): void {
+    this.postMessage(panel, { type: "pluginConfigUpdate", plugins: this.getPluginsForUI() });
   }
 
   async sendSupportedCommands(session: ClaudeSession, panel: vscode.WebviewPanel): Promise<void> {

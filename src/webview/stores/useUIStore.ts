@@ -7,6 +7,7 @@ export const useUIStore = defineStore('ui', () => {
   const isAtBottom = ref(true);
   const showSettingsPanel = ref(false);
   const showMcpPanel = ref(false);
+  const showPluginPanel = ref(false);
   const showSessionPicker = ref(false);
   const currentRunningTool = ref<string | null>(null);
   const showRewindTypeModal = ref(false);
@@ -50,6 +51,16 @@ export const useUIStore = defineStore('ui', () => {
 
   function closeMcpPanel() {
     showMcpPanel.value = false;
+  }
+
+  function openPluginPanel(): boolean {
+    if (isProcessing.value) return false;
+    showPluginPanel.value = true;
+    return true;
+  }
+
+  function closePluginPanel() {
+    showPluginPanel.value = false;
   }
 
   function openSessionPicker() {
@@ -137,6 +148,7 @@ export const useUIStore = defineStore('ui', () => {
     isAtBottom.value = true;
     showSettingsPanel.value = false;
     showMcpPanel.value = false;
+    showPluginPanel.value = false;
     showSessionPicker.value = false;
     currentRunningTool.value = null;
     showRewindTypeModal.value = false;
@@ -158,6 +170,7 @@ export const useUIStore = defineStore('ui', () => {
     isAtBottom,
     showSettingsPanel,
     showMcpPanel,
+    showPluginPanel,
     showSessionPicker,
     currentRunningTool,
     showRewindTypeModal,
@@ -176,6 +189,8 @@ export const useUIStore = defineStore('ui', () => {
     closeSettingsPanel,
     openMcpPanel,
     closeMcpPanel,
+    openPluginPanel,
+    closePluginPanel,
     openSessionPicker,
     toggleSessionPicker,
     closeSessionPicker,

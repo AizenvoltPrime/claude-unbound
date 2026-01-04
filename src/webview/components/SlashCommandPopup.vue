@@ -89,6 +89,9 @@ function highlightMatch(text: string): string {
 
 function getSourceBadge(command: SlashCommandItem): string | null {
   if (command.source === 'builtin') return null;
+  if (command.source === 'plugin' && 'pluginName' in command) {
+    return `plugin:${command.pluginName}`;
+  }
   if ('namespace' in command && command.namespace) {
     return command.namespace;
   }

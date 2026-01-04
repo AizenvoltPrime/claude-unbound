@@ -2,21 +2,38 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import * as vscode from "vscode";
-import type { CustomSlashCommandInfo } from "../shared/types";
+import type { CustomSlashCommandInfo, PluginSlashCommandInfo } from "../shared/types";
 import { log } from "./logger";
 
 const COMMANDS_FOLDER = ".claude/commands";
+const PLUGINS_FOLDER = ".claude/plugins";
+const INSTALLED_PLUGINS_FILE = "installed_plugins.json";
 const VALID_COMMAND_NAME = /^[a-zA-Z0-9_-]+$/;
 
 interface ParsedMarkdownFile {
   description: string;
   argumentHint?: string;
+  name?: string;
+}
+
+interface InstalledPluginEntry {
+  scope: "user" | "project";
+  projectPath?: string;
+  installPath: string;
+  version: string;
+}
+
+interface InstalledPluginsRegistry {
+  version: number;
+  plugins: Record<string, InstalledPluginEntry[]>;
 }
 
 export class SlashCommandService {
   private cache: CustomSlashCommandInfo[] | null = null;
+  private pluginCache: PluginSlashCommandInfo[] | null = null;
   private projectWatcher: vscode.FileSystemWatcher | null = null;
   private userWatcher: vscode.FileSystemWatcher | null = null;
+  private pluginWatcher: vscode.FileSystemWatcher | null = null;
   private debounceTimer: NodeJS.Timeout | null = null;
 
   constructor(private workspacePath: string) {
@@ -31,6 +48,16 @@ export class SlashCommandService {
       this.debounceTimer = setTimeout(() => {
         this.cache = null;
         log("Slash command cache invalidated due to file change");
+      }, 300);
+    };
+
+    const invalidatePluginCache = () => {
+      if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer);
+      }
+      this.debounceTimer = setTimeout(() => {
+        this.pluginCache = null;
+        log("Plugin command cache invalidated due to file change");
       }, 300);
     };
 
@@ -49,6 +76,12 @@ export class SlashCommandService {
     this.userWatcher.onDidCreate(invalidateCache);
     this.userWatcher.onDidChange(invalidateCache);
     this.userWatcher.onDidDelete(invalidateCache);
+
+    const registryPath = path.join(os.homedir(), PLUGINS_FOLDER, INSTALLED_PLUGINS_FILE);
+    this.pluginWatcher = vscode.workspace.createFileSystemWatcher(registryPath.replace(/\\/g, "/"));
+    this.pluginWatcher.onDidCreate(invalidatePluginCache);
+    this.pluginWatcher.onDidChange(invalidatePluginCache);
+    this.pluginWatcher.onDidDelete(invalidatePluginCache);
   }
 
   async getCommands(): Promise<CustomSlashCommandInfo[]> {
@@ -210,6 +243,94 @@ export class SlashCommandService {
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
   }
 
+  async getPluginCommands(enabledPluginIds?: Set<string>): Promise<PluginSlashCommandInfo[]> {
+    if (!this.pluginCache) {
+      const commands: PluginSlashCommandInfo[] = [];
+      const registryPath = path.join(os.homedir(), PLUGINS_FOLDER, INSTALLED_PLUGINS_FILE);
+
+      try {
+        const content = await fs.promises.readFile(registryPath, "utf-8");
+        const registry = JSON.parse(content) as InstalledPluginsRegistry;
+
+        for (const [fullName, entries] of Object.entries(registry.plugins)) {
+          for (const entry of entries) {
+            if (entry.scope === "project" && entry.projectPath !== this.workspacePath) {
+              continue;
+            }
+
+            const pluginCommands = await this.scanPluginCommands(entry.installPath, fullName);
+            commands.push(...pluginCommands);
+          }
+        }
+      } catch (err) {
+        const isFileNotFound = (err as NodeJS.ErrnoException).code === "ENOENT";
+        if (!isFileNotFound) {
+          log(`Error reading plugins registry for commands: ${err}`);
+        }
+      }
+
+      commands.sort((a, b) => a.name.localeCompare(b.name));
+      this.pluginCache = commands;
+    }
+
+    if (enabledPluginIds) {
+      return this.pluginCache.filter(cmd => enabledPluginIds.has(cmd.pluginFullId));
+    }
+    return this.pluginCache;
+  }
+
+  private async scanPluginCommands(pluginPath: string, pluginFullId: string): Promise<PluginSlashCommandInfo[]> {
+    const pluginShortName = pluginFullId.split("@")[0];
+    const commandsDir = path.join(pluginPath, "commands");
+    return this.scanPluginCommandsDir(commandsDir, pluginShortName, pluginFullId);
+  }
+
+  private async scanPluginCommandsDir(dir: string, pluginShortName: string, pluginFullId: string): Promise<PluginSlashCommandInfo[]> {
+    const commands: PluginSlashCommandInfo[] = [];
+
+    try {
+      await fs.promises.access(dir, fs.constants.R_OK);
+    } catch {
+      return commands;
+    }
+
+    try {
+      const files = await fs.promises.readdir(dir);
+
+      for (const file of files) {
+        if (!file.endsWith(".md")) continue;
+
+        const commandName = file.replace(/\.md$/, "");
+        if (!VALID_COMMAND_NAME.test(commandName)) {
+          continue;
+        }
+
+        const filePath = path.join(dir, file);
+
+        try {
+          const content = await fs.promises.readFile(filePath, "utf-8");
+          const parsed = this.parseMarkdownFile(content);
+
+          commands.push({
+            name: `${pluginShortName}:${commandName}`,
+            description: parsed.description,
+            argumentHint: parsed.argumentHint,
+            filePath,
+            source: "plugin",
+            pluginName: pluginShortName,
+            pluginFullId,
+          });
+        } catch (err) {
+          log(`Error reading plugin command file ${filePath}: ${err}`);
+        }
+      }
+    } catch (err) {
+      log(`Error scanning plugin commands directory ${dir}: ${err}`);
+    }
+
+    return commands;
+  }
+
   dispose(): void {
     if (this.projectWatcher) {
       this.projectWatcher.dispose();
@@ -218,6 +339,10 @@ export class SlashCommandService {
     if (this.userWatcher) {
       this.userWatcher.dispose();
       this.userWatcher = null;
+    }
+    if (this.pluginWatcher) {
+      this.pluginWatcher.dispose();
+      this.pluginWatcher = null;
     }
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);

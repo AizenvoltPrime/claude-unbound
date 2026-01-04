@@ -5,7 +5,7 @@ import { extractTextFromContent, hasImageContent } from "../../shared/utils";
 import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, ContentInput } from "./types";
 import type { ToolManager } from "./tool-manager";
 import type { StreamingManager } from "./streaming-manager";
-import type { AccountInfo, ModelInfo, SlashCommandInfo, McpServerStatusInfo, PermissionMode, SandboxConfig } from "../../shared/types";
+import type { AccountInfo, ModelInfo, SlashCommandInfo, McpServerStatusInfo, PermissionMode, SandboxConfig, PluginConfig } from "../../shared/types";
 import type {
   PreToolUseHookInput,
   PostToolUseHookInput,
@@ -180,6 +180,11 @@ export class QueryManager {
       ...(this.options.mcpServers &&
         Object.keys(this.options.mcpServers).length > 0 && {
           mcpServers: this.options.mcpServers,
+        }),
+      // Pass plugins explicitly - SDK doesn't auto-discover from standard locations
+      ...(this.options.plugins &&
+        this.options.plugins.length > 0 && {
+          plugins: this.options.plugins,
         }),
       // Agents loaded from .claude/agents/ via settingSources
       canUseTool: async (toolName: string, input: Record<string, unknown>, context: { signal: AbortSignal }) => {
@@ -616,6 +621,25 @@ export class QueryManager {
    * Session ID is preserved - next query will resume.
    */
   restartForMcpChanges(): void {
+    if (this._streamingInputController) {
+      this.closeAndReset();
+    }
+  }
+
+  /**
+   * Update plugins configuration.
+   * Called when user toggles plugins in the UI.
+   */
+  setPlugins(plugins: PluginConfig[]): void {
+    this.options.plugins = plugins;
+  }
+
+  /**
+   * Close the query to trigger recreation with new plugins.
+   * Must call setPlugins() first to update the configuration.
+   * Session ID is preserved - next query will resume.
+   */
+  restartForPluginChanges(): void {
     if (this._streamingInputController) {
       this.closeAndReset();
     }

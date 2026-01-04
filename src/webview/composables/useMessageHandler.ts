@@ -426,9 +426,17 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           settingsStore.setMcpServers(message.servers);
           break;
 
+        case "pluginStatus":
+        case "pluginConfigUpdate":
+          settingsStore.setPlugins(message.plugins);
+          break;
+
         case "systemInit":
           if (message.data.mcpServers) {
             settingsStore.updateMcpServerStatuses(message.data.mcpServers);
+          }
+          if (message.data.plugins) {
+            settingsStore.updatePluginStatuses(message.data.plugins);
           }
           break;
 

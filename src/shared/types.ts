@@ -37,6 +37,17 @@ export interface CustomSlashCommandInfo {
   namespace?: string;
 }
 
+// Plugin slash command from plugin commands/ or skills/ directories
+export interface PluginSlashCommandInfo {
+  name: string;
+  description: string;
+  argumentHint?: string;
+  filePath: string;
+  source: "plugin";
+  pluginName: string;
+  pluginFullId: string;
+}
+
 // Built-in slash command (hardcoded in extension)
 export interface BuiltinSlashCommandInfo {
   name: string;
@@ -45,14 +56,15 @@ export interface BuiltinSlashCommandInfo {
   source: "builtin";
 }
 
-// Union type for autocomplete - both custom and built-in commands
-export type SlashCommandItem = CustomSlashCommandInfo | BuiltinSlashCommandInfo;
+// Union type for autocomplete - custom, plugin, and built-in commands
+export type SlashCommandItem = CustomSlashCommandInfo | PluginSlashCommandInfo | BuiltinSlashCommandInfo;
 
 // System initialization data from SDK 'system' message (subtype: 'init')
 export interface SystemInitData {
   model: string;
   tools: string[];
   mcpServers: { name: string; status: string }[];
+  plugins: PluginInfo[];
   permissionMode: string;
   slashCommands: string[];
   apiKeySource: string;
@@ -91,6 +103,32 @@ export interface McpServerStatusInfo {
     name: string;
     version: string;
   };
+}
+
+// Plugin configuration for SDK query options
+export interface PluginConfig {
+  type: "local";
+  path: string;
+}
+
+// Plugin info returned from SDK init message
+export interface PluginInfo {
+  name: string;
+  fullId: string;
+  path: string;
+  version?: string;
+  description?: string;
+}
+
+// Plugin status for UI display (mirrors McpServerStatusInfo pattern)
+export interface PluginStatusInfo {
+  name: string;
+  fullId: string;
+  path: string;
+  status: "loaded" | "failed" | "disabled" | "pending" | "idle";
+  enabled: boolean;
+  version?: string;
+  description?: string;
 }
 
 // Sandbox configuration (simplified for VS Code settings)
@@ -448,6 +486,9 @@ export type WebviewToExtensionMessage =
   | { type: "cancelQueuedMessage"; messageId: string }
   // MCP server control
   | { type: "toggleMcpServer"; serverName: string; enabled: boolean }
+  // Plugin control
+  | { type: "togglePlugin"; pluginFullId: string; enabled: boolean }
+  | { type: "requestPluginStatus" }
   // AskUserQuestion response
   | { type: "answerQuestion"; toolUseId: string; answers: Record<string, string> | null }
   // Plan approval response
@@ -560,8 +601,8 @@ export type ExtensionToWebviewMessage =
     }
   // Custom slash commands from .claude/commands/
   | { type: "customSlashCommands"; commands: SlashCommandItem[] }
-  // Custom agents from .claude/agents/
-  | { type: "customAgents"; agents: CustomAgentInfo[] }
+  // Custom agents from .claude/agents/ and plugin agents
+  | { type: "customAgents"; agents: CustomAgentInfo[]; pluginAgents: PluginAgentInfo[] }
   // Message queue injection
   | { type: "messageQueued"; message: QueuedMessage }
   | { type: "queueProcessed"; messageId: string }
@@ -570,6 +611,9 @@ export type ExtensionToWebviewMessage =
   | { type: "flushedMessagesAssigned"; queueMessageIds: string[]; sdkMessageId: string }
   // MCP configuration update (all servers with enabled state)
   | { type: "mcpConfigUpdate"; servers: McpServerStatusInfo[] }
+  // Plugin configuration update (all plugins with enabled state)
+  | { type: "pluginConfigUpdate"; plugins: PluginStatusInfo[] }
+  | { type: "pluginStatus"; plugins: PluginStatusInfo[] }
   // AskUserQuestion request
   | { type: "requestQuestion"; toolUseId: string; questions: Question[]; parentToolUseId?: string | null }
   // IDE context update (active file/selection in editor)
@@ -687,10 +731,21 @@ export interface CustomAgentInfo {
   tools?: string[];
 }
 
+export interface PluginAgentInfo {
+  name: string;
+  description: string;
+  source: "plugin";
+  pluginName: string;
+  pluginFullId: string;
+  model?: string;
+  tools?: string[];
+}
+
 export type AtMentionItem =
   | { type: "file"; data: WorkspaceFileInfo }
   | { type: "builtin-agent"; data: AgentConfig }
-  | { type: "custom-agent"; data: CustomAgentInfo };
+  | { type: "custom-agent"; data: CustomAgentInfo }
+  | { type: "plugin-agent"; data: PluginAgentInfo };
 
 /** SDK built-in agents available for @agent-<id> autocomplete */
 export const AVAILABLE_AGENTS: AgentConfig[] = [

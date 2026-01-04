@@ -25,15 +25,16 @@ export class WorkspaceManager {
     this.customAgentService = new CustomAgentService(this.workspacePath);
   }
 
-  async getCustomSlashCommands(): Promise<SlashCommandItem[]> {
+  async getCustomSlashCommands(enabledPluginIds?: Set<string>): Promise<SlashCommandItem[]> {
     const customCommands = await this.slashCommandService.getCommands();
-    const allCommands = [...BUILTIN_SLASH_COMMANDS, ...customCommands];
+    const pluginCommands = await this.slashCommandService.getPluginCommands(enabledPluginIds);
+    const allCommands = [...BUILTIN_SLASH_COMMANDS, ...customCommands, ...pluginCommands];
     return allCommands.sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  async sendCustomSlashCommands(panel: vscode.WebviewPanel): Promise<void> {
+  async sendCustomSlashCommands(panel: vscode.WebviewPanel, enabledPluginIds?: Set<string>): Promise<void> {
     try {
-      const commands = await this.getCustomSlashCommands();
+      const commands = await this.getCustomSlashCommands(enabledPluginIds);
       this.postMessage(panel, { type: "customSlashCommands", commands });
     } catch (err) {
       log("[WorkspaceManager] Error fetching custom slash commands:", err);
@@ -45,13 +46,14 @@ export class WorkspaceManager {
     return this.customAgentService.getCustomAgents();
   }
 
-  async sendCustomAgents(panel: vscode.WebviewPanel): Promise<void> {
+  async sendCustomAgents(panel: vscode.WebviewPanel, enabledPluginIds?: Set<string>): Promise<void> {
     try {
-      const agents = await this.getCustomAgents();
-      this.postMessage(panel, { type: "customAgents", agents });
+      const agents = await this.customAgentService.getCustomAgents();
+      const pluginAgents = await this.customAgentService.getPluginAgents(enabledPluginIds);
+      this.postMessage(panel, { type: "customAgents", agents, pluginAgents });
     } catch (err) {
       log("[WorkspaceManager] Error fetching custom agents:", err);
-      this.postMessage(panel, { type: "customAgents", agents: [] });
+      this.postMessage(panel, { type: "customAgents", agents: [], pluginAgents: [] });
     }
   }
 

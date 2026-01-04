@@ -10,7 +10,7 @@ import type {
 import { createEmptyStreamingContent } from './types';
 import { serializeContent, isLocalCommandOutput, isLocalCommandText, isToolResultMessage, extractErrorToolResults } from './utils';
 import type { ToolManager } from './tool-manager';
-import type { SystemInitData, AccountInfo } from '../../shared/types';
+import type { SystemInitData, AccountInfo, PluginInfo } from '../../shared/types';
 
 /** Callback interface for checkpoint tracking */
 export interface CheckpointTracker {
@@ -452,10 +452,12 @@ export class StreamingManager {
     const sysMsg = message as { subtype?: string; [key: string]: unknown };
     if (sysMsg.subtype === 'init') {
       const mcpServers = (sysMsg.mcp_servers as { name: string; status: string }[]) || [];
+      const plugins = (sysMsg.plugins as PluginInfo[]) || [];
       const initData: SystemInitData = {
         model: (sysMsg.model as string) || '',
         tools: (sysMsg.tools as string[]) || [],
         mcpServers,
+        plugins,
         permissionMode: (sysMsg.permissionMode as string) || 'default',
         slashCommands: (sysMsg.slash_commands as string[]) || [],
         apiKeySource: (sysMsg.apiKeySource as string) || '',

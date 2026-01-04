@@ -2,7 +2,7 @@ import { log } from '../logger';
 import { persistQueuedMessage } from '../session';
 import { extractTextFromContent } from '../../shared/utils';
 import type { SessionOptions, MessageCallbacks, RewindOption, ContentInput } from './types';
-import type { McpServerConfig } from '../../shared/types';
+import type { McpServerConfig, PluginConfig } from '../../shared/types';
 import { ToolManager } from './tool-manager';
 import { StreamingManager, type CheckpointTracker } from './streaming-manager';
 import { CheckpointManager } from './checkpoint-manager';
@@ -315,6 +315,15 @@ export class ClaudeSession {
   restartForMcpChanges(): void {
     this.streamingManager.silentAbort = true;
     this.queryManager.restartForMcpChanges();
+  }
+
+  setPlugins(plugins: PluginConfig[]): void {
+    this.queryManager.setPlugins(plugins);
+  }
+
+  restartForPluginChanges(): void {
+    this.streamingManager.silentAbort = true;
+    this.queryManager.restartForPluginChanges();
   }
 
   async rewindFiles(userMessageId: string, option: RewindOption = 'code-only', promptContent?: string): Promise<void> {

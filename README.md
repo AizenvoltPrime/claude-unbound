@@ -35,6 +35,7 @@
 - **Message Queue**: Send messages while Claude is working - they're injected at the next tool boundary
 - **MCP Server Management**: Enable/disable MCP servers from the UI with settings persisted to Claude config
 - **Hooks Support**: Claude Code hooks (shell commands that run on events like tool calls) work automatically
+- **Plugins Support**: Enable/disable Claude Code plugins from the UI - plugins can provide agents and slash commands
 - **Skills Support**: Approve or deny skill invocations
 
 ## Installation
@@ -86,14 +87,15 @@ Attached images appear as thumbnails below the input. Hover over a thumbnail to 
 
 **Mention types:**
 
-| Syntax             | Description                               |
-| ------------------ | ----------------------------------------- |
-| `@path/to/file.ts` | Reference a workspace file                |
-| `@agent-Explore`   | Use the fast codebase exploration agent   |
-| `@agent-Plan`      | Use the architecture planning agent       |
-| `@agent-<name>`    | Use a custom agent from `.claude/agents/` |
+| Syntax                     | Description                                   |
+| -------------------------- | --------------------------------------------- |
+| `@path/to/file.ts`         | Reference a workspace file                    |
+| `@agent-Explore`           | Use the fast codebase exploration agent       |
+| `@agent-Plan`              | Use the architecture planning agent           |
+| `@agent-<name>`            | Use a custom agent from `.claude/agents/`     |
+| `@agent-<plugin>:<name>`   | Use an agent provided by an installed plugin  |
 
-Custom agents are loaded from `.claude/agents/*.md` (project) and `~/.claude/agents/*.md` (user). Project agents override user agents with the same name.
+Custom agents are loaded from `.claude/agents/*.md` (project) and `~/.claude/agents/*.md` (user). Project agents override user agents with the same name. Plugin agents are loaded from enabled plugins' `agents/` directories.
 
 #### Slash Command Autocomplete
 
@@ -120,7 +122,7 @@ Custom agents are loaded from `.claude/agents/*.md` (project) and `~/.claude/age
 | `/permissions`     | View/update permissions                  |
 | `/help`            | Get usage help                           |
 
-Custom commands are loaded from `.claude/commands/*.md` (project) and `~/.claude/commands/*.md` (user).
+Custom commands are loaded from `.claude/commands/*.md` (project) and `~/.claude/commands/*.md` (user). Plugin commands use the format `/<plugin>:<command>` (e.g., `/myplugin:build`).
 
 ### Skills
 
@@ -132,6 +134,22 @@ Skills are specialized tools that extend Claude's capabilities. When Claude invo
 - **Tell Claude what to do instead**: Provide custom feedback
 
 Skills are loaded from `.claude/skills/<name>/SKILL.md` (project) and `~/.claude/skills/<name>/SKILL.md` (user). The skill description is parsed from the YAML frontmatter.
+
+### Plugins
+
+Plugins extend Claude's capabilities with additional agents and slash commands. Installed plugins are discovered from:
+
+- **Registry**: `~/.claude/plugins/installed_plugins.json` (managed by Claude Code CLI)
+- **Manual**: `<project>/.claude/plugins/*/` directories with `.claude-plugin/plugin.json`
+
+Enable or disable plugins from the plugin status panel in the UI. Plugin settings are persisted to Claude's settings files.
+
+**Plugin-provided features:**
+
+| Feature        | Syntax                   | Example               |
+| -------------- | ------------------------ | --------------------- |
+| Agents         | `@agent-<plugin>:<name>` | `@agent-pdf:analyzer` |
+| Slash commands | `/<plugin>:<command>`    | `/pdf:extract`        |
 
 ## Configuration
 

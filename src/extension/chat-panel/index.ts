@@ -6,6 +6,7 @@ import { SettingsManager } from "./settings-manager";
 import { WorkspaceManager } from "./workspace-manager";
 import { SessionManager } from "./session-manager";
 import { MessageRouter } from "./message-router";
+import { PluginService } from "../PluginService";
 import { log } from "../logger";
 
 export class ChatPanelProvider {
@@ -16,6 +17,7 @@ export class ChatPanelProvider {
   private readonly workspaceManager: WorkspaceManager;
   private readonly sessionManager: SessionManager;
   private readonly messageRouter: MessageRouter;
+  private readonly pluginService: PluginService;
   private readonly workspacePath: string;
 
   constructor(
@@ -49,11 +51,16 @@ export class ChatPanelProvider {
       postMessage,
     });
 
+    this.pluginService = new PluginService(this.workspacePath);
+
     this.sessionManager = new SessionManager({
       workspacePath: this.workspacePath,
       getEnabledMcpServers: () => this.settingsManager.getEnabledMcpServers(),
       getMcpConfigLoaded: () => this.settingsManager.getMcpConfigLoaded(),
       loadMcpConfig: () => this.settingsManager.loadMcpConfig(),
+      getEnabledPlugins: () => this.settingsManager.getEnabledPlugins(),
+      getPluginConfigLoaded: () => this.settingsManager.getPluginConfigLoaded(),
+      loadPluginConfig: () => this.settingsManager.loadPluginConfig(this.pluginService),
       postMessage,
       setupSessionWatcher: () => this.storageManager.setupSessionWatcher(),
     });
@@ -84,6 +91,9 @@ export class ChatPanelProvider {
     this.settingsManager.loadMcpConfig().catch((err) => {
       log("[ChatPanelProvider] Error pre-loading MCP config:", err);
     });
+    this.settingsManager.loadPluginConfig(this.pluginService).catch((err) => {
+      log("[ChatPanelProvider] Error pre-loading plugin config:", err);
+    });
   }
 
   async show(): Promise<void> {
@@ -105,6 +115,7 @@ export class ChatPanelProvider {
   dispose(): void {
     this.storageManager.dispose();
     this.workspaceManager.dispose();
+    this.pluginService.dispose();
     this.panelManager.dispose();
   }
 }

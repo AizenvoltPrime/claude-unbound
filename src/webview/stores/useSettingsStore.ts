@@ -5,6 +5,7 @@ import type {
   ModelInfo,
   AccountInfo,
   McpServerStatusInfo,
+  PluginStatusInfo,
   PermissionMode,
 } from '@shared/types';
 
@@ -31,6 +32,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const availableModels = ref<ModelInfo[]>([]);
   const accountInfo = ref<AccountInfo | null>(null);
   const mcpServers = ref<McpServerStatusInfo[]>([]);
+  const plugins = ref<PluginStatusInfo[]>([]);
   const budgetWarning = ref<BudgetWarningState | null>(null);
 
   function updateSettings(settings: ExtensionSettings) {
@@ -91,6 +93,25 @@ export const useSettingsStore = defineStore('settings', () => {
     }));
   }
 
+  function setPlugins(newPlugins: PluginStatusInfo[]) {
+    plugins.value = newPlugins;
+  }
+
+  function updatePluginStatuses(sdkPlugins: { name: string; path: string; version?: string; description?: string }[]) {
+    const statusMap = new Map(sdkPlugins.map(p => [p.name, p]));
+    plugins.value = plugins.value.map(plugin => {
+      const sdkPlugin = statusMap.get(plugin.name);
+      return {
+        ...plugin,
+        status: plugin.enabled
+          ? (sdkPlugin ? "loaded" : plugin.status)
+          : "disabled",
+        version: sdkPlugin?.version ?? plugin.version,
+        description: sdkPlugin?.description ?? plugin.description,
+      } as PluginStatusInfo;
+    });
+  }
+
   function setBudgetWarning(currentSpend: number, limit: number, exceeded: boolean) {
     budgetWarning.value = { currentSpend, limit, exceeded };
   }
@@ -104,6 +125,7 @@ export const useSettingsStore = defineStore('settings', () => {
     availableModels.value = [];
     accountInfo.value = null;
     mcpServers.value = [];
+    plugins.value = [];
     budgetWarning.value = null;
   }
 
@@ -112,6 +134,7 @@ export const useSettingsStore = defineStore('settings', () => {
     availableModels,
     accountInfo,
     mcpServers,
+    plugins,
     budgetWarning,
     updateSettings,
     setModel,
@@ -124,6 +147,8 @@ export const useSettingsStore = defineStore('settings', () => {
     setAccountInfo,
     setMcpServers,
     updateMcpServerStatuses,
+    setPlugins,
+    updatePluginStatuses,
     setBudgetWarning,
     dismissBudgetWarning,
     $reset,

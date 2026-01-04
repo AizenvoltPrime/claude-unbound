@@ -2,13 +2,16 @@ import * as vscode from "vscode";
 import { ClaudeSession } from "../claude-session";
 import { PermissionHandler } from "../PermissionHandler";
 import { ensureSessionDir } from "../session";
-import type { ExtensionToWebviewMessage, McpServerConfig } from "../../shared/types";
+import type { ExtensionToWebviewMessage, McpServerConfig, PluginConfig } from "../../shared/types";
 
 export interface SessionManagerConfig {
   workspacePath: string;
   getEnabledMcpServers: () => Record<string, McpServerConfig>;
   getMcpConfigLoaded: () => boolean;
   loadMcpConfig: () => Promise<void>;
+  getEnabledPlugins: () => PluginConfig[];
+  getPluginConfigLoaded: () => boolean;
+  loadPluginConfig: () => Promise<void>;
   postMessage: (panel: vscode.WebviewPanel, message: ExtensionToWebviewMessage) => void;
   setupSessionWatcher: () => void;
 }
@@ -18,6 +21,9 @@ export class SessionManager {
   private readonly getEnabledMcpServers: SessionManagerConfig["getEnabledMcpServers"];
   private readonly getMcpConfigLoaded: SessionManagerConfig["getMcpConfigLoaded"];
   private readonly loadMcpConfig: SessionManagerConfig["loadMcpConfig"];
+  private readonly getEnabledPlugins: SessionManagerConfig["getEnabledPlugins"];
+  private readonly getPluginConfigLoaded: SessionManagerConfig["getPluginConfigLoaded"];
+  private readonly loadPluginConfig: SessionManagerConfig["loadPluginConfig"];
   private readonly postMessage: SessionManagerConfig["postMessage"];
   private readonly setupSessionWatcher: SessionManagerConfig["setupSessionWatcher"];
 
@@ -26,6 +32,9 @@ export class SessionManager {
     this.getEnabledMcpServers = config.getEnabledMcpServers;
     this.getMcpConfigLoaded = config.getMcpConfigLoaded;
     this.loadMcpConfig = config.loadMcpConfig;
+    this.getEnabledPlugins = config.getEnabledPlugins;
+    this.getPluginConfigLoaded = config.getPluginConfigLoaded;
+    this.loadPluginConfig = config.loadPluginConfig;
     this.postMessage = config.postMessage;
     this.setupSessionWatcher = config.setupSessionWatcher;
   }
@@ -36,6 +45,9 @@ export class SessionManager {
   ): Promise<ClaudeSession> {
     if (!this.getMcpConfigLoaded()) {
       await this.loadMcpConfig();
+    }
+    if (!this.getPluginConfigLoaded()) {
+      await this.loadPluginConfig();
     }
 
     await ensureSessionDir(this.workspacePath);
@@ -49,6 +61,7 @@ export class SessionManager {
         this.setupSessionWatcher();
       },
       mcpServers: this.getEnabledMcpServers(),
+      plugins: this.getEnabledPlugins(),
     });
 
     return session;

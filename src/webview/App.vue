@@ -9,6 +9,8 @@ import SettingsPanel from './components/SettingsPanel.vue';
 import { Toaster } from '@/components/ui/sonner';
 import McpStatusIndicator from './components/McpStatusIndicator.vue';
 import McpStatusPanel from './components/McpStatusPanel.vue';
+import PluginStatusIndicator from './components/PluginStatusIndicator.vue';
+import PluginStatusPanel from './components/PluginStatusPanel.vue';
 import SubagentIndicator from './components/SubagentIndicator.vue';
 import SubagentOverlay from './components/SubagentOverlay.vue';
 import DiffOverlay from './components/DiffOverlay.vue';
@@ -66,6 +68,7 @@ const {
   isAtBottom,
   showSettingsPanel,
   showMcpPanel,
+  showPluginPanel,
   showSessionPicker,
   currentRunningTool,
   showRewindTypeModal,
@@ -86,6 +89,7 @@ const {
   availableModels,
   accountInfo,
   mcpServers,
+  plugins,
   budgetWarning,
 } = storeToRefs(settingsStore);
 
@@ -161,6 +165,7 @@ useDoubleKeyStroke('Escape', () => {
       !showRewindBrowser.value &&
       !showSettingsPanel.value &&
       !showMcpPanel.value &&
+      !showPluginPanel.value &&
       !showDeleteModal.value) {
     openRewindFlow();
   }
@@ -377,6 +382,14 @@ function handleToggleMcpServer(serverName: string, enabled: boolean) {
   postMessage({ type: 'toggleMcpServer', serverName, enabled });
 }
 
+function handleRefreshPluginStatus() {
+  postMessage({ type: 'requestPluginStatus' });
+}
+
+function handleTogglePlugin(pluginFullId: string, enabled: boolean) {
+  postMessage({ type: 'togglePlugin', pluginFullId, enabled });
+}
+
 function handleTypeSelected(option: RewindOption) {
   if (option === 'cancel') {
     uiStore.cancelTypeSelection();
@@ -556,6 +569,13 @@ const rewindMessagePreview = computed(() => {
         :servers="mcpServers"
         :disabled="isProcessing"
         @click="uiStore.openMcpPanel()"
+      />
+
+      <!-- Plugin Status Indicator -->
+      <PluginStatusIndicator
+        :plugins="plugins"
+        :disabled="isProcessing"
+        @click="uiStore.openPluginPanel()"
       />
 
       <!-- Settings button -->
@@ -831,6 +851,15 @@ const rewindMessagePreview = computed(() => {
       @close="uiStore.closeMcpPanel()"
       @refresh="handleRefreshMcpStatus"
       @toggle="handleToggleMcpServer"
+    />
+
+    <!-- Plugin Status Panel (modal) -->
+    <PluginStatusPanel
+      :visible="showPluginPanel"
+      :plugins="plugins"
+      @close="uiStore.closePluginPanel()"
+      @refresh="handleRefreshPluginStatus"
+      @toggle="handleTogglePlugin"
     />
 
     <!-- Rewind Type Modal (pick rewind type first) -->

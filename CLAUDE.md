@@ -53,6 +53,8 @@ npm run package       # Package for distribution
 | `src/extension/SlashCommandService.ts` | Discovers and executes custom slash commands              |
 | `src/extension/ripgrep.ts`             | Fast workspace file listing for @ mention autocomplete    |
 | `src/extension/session/`               | Session persistence module (see Session Storage below)    |
+| `src/extension/PluginService.ts`       | Discovers Claude Code plugins from registry and project   |
+| `src/extension/CustomAgentService.ts`  | Discovers custom agents from project/user/plugin sources  |
 | `src/shared/types.ts`                  | All TypeScript types for extension↔webview communication  |
 
 ### ClaudeSession Module (`claude-session/`)
@@ -168,6 +170,7 @@ Sessions are stored in `~/.claude/projects/<encoded-workspace-path>/` as JSONL f
 - Use concise documentation comments for public APIs only
 - Prefer functional patterns over OOP
 - Use Tailwind instead of custom CSS
+- Prefer shadcn-vue components from `src/webview/components/ui/` over raw HTML elements
 
 ### Architectural Patterns
 

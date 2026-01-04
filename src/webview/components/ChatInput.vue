@@ -342,7 +342,7 @@ onUnmounted(() => {
         <textarea
           ref="textareaRef"
           v-model="inputText"
-          :placeholder="isProcessing ? 'Type to queue next message...' : 'ctrl+esc to focus or unfocus Claude'"
+          :placeholder="isProcessing ? 'Type to queue next message...' : 'Ask Claude anything...'"
           rows="1"
           class="w-full p-3 bg-transparent text-foreground resize-none overflow-hidden
                  focus:outline-none placeholder:text-muted-foreground"
@@ -393,10 +393,6 @@ onUnmounted(() => {
           </div>
 
           <div class="flex items-center gap-3">
-            <!-- Shortcut hint -->
-            <span class="text-xs text-muted-foreground">+</span>
-            <span class="text-xs text-muted-foreground">/</span>
-
             <!-- Queue indicator when processing and has input -->
             <span
               v-if="isProcessing && canSend"

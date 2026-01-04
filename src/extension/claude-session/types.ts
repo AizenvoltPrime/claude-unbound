@@ -2,6 +2,7 @@ import type { PermissionHandler } from '../PermissionHandler';
 import type {
   ExtensionToWebviewMessage,
   McpServerConfig,
+  PluginConfig,
   ContentBlock,
   ImageBlock,
   UserContentBlock,
@@ -17,6 +18,7 @@ export interface SessionOptions {
   onMessage: (message: ExtensionToWebviewMessage) => void;
   onSessionIdChange?: (sessionId: string | null) => void;
   mcpServers?: Record<string, McpServerConfig>;
+  plugins?: PluginConfig[];
 }
 
 /** Callbacks for inter-manager communication */

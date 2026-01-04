@@ -240,6 +240,7 @@ export class MessageRouter {
         this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
         this.settingsManager.sendAvailableModels(ctx.session, ctx.panel);
         this.settingsManager.sendMcpConfig(ctx.panel);
+        this.settingsManager.sendPluginConfig(ctx.panel);
 
         try {
           const { history, hasMore } = await extractCommandHistory(this.workspacePath, 0);
@@ -336,6 +337,22 @@ export class MessageRouter {
         ctx.session.setMcpServers(this.settingsManager.getEnabledMcpServers());
         ctx.session.restartForMcpChanges();
         this.settingsManager.sendMcpConfig(ctx.panel);
+      },
+
+      // Plugin operations
+      togglePlugin: async (msg, ctx) => {
+        if (msg.type !== "togglePlugin") return;
+        await this.settingsManager.setPluginEnabled(msg.pluginFullId, msg.enabled);
+        ctx.session.setPlugins(this.settingsManager.getEnabledPlugins());
+        ctx.session.restartForPluginChanges();
+        this.settingsManager.sendPluginConfig(ctx.panel);
+        const enabledPluginIds = this.settingsManager.getEnabledPluginIds();
+        await this.workspaceManager.sendCustomSlashCommands(ctx.panel, enabledPluginIds);
+        await this.workspaceManager.sendCustomAgents(ctx.panel, enabledPluginIds);
+      },
+
+      requestPluginStatus: async (msg, ctx) => {
+        this.settingsManager.sendPluginConfig(ctx.panel);
       },
 
       // VS Code operations
@@ -470,11 +487,13 @@ export class MessageRouter {
       },
 
       requestCustomSlashCommands: async (msg, ctx) => {
-        await this.workspaceManager.sendCustomSlashCommands(ctx.panel);
+        const enabledPluginIds = this.settingsManager.getEnabledPluginIds();
+        await this.workspaceManager.sendCustomSlashCommands(ctx.panel, enabledPluginIds);
       },
 
       requestCustomAgents: async (msg, ctx) => {
-        await this.workspaceManager.sendCustomAgents(ctx.panel);
+        const enabledPluginIds = this.settingsManager.getEnabledPluginIds();
+        await this.workspaceManager.sendCustomAgents(ctx.panel, enabledPluginIds);
       },
     };
   }
