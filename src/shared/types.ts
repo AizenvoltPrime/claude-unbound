@@ -555,6 +555,7 @@ export type ExtensionToWebviewMessage =
   // New: Subagent lifecycle
   | { type: "subagentStart"; agentId: string; agentType: string }
   | { type: "subagentStop"; agentId: string }
+  | { type: "subagentModelUpdate"; taskToolId: string; model: string }
   | { type: "sessionCancelled" }
   // New: Session lifecycle
   | { type: "sessionStart"; source: "startup" | "resume" | "clear" | "compact" }

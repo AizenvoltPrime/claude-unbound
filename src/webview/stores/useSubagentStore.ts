@@ -310,6 +310,19 @@ export const useSubagentStore = defineStore('subagent', () => {
     };
   }
 
+  function updateSubagentModel(taskToolId: string, model: string): void {
+    const subagent = subagents.value[taskToolId];
+    if (subagent) {
+      subagents.value = {
+        ...subagents.value,
+        [taskToolId]: {
+          ...subagent,
+          model,
+        },
+      };
+    }
+  }
+
   function $reset() {
     subagents.value = {};
     streamingMessages.value = {};
@@ -340,6 +353,7 @@ export const useSubagentStore = defineStore('subagent', () => {
     expandSubagent,
     collapseSubagent,
     restoreSubagentFromHistory,
+    updateSubagentModel,
     $reset,
   };
 });

@@ -48,7 +48,7 @@ export class ClaudeSession {
       updateCost: (cost) => this.checkpointManager.updateCost(cost),
     };
 
-    this.toolManager = new ToolManager(options.permissionHandler, callbacks);
+    this.toolManager = new ToolManager(options.permissionHandler, callbacks, options.cwd);
     this.checkpointManager = new CheckpointManager(options.cwd, callbacks);
     this.streamingManager = new StreamingManager(callbacks, this.toolManager, checkpointTracker, options.cwd);
     this.queryManager = new QueryManager(options, callbacks, this.toolManager, this.streamingManager);

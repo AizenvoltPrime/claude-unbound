@@ -513,6 +513,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           subagentStore.stopSubagent(message.agentId);
           break;
 
+        case "subagentModelUpdate":
+          subagentStore.updateSubagentModel(message.taskToolId, message.model);
+          break;
+
         case "sessionCancelled":
           if (!uiStore.isProcessing && !streamingStore.streamingMessageId) {
             break;

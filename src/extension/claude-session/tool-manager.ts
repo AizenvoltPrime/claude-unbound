@@ -2,6 +2,7 @@ import { log } from '../logger';
 import type { PermissionHandler } from '../PermissionHandler';
 import type { MessageCallbacks, StreamedToolInfo, ToolPermissionResult } from './types';
 import { serializeToolResult } from './utils';
+import { readAgentData } from '../session';
 
 /**
  * ToolManager handles tool permission checking and correlation.
@@ -19,7 +20,8 @@ export class ToolManager {
 
   constructor(
     private permissionHandler: PermissionHandler,
-    private callbacks: MessageCallbacks
+    private callbacks: MessageCallbacks,
+    private cwd: string
   ) {}
 
   /** Handle canUseTool callback from SDK */
@@ -171,7 +173,32 @@ export class ToolManager {
         result: serializeToolResult(response),
         parentToolUseId,
       });
+
+      if (toolName === 'Task') {
+        this.sendSubagentModelUpdate(toolUseId, response);
+      }
     }
+  }
+
+  /** Read agent JSONL file and send model update to webview */
+  private sendSubagentModelUpdate(taskToolId: string, response: unknown): void {
+    if (typeof response !== 'object' || response === null) return;
+    const agentId = (response as Record<string, unknown>).agentId;
+    if (typeof agentId !== 'string' || !agentId) return;
+
+    readAgentData(this.cwd, agentId)
+      .then(agentData => {
+        if (agentData.model) {
+          this.callbacks.onMessage({
+            type: 'subagentModelUpdate',
+            taskToolId,
+            model: agentData.model,
+          });
+        }
+      })
+      .catch(err => {
+        log('[ToolManager] Failed to read agent data for model update:', err);
+      });
   }
 
   /** Handle PostToolUseFailure hook - notify UI of tool failure */
