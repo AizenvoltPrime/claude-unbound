@@ -113,14 +113,9 @@ export class MessageRouter {
         const textContent = extractTextFromContent(msgContent);
         if (!textContent.trim() && !hasImageContent(msgContent)) return;
 
-        const isCompactCommand = typeof msgContent === "string" &&
-          msgContent.trim().toLowerCase() === "/compact";
         const correlationId = `corr-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-        if (!isCompactCommand) {
-          const contentBlocks = hasImageContent(msgContent) ? (msgContent as UserContentBlock[]) : undefined;
-          this.postMessage(ctx.panel, { type: "userMessage", content: textContent, contentBlocks, correlationId });
-        }
+        const contentBlocks = hasImageContent(msgContent) ? (msgContent as UserContentBlock[]) : undefined;
+        this.postMessage(ctx.panel, { type: "userMessage", content: textContent, contentBlocks, correlationId });
 
         if (textContent.trim()) {
           this.storageManager.broadcastCommandHistoryEntry(textContent.trim());
