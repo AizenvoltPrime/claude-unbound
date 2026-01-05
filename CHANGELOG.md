@@ -2,9 +2,19 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
-## [Unreleased]
+## [1.0.2] - 2026-01-05
 
-## [1.0.0] - 2025-01-05
+### Fixed
+
+- Remove empty "Unreleased" section from changelog
+
+## [1.0.1] - 2026-01-05
+
+### Fixed
+
+- Include CHANGELOG.md in extension package
+
+## [1.0.0] - 2026-01-05
 
 ### Added
 
@@ -35,5 +45,6 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
-[Unreleased]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.0...HEAD
+[1.0.2]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/AizenvoltPrime/claude-unbound/releases/tag/v1.0.0
