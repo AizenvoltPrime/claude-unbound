@@ -28,3 +28,4 @@ package-lock.json
 # Documentation (README is auto-included by vsce)
 *.md
 !README.md
+!CHANGELOG.md
