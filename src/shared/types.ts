@@ -239,6 +239,7 @@ export interface CompactMarker {
   preTokens: number;
   postTokens?: number;
   summary?: string;
+  messageCutoffTimestamp?: number;
 }
 
 // Context usage breakdown for /context command

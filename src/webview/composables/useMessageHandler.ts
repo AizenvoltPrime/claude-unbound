@@ -545,17 +545,28 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
-        case "compactBoundary":
+        case "compactBoundary": {
           if (!message.isHistorical) {
             sessionStore.clearCompactMarkers();
           }
-          sessionStore.addCompactMarker(message.trigger, message.preTokens, message.postTokens, message.summary, message.timestamp);
+          const compactMessage = [...streamingStore.messages]
+            .reverse()
+            .find(m => m.role === 'user' && m.content.trim().toLowerCase().startsWith('/compact'));
+          const cutoffTimestamp = compactMessage?.timestamp;
+          sessionStore.addCompactMarker(message.trigger, message.preTokens, message.postTokens, message.summary, message.timestamp, cutoffTimestamp);
           break;
+        }
 
-        case "compactSummary":
-          streamingStore.$reset();
+        case "compactSummary": {
+          const markers = sessionStore.compactMarkers;
+          const lastMarker = markers.length > 0 ? markers[markers.length - 1] : null;
+          if (lastMarker) {
+            const cutoff = lastMarker.messageCutoffTimestamp ?? lastMarker.timestamp;
+            streamingStore.truncateMessagesBeforeTimestamp(cutoff);
+          }
           sessionStore.updateLastCompactMarkerSummary(message.summary);
           break;
+        }
 
         case "todosUpdate":
           sessionStore.updateTodos(message.todos);

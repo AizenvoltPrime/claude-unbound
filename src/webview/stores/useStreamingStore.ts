@@ -491,6 +491,16 @@ export const useStreamingStore = defineStore("streaming", () => {
     updateStreamingMessage({ isThinkingPhase: isThinking });
   }
 
+  function truncateMessagesBeforeTimestamp(cutoffTimestamp: number): void {
+    messages.value = messages.value.filter(msg => msg.timestamp > cutoffTimestamp);
+    if (streamingMessageId.value) {
+      const stillExists = messages.value.some(m => m.id === streamingMessageId.value);
+      if (!stillExists) {
+        streamingMessageId.value = null;
+      }
+    }
+  }
+
   function $reset() {
     messages.value = [];
     streamingMessageId.value = null;
@@ -537,6 +547,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     appendStreamingContent,
     appendStreamingThinking,
     setStreamingThinkingPhase,
+    truncateMessagesBeforeTimestamp,
     $reset,
   };
 });

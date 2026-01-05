@@ -49,10 +49,17 @@ function isTaskToolWithSubagent(toolId: string, toolName: string): boolean {
   return toolName === 'Task' && (props.subagents ? toolId in props.subagents : false);
 }
 
+function getMarkerPositionTimestamp(marker: CompactMarkerType): number {
+  return marker.messageCutoffTimestamp ?? marker.timestamp;
+}
+
 function getMarkersBeforeMessage(messageTimestamp: number, messageIndex: number): CompactMarkerType[] {
   if (!props.compactMarkers) return [];
   const prevTimestamp = messageIndex > 0 ? props.messages[messageIndex - 1]?.timestamp : 0;
-  return props.compactMarkers.filter((marker) => marker.timestamp > prevTimestamp && marker.timestamp <= messageTimestamp);
+  return props.compactMarkers.filter((marker) => {
+    const pos = getMarkerPositionTimestamp(marker);
+    return pos > prevTimestamp && pos <= messageTimestamp;
+  });
 }
 
 function getTrailingMarkers(): CompactMarkerType[] {
@@ -60,7 +67,7 @@ function getTrailingMarkers(): CompactMarkerType[] {
   const lastMsgTimestamp = props.messages.length > 0
     ? props.messages[props.messages.length - 1].timestamp
     : 0;
-  return props.compactMarkers.filter((marker) => marker.timestamp > lastMsgTimestamp);
+  return props.compactMarkers.filter((marker) => getMarkerPositionTimestamp(marker) > lastMsgTimestamp);
 }
 
 function hasMarkersToShow(): boolean {

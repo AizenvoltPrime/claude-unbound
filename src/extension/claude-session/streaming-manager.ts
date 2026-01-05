@@ -8,7 +8,7 @@ import type {
   Query,
 } from './types';
 import { createEmptyStreamingContent } from './types';
-import { serializeContent, isLocalCommandOutput, isLocalCommandText, isToolResultMessage, extractErrorToolResults } from './utils';
+import { serializeContent, isLocalCommandOutput, isLocalCommandText, isToolResultMessage, extractErrorToolResults, SDK_USER_ABORT_MESSAGE } from './utils';
 import type { ToolManager } from './tool-manager';
 import type { SystemInitData, AccountInfo, PluginInfo } from '../../shared/types';
 
@@ -191,7 +191,7 @@ export class StreamingManager {
       }
     } catch (err) {
       const isUserInitiatedAbort = err instanceof Error &&
-        err.message === 'Claude Code process aborted by user';
+        err.message === SDK_USER_ABORT_MESSAGE;
       const shouldReport = err instanceof Error &&
         err.name !== 'AbortError' &&
         !isUserInitiatedAbort &&

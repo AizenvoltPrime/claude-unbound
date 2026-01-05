@@ -96,6 +96,7 @@ export class ClaudeSession {
       this.streamingManager.silentAbort = true;
       this.queryManager.closeAndReset();
       this.queryManager.ensureStreamingQuery(sessionId, null).catch(err => {
+        this.streamingManager.silentAbort = false;
         log('[ClaudeSession] Failed to initialize resumed session:', err);
       });
     }

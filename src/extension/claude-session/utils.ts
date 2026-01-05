@@ -5,6 +5,9 @@ import type {
   ThinkingBlock,
 } from '../../shared/types';
 
+/** SDK error message when abort is triggered - used for semantic error filtering */
+export const SDK_USER_ABORT_MESSAGE = 'Claude Code process aborted by user';
+
 /** Retry with exponential backoff until condition is met or max attempts reached */
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
