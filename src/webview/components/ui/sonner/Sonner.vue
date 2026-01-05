@@ -1,47 +1,58 @@
 <script lang="ts" setup>
 import type { ToasterProps } from "vue-sonner"
 import { reactiveOmit } from "@vueuse/core"
-import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon, XIcon } from "lucide-vue-next"
+import { CheckIcon, InfoIcon, Loader2Icon, XCircleIcon, AlertTriangleIcon, XIcon } from "lucide-vue-next"
 import { Toaster as Sonner } from "vue-sonner"
 
 const props = defineProps<ToasterProps>()
 const delegatedProps = reactiveOmit(props, "toastOptions")
+
+const toastClasses = {
+  toast: 'group toast flex items-center gap-3 backdrop-blur-xl border border-border rounded-xl py-3 px-4 min-w-72 max-w-md shadow-2xl toast-base',
+  title: 'font-medium text-[13px] leading-snug text-foreground tracking-tight',
+  description: 'text-xs text-muted-foreground mt-1 leading-snug',
+  actionButton: 'bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-medium transition-all hover:brightness-110',
+  cancelButton: 'bg-muted text-muted-foreground rounded-md px-3 py-1.5 text-xs font-medium transition-all hover:bg-accent hover:text-accent-foreground',
+  success: 'toast-success',
+  error: 'toast-error',
+  warning: 'toast-warning',
+  info: 'toast-info',
+}
 </script>
 
 <template>
   <Sonner
     class="toaster group"
-    :toast-options="{
-      classes: {
-        toast: 'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
-        description: 'group-[.toast]:text-muted-foreground',
-        actionButton:
-          'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
-        cancelButton:
-          'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
-      },
-    }"
+    :toast-options="{ classes: toastClasses }"
     v-bind="delegatedProps"
   >
     <template #success-icon>
-      <CircleCheckIcon class="size-4" />
+      <div class="toast-icon toast-icon-success">
+        <CheckIcon class="size-3.5 stroke-[2.5]" />
+      </div>
     </template>
     <template #info-icon>
-      <InfoIcon class="size-4" />
+      <div class="toast-icon toast-icon-info">
+        <InfoIcon class="size-3.5" />
+      </div>
     </template>
     <template #warning-icon>
-      <TriangleAlertIcon class="size-4" />
+      <div class="toast-icon toast-icon-warning">
+        <AlertTriangleIcon class="size-3.5" />
+      </div>
     </template>
     <template #error-icon>
-      <OctagonXIcon class="size-4" />
+      <div class="toast-icon toast-icon-error">
+        <XCircleIcon class="size-3.5" />
+      </div>
     </template>
     <template #loading-icon>
-      <div>
-        <Loader2Icon class="size-4 animate-spin" />
+      <div class="toast-icon toast-icon-loading">
+        <Loader2Icon class="size-3.5 animate-spin" />
       </div>
     </template>
     <template #close-icon>
-      <XIcon class="size-4" />
+      <XIcon class="size-3.5" />
     </template>
   </Sonner>
 </template>

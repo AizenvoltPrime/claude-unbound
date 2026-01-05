@@ -702,6 +702,9 @@ const rewindMessagePreview = computed(() => {
 
     <!-- Message area wrapper (relative positioning for scroll-to-bottom button) -->
     <div class="relative flex-1 min-h-0">
+      <!-- Toast notifications (positioned in top-right of chat area) -->
+      <Toaster position="top-right" :duration="4000" />
+
       <div
         ref="messageContainerRef"
         class="h-full overflow-y-auto message-container"
@@ -816,9 +819,6 @@ const rewindMessagePreview = computed(() => {
       @cancel="handleCancel"
       @change-mode="handleModeChange"
     />
-
-    <!-- Toast notifications (Sonner) -->
-    <Toaster position="top-right" :duration="4000" />
 
     <!-- Settings Panel (overlay) -->
     <SettingsPanel

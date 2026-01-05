@@ -185,3 +185,90 @@ a:hover {
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+[data-sonner-toaster] {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  z-index: 100;
+}
+
+.toast-base {
+  background: var(--popover) !important;
+}
+
+.toast-success {
+  --toast-accent: var(--color-success);
+  border-color: color-mix(in srgb, var(--toast-accent) 30%, transparent) !important;
+  box-shadow: 0 4px 24px -4px color-mix(in srgb, var(--background) 40%, black), 0 0 20px -8px color-mix(in srgb, var(--toast-accent) 40%, transparent) !important;
+}
+
+.toast-error {
+  --toast-accent: var(--color-error);
+  border-color: color-mix(in srgb, var(--toast-accent) 30%, transparent) !important;
+  box-shadow: 0 4px 24px -4px color-mix(in srgb, var(--background) 40%, black), 0 0 20px -8px color-mix(in srgb, var(--toast-accent) 40%, transparent) !important;
+}
+
+.toast-warning {
+  --toast-accent: var(--color-warning);
+  border-color: color-mix(in srgb, var(--toast-accent) 30%, transparent) !important;
+  box-shadow: 0 4px 24px -4px color-mix(in srgb, var(--background) 40%, black), 0 0 20px -8px color-mix(in srgb, var(--toast-accent) 40%, transparent) !important;
+}
+
+.toast-info {
+  --toast-accent: var(--color-info);
+  border-color: color-mix(in srgb, var(--toast-accent) 30%, transparent) !important;
+  box-shadow: 0 4px 24px -4px color-mix(in srgb, var(--background) 40%, black), 0 0 20px -8px color-mix(in srgb, var(--toast-accent) 40%, transparent) !important;
+}
+
+[data-sonner-toast] [data-close-button] {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  background: color-mix(in srgb, var(--foreground) 5%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent) !important;
+  border-radius: 6px !important;
+  width: 24px !important;
+  height: 24px !important;
+  color: color-mix(in srgb, var(--foreground) 50%, transparent) !important;
+  opacity: 0;
+  transition: opacity, background-color, color 0.15s ease !important;
+}
+
+[data-sonner-toast]:hover [data-close-button] {
+  opacity: 1;
+}
+
+[data-sonner-toast] [data-close-button]:hover {
+  background: color-mix(in srgb, var(--foreground) 10%, transparent) !important;
+  color: color-mix(in srgb, var(--foreground) 90%, transparent) !important;
+}
+
+.toast-icon {
+  @apply shrink-0 flex items-center justify-center size-6 rounded-full;
+}
+
+.toast-icon-success {
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+}
+
+.toast-icon-error {
+  background: color-mix(in srgb, var(--color-error) 20%, transparent);
+  color: var(--color-error);
+}
+
+.toast-icon-warning {
+  background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+  color: var(--color-warning);
+}
+
+.toast-icon-info {
+  background: color-mix(in srgb, var(--color-info) 20%, transparent);
+  color: var(--color-info);
+}
+
+.toast-icon-loading {
+  background: color-mix(in srgb, var(--muted-foreground) 20%, transparent);
+  color: var(--muted-foreground);
+}
