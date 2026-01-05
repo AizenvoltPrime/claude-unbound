@@ -112,17 +112,10 @@ Custom agents are loaded from `.claude/agents/*.md` (project) and `~/.claude/age
 | ------------------ | ---------------------------------------- |
 | `/clear`           | Clear conversation history               |
 | `/compact`         | Compact conversation                     |
-| `/context`         | Show context usage breakdown             |
-| `/cost`            | Show token usage and cost                |
 | `/rewind`          | Rewind conversation/code to a checkpoint |
-| `/export`          | Export conversation to file              |
 | `/review`          | Request code review                      |
 | `/security-review` | Security review of changes               |
 | `/init`            | Initialize CLAUDE.md                     |
-| `/memory`          | Edit memory files                        |
-| `/mcp`             | Manage MCP servers                       |
-| `/permissions`     | View/update permissions                  |
-| `/help`            | Get usage help                           |
 
 Custom commands are loaded from `.claude/commands/*.md` (project) and `~/.claude/commands/*.md` (user). Plugin commands use the format `/<plugin>:<command>` (e.g., `/myplugin:build`).
 
