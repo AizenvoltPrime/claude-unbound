@@ -488,7 +488,7 @@ export class HistoryManager {
     }
 
     if (entry.isInterrupt || content.startsWith("[Request interrupted by user")) {
-      return { type: "error", content: "Claude Code process aborted by user" };
+      return null;
     }
 
     const sdkMessageId = entry.uuid;

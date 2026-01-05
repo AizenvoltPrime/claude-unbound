@@ -190,8 +190,11 @@ export class StreamingManager {
         this.processSDKMessage(message, budgetLimit);
       }
     } catch (err) {
+      const isUserInitiatedAbort = err instanceof Error &&
+        err.message === 'Claude Code process aborted by user';
       const shouldReport = err instanceof Error &&
         err.name !== 'AbortError' &&
+        !isUserInitiatedAbort &&
         !this._silentAbort;
       if (shouldReport) {
         log('[StreamingManager] Query consumption error: %s\n%s', err.message, err.stack);
