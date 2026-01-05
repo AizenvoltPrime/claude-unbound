@@ -166,7 +166,7 @@ export async function findUserMessageInCurrentTurn(
                   .filter((c): c is { type: 'text'; text: string } =>
                     typeof c === 'object' && c !== null && 'type' in c && c.type === 'text')
                   .map(c => c.text)
-                  .join('')
+                  .join('\n')
               : '';
 
           if (messageContent === INTERRUPT_MARKER) {

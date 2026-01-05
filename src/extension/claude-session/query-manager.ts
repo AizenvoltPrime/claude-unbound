@@ -511,7 +511,7 @@ export class QueryManager {
     log("[QueryManager] Flushing %d queued messages as new turn", queued.length);
 
     const combinedContent = this.combineQueuedContent(queued.map((m) => m.content));
-    const displayText = extractTextFromContent(combinedContent, "");
+    const displayText = extractTextFromContent(combinedContent);
     const contentBlocks = Array.isArray(combinedContent) ? combinedContent : undefined;
 
     const messageIds = queued.map((m) => m.id).filter((id): id is string => id !== null);
