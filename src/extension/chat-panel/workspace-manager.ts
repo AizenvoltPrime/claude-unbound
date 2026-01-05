@@ -106,7 +106,7 @@ export class WorkspaceManager {
       await this.openFile(filePath, line);
     } catch (err) {
       log("[WorkspaceManager] Error opening file:", err);
-      vscode.window.showErrorMessage(`Could not open file: ${filePath}`);
+      vscode.window.showErrorMessage(vscode.l10n.t("Could not open file: {0}", filePath));
     }
   }
 

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { SubagentState } from '@shared/types';
 import AgentBadge from './AgentBadge.vue';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   subagents: Map<string, SubagentState>;
@@ -20,7 +23,7 @@ const hasRunningSubagent = computed(() =>
 );
 
 const indicatorLabel = computed(() =>
-  hasRunningSubagent.value ? 'Active agents:' : 'Recent agents:'
+  hasRunningSubagent.value ? t('subagentIndicator.active') : t('subagentIndicator.recent')
 );
 
 const indicatorBgClass = computed(() =>

@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { IconFile, IconFolder, IconLoader, IconRobot } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
 import type { AtMentionItem } from '@shared/types';
 import { escapeHtml } from '@shared/utils';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   isOpen: boolean;
@@ -132,13 +135,13 @@ function highlightMatch(text: string): string {
             <!-- Loading State -->
             <div v-if="isLoading && items.length === 0" class="px-3 py-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <IconLoader :size="16" class="animate-spin text-primary" />
-              <span>Indexing workspace...</span>
+              <span>{{ t('atMention.indexing') }}</span>
             </div>
 
             <!-- Empty State -->
             <div v-else-if="items.length === 0" class="px-3 py-4 text-center text-sm text-muted-foreground">
-              <div class="mb-1">No matches found</div>
-              <div class="text-xs opacity-70">Try a different search term</div>
+              <div class="mb-1">{{ t('atMention.noMatches') }}</div>
+              <div class="text-xs opacity-70">{{ t('atMention.tryDifferent') }}</div>
             </div>
 
             <!-- Item List -->
@@ -186,7 +189,7 @@ function highlightMatch(text: string): string {
                   </span>
                 </div>
                 <Badge variant="outline" class="shrink-0 text-[10px] px-1.5 py-0 h-4">
-                  built-in
+                  {{ t('atMention.builtin') }}
                 </Badge>
               </template>
 
@@ -231,15 +234,15 @@ function highlightMatch(text: string): string {
         <div class="px-3 py-2 border-t border-border/30 bg-card/30 text-xs text-muted-foreground flex items-center gap-4">
           <span class="flex items-center gap-1">
             <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">↑↓</kbd>
-            <span class="opacity-80">navigate</span>
+            <span class="opacity-80">{{ t('common.navigate') }}</span>
           </span>
           <span class="flex items-center gap-1">
             <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Tab</kbd>
-            <span class="opacity-80">select</span>
+            <span class="opacity-80">{{ t('common.select') }}</span>
           </span>
           <span class="flex items-center gap-1">
             <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Esc</kbd>
-            <span class="opacity-80">close</span>
+            <span class="opacity-80">{{ t('common.close') }}</span>
           </span>
         </div>
       </div>

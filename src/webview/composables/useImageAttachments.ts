@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue';
 import type { ImageBlock } from '@shared/types';
+import { i18n } from '@/i18n';
 
 export interface ImageAttachment {
   id: string;
@@ -29,15 +30,15 @@ export function useImageAttachments() {
 
   async function addFromFile(file: File): Promise<{ success: boolean; error?: string }> {
     if (!canAddMore.value) {
-      return { success: false, error: `Maximum ${MAX_ATTACHMENTS} images allowed` };
+      return { success: false, error: i18n.global.t('imageAttachment.maxAllowed', { n: MAX_ATTACHMENTS }) };
     }
 
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
-      return { success: false, error: `Image too large (max ${MAX_IMAGE_SIZE_BYTES / 1024 / 1024}MB)` };
+      return { success: false, error: i18n.global.t('imageAttachment.tooLarge', { n: MAX_IMAGE_SIZE_BYTES / 1024 / 1024 }) };
     }
 
     if (!isValidMediaType(file.type)) {
-      return { success: false, error: "Unsupported image type. Use PNG, JPEG, GIF, or WebP" };
+      return { success: false, error: i18n.global.t('imageAttachment.unsupportedType') };
     }
 
     return new Promise((resolve) => {
@@ -59,7 +60,7 @@ export function useImageAttachments() {
       };
 
       reader.onerror = () => {
-        resolve({ success: false, error: "Failed to read image file" });
+        resolve({ success: false, error: i18n.global.t('imageAttachment.readFailed') });
       };
 
       reader.readAsDataURL(file);
@@ -72,7 +73,7 @@ export function useImageAttachments() {
     );
 
     if (imageItems.length === 0) {
-      return { success: false, error: "No images found in clipboard" };
+      return { success: false, error: i18n.global.t('imageAttachment.noImagesInClipboard') };
     }
 
     for (const item of imageItems) {

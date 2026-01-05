@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { IconSearch, IconFile, IconWarning } from '@/components/icons';
 import type { RewindHistoryItem } from '@shared/types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   isOpen: boolean;
@@ -85,14 +88,14 @@ function formatRelativeTime(timestamp: number): string {
   const diff = now - timestamp;
 
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 1) return t('time.justNow');
+  if (minutes < 60) return t('time.minAgo', { n: minutes }, minutes);
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  if (hours < 24) return t('time.hourAgo', { n: hours }, hours);
 
   const days = Math.floor(hours / 24);
-  return `${days} day${days > 1 ? 's' : ''} ago`;
+  return t('time.dayAgo', { n: days }, days);
 }
 
 function truncateContent(content: string, maxLength: number = 60): string {
@@ -127,7 +130,7 @@ onUnmounted(() => {
         <div class="w-full max-w-lg bg-muted border border-border rounded-lg shadow-xl overflow-hidden">
           <div class="px-4 py-3 border-b border-border/30 flex items-center gap-2">
             <span class="text-lg">⏪</span>
-            <span class="font-medium">Rewind to Previous Prompt</span>
+            <span class="font-medium">{{ t('rewindBrowser.title') }}</span>
           </div>
 
           <div class="p-3 border-b border-border/30">
@@ -137,18 +140,18 @@ onUnmounted(() => {
                 ref="searchInputRef"
                 v-model="searchQuery"
                 type="text"
-                placeholder="Search prompts..."
+                :placeholder="t('rewindBrowser.searchPlaceholder')"
                 class="w-full pl-9 pr-3 py-2 bg-card border border-border/30 rounded text-sm focus:outline-none focus:border-primary"
               />
             </div>
           </div>
 
           <div v-if="isLoading" class="p-8 text-center text-muted-foreground text-sm">
-            Loading history...
+            {{ t('rewindBrowser.loadingHistory') }}
           </div>
 
           <div v-else-if="filteredPrompts.length === 0" class="p-8 text-center text-muted-foreground text-sm">
-            No prompts found
+            {{ t('rewindBrowser.noPrompts') }}
           </div>
 
           <div v-else class="max-h-64 overflow-y-auto">
@@ -185,10 +188,10 @@ onUnmounted(() => {
               <IconFile :size="14" class="mt-0.5 shrink-0" />
               <div class="flex-1 min-w-0">
                 <template v-if="filteredPrompts[selectedIndex].filesAffected === 0">
-                  <span>No files will be restored</span>
+                  <span>{{ t('rewindBrowser.noFilesRestored') }}</span>
                 </template>
                 <template v-else-if="filteredPrompts[selectedIndex].files">
-                  <span>{{ filteredPrompts[selectedIndex].filesAffected }} file{{ filteredPrompts[selectedIndex].filesAffected > 1 ? 's' : '' }} will be restored:</span>
+                  <span>{{ t('rewindBrowser.filesRestored', { n: filteredPrompts[selectedIndex].filesAffected }, filteredPrompts[selectedIndex].filesAffected) }}:</span>
                   <div class="flex flex-wrap gap-1 mt-1">
                     <span
                       v-for="file in filteredPrompts[selectedIndex].files.slice(0, 5)"
@@ -199,32 +202,32 @@ onUnmounted(() => {
                     <span
                       v-if="filteredPrompts[selectedIndex].files.length > 5"
                       class="px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                    >+{{ filteredPrompts[selectedIndex].files.length - 5 }} more</span>
+                    >{{ t('rewindBrowser.moreFiles', { n: filteredPrompts[selectedIndex].files.length - 5 }) }}</span>
                   </div>
                 </template>
                 <template v-else>
-                  <span>{{ filteredPrompts[selectedIndex].filesAffected }} file{{ filteredPrompts[selectedIndex].filesAffected > 1 ? 's' : '' }} will be restored</span>
+                  <span>{{ t('rewindBrowser.filesRestored', { n: filteredPrompts[selectedIndex].filesAffected }, filteredPrompts[selectedIndex].filesAffected) }}</span>
                 </template>
               </div>
             </div>
             <div class="flex items-center gap-2 text-xs text-warning mt-2">
               <IconWarning :size="14" />
-              <span>Does not affect manually edited files</span>
+              <span>{{ t('rewindBrowser.warning') }}</span>
             </div>
           </div>
 
           <div class="px-4 py-2 border-t border-border/30 bg-card/50 text-xs text-muted-foreground flex items-center gap-4">
             <span class="flex items-center gap-1">
               <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">↑↓</kbd>
-              <span class="opacity-80">navigate</span>
+              <span class="opacity-80">{{ t('rewindBrowser.navigate') }}</span>
             </span>
             <span class="flex items-center gap-1">
               <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Enter</kbd>
-              <span class="opacity-80">select</span>
+              <span class="opacity-80">{{ t('rewindBrowser.select') }}</span>
             </span>
             <span class="flex items-center gap-1">
               <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Esc</kbd>
-              <span class="opacity-80">cancel</span>
+              <span class="opacity-80">{{ t('common.cancel') }}</span>
             </span>
           </div>
         </div>

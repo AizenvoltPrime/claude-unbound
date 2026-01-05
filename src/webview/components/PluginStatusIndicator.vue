@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { PluginStatusInfo } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { IconCheck, IconExclamation, IconPuzzle } from '@/components/icons';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   plugins: PluginStatusInfo[];
@@ -17,7 +20,7 @@ const statusSummary = computed(() => {
   if (props.plugins.length === 0) {
     return {
       icon: IconPuzzle as Component,
-      label: 'Plugins: No plugins installed',
+      label: t('pluginIndicator.noPlugins'),
       color: 'text-muted-foreground',
       text: '',
       count: 0,
@@ -34,7 +37,7 @@ const statusSummary = computed(() => {
   if (pending > 0) {
     return {
       icon: null,
-      label: `Plugins: ${loaded}/${enabled} loading`,
+      label: t('pluginIndicator.loading', { loaded, enabled }),
       color: 'text-warning',
       text: '...',
       count: enabled,
@@ -44,7 +47,7 @@ const statusSummary = computed(() => {
   if (failed > 0) {
     return {
       icon: IconExclamation as Component,
-      label: `Plugins: ${loaded}/${enabled} (${failed} failed)`,
+      label: t('pluginIndicator.withFailures', { loaded, enabled, failed }),
       color: 'text-error',
       text: '',
       count: enabled,
@@ -54,7 +57,7 @@ const statusSummary = computed(() => {
   if (idle > 0 && loaded === 0) {
     return {
       icon: IconPuzzle as Component,
-      label: `Plugins: ${enabled} ready`,
+      label: t('pluginIndicator.ready', { enabled }),
       color: 'text-muted-foreground',
       text: '',
       count: enabled,
@@ -63,7 +66,7 @@ const statusSummary = computed(() => {
 
   return {
     icon: IconCheck as Component,
-    label: `Plugins: ${loaded}/${total}`,
+    label: t('pluginIndicator.loaded', { loaded, total }),
     color: 'text-success',
     text: '',
     count: loaded,
@@ -88,6 +91,6 @@ const statusSummary = computed(() => {
       <component v-if="statusSummary.icon" :is="statusSummary.icon" :size="12" />
       <span v-else class="text-[10px] font-bold">{{ statusSummary.text }}</span>
     </span>
-    <span class="hidden sm:inline opacity-70">{{ statusSummary.count }} Plugins</span>
+    <span class="hidden sm:inline opacity-70">{{ statusSummary.count }} {{ t('pluginIndicator.label') }}</span>
   </Button>
 </template>

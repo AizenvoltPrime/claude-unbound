@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
 import { IconCheck, IconCopy } from '@/components/icons';
 import { useCopyToClipboard } from '@/composables/useCopyToClipboard';
 import { getHighlighter, getShikiTheme, normalizeLanguage, isLanguageLoaded } from '@/composables/useShikiHighlighter';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   code: string;
@@ -108,7 +111,7 @@ onUnmounted(() => {
         size="icon-sm"
         class="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary h-6 w-6 -mr-1"
         :class="{ 'opacity-100 text-success': hasCopied }"
-        title="Copy code"
+        :title="t('codeBlock.copyCode')"
         @click="handleCopy"
       >
         <IconCheck v-if="hasCopied" :size="14" />

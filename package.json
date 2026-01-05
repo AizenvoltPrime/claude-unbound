@@ -1,7 +1,7 @@
 {
   "name": "claude-unbound",
-  "displayName": "Claude Unbound",
-  "description": "A VS Code extension that integrates Claude AI as your coding assistant using the Agent SDK.",
+  "displayName": "%displayName%",
+  "description": "%description%",
   "version": "0.1.0",
   "publisher": "AizenvoltPrime",
   "icon": "resources/icon.png",
@@ -30,11 +30,12 @@
     "onWebviewPanel:claude-unbound.chat"
   ],
   "main": "./dist/extension.js",
+  "l10n": "./l10n",
   "contributes": {
     "commands": [
       {
         "command": "claude-unbound.openChat",
-        "title": "Open Chat",
+        "title": "%command.openChat.title%",
         "category": "Claude Unbound",
         "icon": {
           "light": "resources/icon.png",
@@ -43,12 +44,12 @@
       },
       {
         "command": "claude-unbound.newSession",
-        "title": "New Chat Session",
+        "title": "%command.newSession.title%",
         "category": "Claude Unbound"
       },
       {
         "command": "claude-unbound.cancelSession",
-        "title": "Cancel Current Request",
+        "title": "%command.cancelSession.title%",
         "category": "Claude Unbound"
       }
     ],
@@ -68,7 +69,7 @@
       }
     ],
     "configuration": {
-      "title": "Claude Unbound",
+      "title": "%configuration.title%",
       "properties": {
         "claude-unbound.permissionMode": {
           "type": "string",
@@ -80,24 +81,24 @@
             "plan"
           ],
           "enumDescriptions": [
-            "Standard behavior - prompts for dangerous operations",
-            "Auto-accept file edit operations",
-            "Bypass all permission checks (use with caution)",
-            "Planning mode - read-only, no execution"
+            "%configuration.permissionMode.default%",
+            "%configuration.permissionMode.acceptEdits%",
+            "%configuration.permissionMode.bypassPermissions%",
+            "%configuration.permissionMode.plan%"
           ],
-          "description": "How to handle tool permissions"
+          "description": "%configuration.permissionMode.description%"
         },
         "claude-unbound.maxTurns": {
           "type": "number",
           "default": 100,
           "minimum": 1,
           "maximum": 200,
-          "description": "Maximum conversation turns per session"
+          "description": "%configuration.maxTurns.description%"
         },
         "claude-unbound.model": {
           "type": "string",
           "default": "",
-          "description": "Claude model to use (empty for default). Examples: claude-sonnet-4-5-20250929, claude-opus-4-20250514"
+          "description": "%configuration.model.description%"
         },
         "claude-unbound.maxBudgetUsd": {
           "type": [
@@ -106,7 +107,7 @@
           ],
           "default": null,
           "minimum": 0,
-          "description": "Maximum budget in USD per session (null for unlimited)"
+          "description": "%configuration.maxBudgetUsd.description%"
         },
         "claude-unbound.betasEnabled": {
           "type": "array",
@@ -117,41 +118,41 @@
             ]
           },
           "default": [],
-          "description": "Enabled beta features (e.g., 1M context window for 4.5)"
+          "description": "%configuration.betasEnabled.description%"
         },
         "claude-unbound.enableFileCheckpointing": {
           "type": "boolean",
           "default": true,
-          "description": "Enable file checkpointing for undo/rewind functionality"
+          "description": "%configuration.enableFileCheckpointing.description%"
         },
         "claude-unbound.maxIndexedFiles": {
           "type": "number",
           "default": 5000,
           "minimum": 100,
           "maximum": 50000,
-          "description": "Maximum number of files to index for @ mention autocomplete"
+          "description": "%configuration.maxIndexedFiles.description%"
         },
         "claude-unbound.sandbox": {
           "type": "object",
           "default": {
             "enabled": false
           },
-          "description": "Sandbox settings for command execution isolation",
+          "description": "%configuration.sandbox.description%",
           "properties": {
             "enabled": {
               "type": "boolean",
               "default": false,
-              "description": "Enable sandbox mode for Bash commands"
+              "description": "%configuration.sandbox.enabled.description%"
             },
             "autoAllowBashIfSandboxed": {
               "type": "boolean",
               "default": true,
-              "description": "Auto-allow Bash commands when sandboxed"
+              "description": "%configuration.sandbox.autoAllowBashIfSandboxed.description%"
             },
             "allowUnsandboxedCommands": {
               "type": "boolean",
               "default": false,
-              "description": "Allow commands that cannot be sandboxed"
+              "description": "%configuration.sandbox.allowUnsandboxedCommands.description%"
             },
             "networkAllowedDomains": {
               "type": "array",
@@ -159,12 +160,12 @@
                 "type": "string"
               },
               "default": [],
-              "description": "Allowed network domains in sandbox"
+              "description": "%configuration.sandbox.networkAllowedDomains.description%"
             },
             "networkAllowLocalBinding": {
               "type": "boolean",
               "default": false,
-              "description": "Allow binding to local ports in sandbox"
+              "description": "%configuration.sandbox.networkAllowLocalBinding.description%"
             }
           }
         }
@@ -198,6 +199,7 @@
     "shiki": "^3.20.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
+    "vue-i18n": "^11.2.8",
     "vue-sonner": "^2.0.9",
     "vue3-lottie": "^3.3.1"
   },
@@ -208,6 +210,7 @@
     "@types/node": "^22.10.0",
     "@types/vscode": "^1.95.0",
     "@vitejs/plugin-vue": "^5.2.0",
+    "@vscode/l10n-dev": "^0.0.35",
     "concurrently": "^9.1.0",
     "esbuild": "^0.24.0",
     "marked": "^15.0.0",

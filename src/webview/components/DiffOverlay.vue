@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { ExpandedDiff } from '@/stores/useDiffStore';
 import { Button } from '@/components/ui/button';
 import { IconArrowLeft, IconPencilSquare, IconPencil } from '@/components/icons';
 import DiffView from './DiffView.vue';
 import { computeDiff, computeNewFileOnlyDiff } from '@/utils/parseUnifiedDiff';
 import { useOverlayEscape } from '@/composables/useOverlayEscape';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   diff: ExpandedDiff;
@@ -31,7 +34,7 @@ const diffStats = computed(() => {
 });
 
 const toolIcon = computed(() => props.diff.isNewFile ? IconPencil : IconPencilSquare);
-const toolName = computed(() => props.diff.isNewFile ? 'Write' : 'Edit');
+const toolName = computed(() => props.diff.isNewFile ? t('diffOverlay.write') : t('diffOverlay.edit'));
 </script>
 
 <template>

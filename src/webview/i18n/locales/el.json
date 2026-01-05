@@ -1,0 +1,451 @@
+{
+  "common": {
+    "cancel": "Ακύρωση",
+    "save": "Αποθήκευση",
+    "submit": "Υποβολή",
+    "back": "Πίσω",
+    "delete": "Διαγραφή",
+    "yes": "Ναι",
+    "no": "Όχι",
+    "loading": "Φόρτωση...",
+    "dismiss": "Απόρριψη",
+    "tokens": "tokens",
+    "noFile": "Κανένα αρχείο",
+    "settings": "Ρυθμίσεις",
+    "note": "Σημείωση",
+    "navigate": "πλοήγηση",
+    "select": "επιλογή",
+    "close": "κλείσιμο",
+    "collapse": "Σύμπτυξη",
+    "expand": "Ανάπτυξη",
+    "error": "Σφάλμα"
+  },
+  "time": {
+    "justNow": "μόλις τώρα",
+    "minutesAgo": "{n}λ πριν",
+    "hoursAgo": "{n}ω πριν",
+    "daysAgo": "{n}μ πριν",
+    "minAgo": "{n} λεπτό πριν | {n} λεπτά πριν",
+    "hourAgo": "{n} ώρα πριν | {n} ώρες πριν",
+    "dayAgo": "{n} μέρα πριν | {n} μέρες πριν"
+  },
+  "chatInput": {
+    "placeholder": "Ρωτήστε τον Claude οτιδήποτε...",
+    "placeholderQueued": "Πληκτρολογήστε για να προσθέσετε στην ουρά...",
+    "willQueue": "Θα προστεθεί στην ουρά",
+    "lineCount": "{n} γραμμή | {n} γραμμές",
+    "includeContext": "Κλικ για συμπερίληψη context",
+    "excludeContext": "Κλικ για εξαίρεση context",
+    "permissionModes": {
+      "default": {
+        "label": "Ερώτηση πριν τις αλλαγές",
+        "short": "Ερώτηση"
+      },
+      "acceptEdits": {
+        "label": "Αποδοχή αλλαγών",
+        "short": "Αποδοχή"
+      },
+      "bypassPermissions": {
+        "label": "Παράκαμψη αδειών",
+        "short": "Παράκαμψη"
+      },
+      "plan": {
+        "label": "Λειτουργία σχεδίου",
+        "short": "Σχέδιο"
+      }
+    }
+  },
+  "settings": {
+    "title": "Ρυθμίσεις",
+    "defaultPermissionMode": "Προεπιλεγμένη Λειτουργία Αδειών",
+    "defaultPermissionModeDescription": "Προεπιλεγμένη λειτουργία για νέα panels. Κάθε panel μπορεί να το παρακάμψει.",
+    "model": "Μοντέλο",
+    "budgetLimit": "Όριο Budget (USD)",
+    "budgetLimitDescription": "Αφήστε κενό για απεριόριστο. Προειδοποίηση στο 80%.",
+    "budgetPlaceholder": "Απεριόριστο",
+    "extendedThinking": "Εκτεταμένη Σκέψη",
+    "extendedThinkingCondition": "Διαθέσιμο μόνο για μοντέλα Sonnet",
+    "betaFeatures": "Beta Λειτουργίες",
+    "beta1mContext": "Παράθυρο Context 1M",
+    "beta1mContextDescription": "Εκτεταμένο context για Sonnet 4/4.5",
+    "language": "Γλώσσα",
+    "openVsCodeSettings": "Άνοιγμα Ρυθμίσεων VS Code",
+    "settingsInfo": "Οι αλλαγές εφαρμόζονται στην τρέχουσα συνεδρία και αποθηκεύονται στις ρυθμίσεις workspace.",
+    "permissionOptions": {
+      "default": {
+        "label": "Ερώτηση πριν τις αλλαγές",
+        "description": "Ερώτηση για αλλαγές αρχείων"
+      },
+      "acceptEdits": {
+        "label": "Αποδοχή αλλαγών",
+        "description": "Αυτόματη έγκριση αλλαγών αρχείων"
+      },
+      "bypassPermissions": {
+        "label": "Παράκαμψη όλων",
+        "description": "Αυτόματη έγκριση όλων"
+      },
+      "plan": {
+        "label": "Λειτουργία σχεδίου",
+        "description": "Μόνο ανάγνωση, χωρίς εκτέλεση"
+      }
+    }
+  },
+  "session": {
+    "selectSession": "Επιλέξτε συνεδρία ({n})",
+    "renameSession": "Μετονομασία συνεδρίας",
+    "deleteSession": "Διαγραφή συνεδρίας",
+    "enterNewName": "Εισάγετε νέο όνομα...",
+    "loadMore": "Φόρτωση περισσότερων",
+    "scrollToBottom": "Κύλιση στο κάτω μέρος",
+    "loadingHistory": "Φόρτωση ιστορικού..."
+  },
+  "deleteSession": {
+    "title": "Διαγραφή Συνεδρίας",
+    "warning": "Διαγραφή αυτής της συνεδρίας; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.",
+    "sessionLabel": "Συνεδρία:"
+  },
+  "rewind": {
+    "title": "Επιλογές Επαναφοράς",
+    "description": "Επιλέξτε πώς θέλετε να επαναφέρετε σε αυτό το σημείο της συνομιλίας.",
+    "rewindToAfter": "Επαναφορά μετά από:",
+    "filesAffected": "{n} αρχείο επηρεάζεται | {n} αρχεία επηρεάζονται",
+    "options": {
+      "codeAndConversation": {
+        "label": "Επαναφορά κώδικα και συνομιλίας",
+        "description": "Επαναφορά αρχείων και αφαίρεση μηνυμάτων μετά από αυτό το σημείο"
+      },
+      "conversationOnly": {
+        "label": "Επαναφορά μόνο συνομιλίας",
+        "description": "Αφαίρεση μηνυμάτων αλλά διατήρηση τρέχουσας κατάστασης αρχείων"
+      },
+      "codeOnly": {
+        "label": "Επαναφορά μόνο κώδικα",
+        "description": "Επαναφορά αρχείων αλλά διατήρηση ιστορικού συνομιλίας"
+      },
+      "cancel": {
+        "label": "Ακύρωση",
+        "description": "Χωρίς επαναφορά"
+      }
+    },
+    "checkpointWarning": "Τα checkpoints αρχείων αποθηκεύονται στη μνήμη. Αυτή η ενέργεια δεν μπορεί να αναιρεθεί μετά το τέλος της συνεδρίας."
+  },
+  "permission": {
+    "runCommand": "Εκτέλεση αυτής της εντολής;",
+    "createFile": "Δημιουργία αυτού του αρχείου",
+    "editFile": "Επεξεργασία αυτού του αρχείου",
+    "queuePosition": "{position} από {total} σε αναμονή",
+    "options": {
+      "yes": "Ναι",
+      "yesAcceptAll": "Ναι, αποδοχή όλων των αλλαγών",
+      "no": "Όχι",
+      "customMessage": "Πείτε στον Claude τι να κάνει αντί αυτού"
+    },
+    "sendToClaude": "Αποστολή στον Claude",
+    "customPlaceholder": "π.χ., Χρήση διαφορετικής προσέγγισης, μετονομασία αρχείου, προσθήκη error handling..."
+  },
+  "question": {
+    "questionTab": "Ε{n}",
+    "submitTab": "Υποβολή",
+    "reviewAnswers": "Επισκόπηση απαντήσεων →",
+    "nextQuestion": "Επόμενη ερώτηση →",
+    "reviewHeading": "Επισκόπηση των απαντήσεών σας",
+    "questionHeader": "Ερώτηση",
+    "customResponse": "Προσαρμοσμένη απάντηση",
+    "customPlaceholder": "Πληκτρολογήστε προσαρμοσμένη απάντηση...",
+    "customTextareaPlaceholder": "Εισάγετε την προσαρμοσμένη απάντησή σας...",
+    "noAnswer": "(χωρίς απάντηση)"
+  },
+  "planMode": {
+    "title": "Είσοδος σε λειτουργία σχεδίου;",
+    "explanation": "Ο Claude θέλει να μπει σε λειτουργία σχεδίου για να εξερευνήσει και να σχεδιάσει μια προσέγγιση υλοποίησης.",
+    "inPlanMode": "Σε λειτουργία σχεδίου, ο Claude θα:",
+    "steps": {
+      "explore": "Εξερευνήσει διεξοδικά τον κώδικα",
+      "patterns": "Εντοπίσει υπάρχοντα patterns",
+      "design": "Σχεδιάσει στρατηγική υλοποίησης",
+      "present": "Παρουσιάσει ένα σχέδιο για έγκρισή σας"
+    },
+    "disclaimer": "Δεν θα γίνουν αλλαγές κώδικα μέχρι να εγκρίνετε το σχέδιο.",
+    "options": {
+      "yes": "Ναι, είσοδος σε λειτουργία σχεδίου",
+      "no": "Όχι, ξεκίνα την υλοποίηση τώρα",
+      "custom": "Πείτε στον Claude τι να κάνει αντί αυτού"
+    },
+    "customPlaceholder": "π.χ., Απλά υλοποίησέ το, εστίασε σε ένα συγκεκριμένο μέρος πρώτα, κάνε μου διευκρινιστικές ερωτήσεις..."
+  },
+  "skill": {
+    "title": "Χρήση skill \"{name}\"?",
+    "explanation": "Ο Claude μπορεί να χρησιμοποιήσει οδηγίες, κώδικα ή αρχεία από αυτό το Skill.",
+    "options": {
+      "yes": "Ναι",
+      "yesDontAsk": "Ναι, μην ρωτήσεις ξανά",
+      "no": "Όχι",
+      "custom": "Πείτε στον Claude τι να κάνει αντί αυτού"
+    },
+    "customPlaceholder": "π.χ., Χρήση διαφορετικού skill, παράλειψη αυτού του βήματος, δοκιμή διαφορετικής προσέγγισης..."
+  },
+  "budget": {
+    "exceeded": "Υπέρβαση ορίου budget",
+    "approaching": "Πλησιάζει το όριο budget",
+    "progress": "{current} / {limit} ({percent}%)"
+  },
+  "status": {
+    "running": "Εκτέλεση {tool}..."
+  },
+  "subagent": {
+    "running": "Εκτέλεση",
+    "completed": "Ολοκληρώθηκε",
+    "failed": "Απέτυχε",
+    "cancelled": "Ακυρώθηκε",
+    "duration": "{seconds}δ",
+    "tokens": "{n} tokens",
+    "toolCalls": "{n} κλήση εργαλείου | {n} κλήσεις εργαλείων"
+  },
+  "todo": {
+    "title": "Εργασίες",
+    "currentTasks": "Τρέχουσες Εργασίες",
+    "pending": "σε αναμονή",
+    "inProgress": "σε εξέλιξη",
+    "completed": "ολοκληρώθηκε",
+    "noTasks": "Χωρίς εργασίες"
+  },
+  "mcp": {
+    "title": "Διακομιστές MCP",
+    "description": "Προβολή και διαχείριση συνδέσεων MCP server",
+    "refresh": "Ανανέωση",
+    "noServers": "Δεν έχουν διαμορφωθεί MCP servers",
+    "addServers": "Προσθέστε servers στο .mcp.json στη ρίζα του workspace",
+    "connected": "Συνδεδεμένο",
+    "failed": "Αποτυχία",
+    "pending": "Σύνδεση...",
+    "disabled": "Απενεργοποιημένο",
+    "idle": "Αδρανές",
+    "ready": "Έτοιμο",
+    "needsAuth": "Απαιτεί Πιστοποίηση",
+    "unknown": "Άγνωστο"
+  },
+  "plugin": {
+    "title": "Πρόσθετα",
+    "description": "Προβολή και διαχείριση εγκατεστημένων plugins",
+    "refresh": "Ανανέωση",
+    "noPlugins": "Δεν έχουν εγκατασταθεί plugins",
+    "addPlugins": "Εγκαταστήστε plugins μέσω claude plugin add ή τοποθετήστε στο ~/.claude/plugins/",
+    "loaded": "Φορτωμένο",
+    "failed": "Αποτυχία",
+    "pending": "Φόρτωση...",
+    "disabled": "Απενεργοποιημένο",
+    "idle": "Αδρανές",
+    "ready": "Έτοιμο",
+    "unknown": "Άγνωστο"
+  },
+  "context": {
+    "title": "Χρήση Context",
+    "model": "Μοντέλο",
+    "total": "Σύνολο",
+    "breakdown": {
+      "systemPrompt": "Προτροπή Συστήματος",
+      "systemTools": "Εργαλεία Συστήματος",
+      "customAgents": "Προσαρμοσμένοι Agents",
+      "memoryFiles": "Αρχεία Μνήμης",
+      "skills": "Skills",
+      "messages": "Μηνύματα",
+      "freeSpace": "Ελεύθερος Χώρος"
+    }
+  },
+  "diff": {
+    "original": "Αρχικό",
+    "proposed": "Προτεινόμενο",
+    "newFile": "(νέο αρχείο)",
+    "linesAdded": "+{n}",
+    "linesRemoved": "-{n}"
+  },
+  "rewindBrowser": {
+    "title": "Επαναφορά σε Προηγούμενη Εντολή",
+    "searchPlaceholder": "Αναζήτηση εντολών...",
+    "loadingHistory": "Φόρτωση ιστορικού...",
+    "noPrompts": "Δεν βρέθηκαν εντολές",
+    "noFilesRestored": "Δεν θα επαναφερθούν αρχεία",
+    "filesRestored": "{n} αρχείο θα επαναφερθεί | {n} αρχεία θα επαναφερθούν",
+    "moreFiles": "+{n} ακόμα",
+    "warning": "Δεν επηρεάζει αρχεία που επεξεργαστήκατε χειροκίνητα",
+    "navigate": "πλοήγηση",
+    "select": "επιλογή"
+  },
+  "stats": {
+    "contextUsage": "Χρήση παραθύρου context",
+    "sessionTokens": "Tokens συνεδρίας (είσοδος / έξοδος)",
+    "cache": "Cache (εγγραφή / ανάγνωση)",
+    "turns": "{n} γύρος | {n} γύροι",
+    "cost": "Κόστος συνεδρίας",
+    "openLog": "Άνοιγμα αρχείου καταγραφής συνεδρίας"
+  },
+  "planApproval": {
+    "readyToCode": "Έτοιμοι για κώδικα;",
+    "reviewPlan": "Ελέγξτε το σχέδιο του Claude πριν συνεχίσετε",
+    "feedbackPlaceholder": "Πληκτρολογήστε σχόλια για αναθεώρηση του σχεδίου...",
+    "sendFeedback": "Αποστολή Σχολίων",
+    "manualApprove": "Ναι, χειροκίνητη έγκριση",
+    "autoAccept": "Ναι, αυτόματη αποδοχή αλλαγών"
+  },
+  "toolCall": {
+    "clickToExpand": "Κλικ για ανάπτυξη",
+    "awaitingApproval": "Αναμονή έγκρισής σας",
+    "respondToDialog": "Παρακαλώ απαντήστε στο παράθυρο διαλόγου",
+    "notExecuted": "Δεν εκτελέστηκε",
+    "changedCourse": "Ο Claude άλλαξε πορεία πριν εκτελέσει αυτό το εργαλείο"
+  },
+  "questionTool": {
+    "askingQuestion": "Υποβολή ερώτησης",
+    "hasQuestion": "Ο Claude έχει μια ερώτηση",
+    "hasQuestions": "Ο Claude έχει {n} ερωτήσεις",
+    "moreOptions": "+{n} ακόμα",
+    "waitingResponse": "Αναμονή για την απάντησή σας...",
+    "cancelled": "Η ερώτηση ακυρώθηκε",
+    "movedOn": "Ο Claude προχώρησε πριν ρωτήσει"
+  },
+  "skillTool": {
+    "executed": "Το skill \"{name}\" εκτελέστηκε",
+    "denied": "Το skill \"{name}\" απορρίφθηκε",
+    "skipped": "Το skill \"{name}\" παραλείφθηκε",
+    "useSkill": "Χρήση skill \"{name}\"?",
+    "waitingApproval": "Αναμονή έγκρισής σας...",
+    "executedSuccess": "Το skill εκτελέστηκε επιτυχώς",
+    "feedbackSent": "Τα σχόλια στάλθηκαν στον Claude:",
+    "userDenied": "Ο χρήστης απέρριψε την εκτέλεση του skill",
+    "requestSkipped": "Το αίτημα skill παραλείφθηκε"
+  },
+  "planModeTool": {
+    "entered": "Είσοδος σε λειτουργία σχεδίου",
+    "declined": "Η λειτουργία σχεδίου απορρίφθηκε",
+    "skipped": "Η λειτουργία σχεδίου παραλείφθηκε",
+    "enterPlanMode": "Είσοδος σε λειτουργία σχεδίου?",
+    "waitingApproval": "Αναμονή έγκρισής σας...",
+    "nowExploring": "Εξερεύνηση και σχεδιασμός προσέγγισης υλοποίησης",
+    "feedbackSent": "Τα σχόλια στάλθηκαν στον Claude:",
+    "implementDirectly": "Ο χρήστης επέλεξε να ξεκινήσει απευθείας την υλοποίηση",
+    "requestSkipped": "Το αίτημα λειτουργίας σχεδίου παραλείφθηκε",
+    "exited": "Έξοδος από λειτουργία σχεδίου"
+  },
+  "exitPlanMode": {
+    "approved": "Το σχέδιο εγκρίθηκε",
+    "revisionRequested": "Ζητήθηκε αναθεώρηση σχεδίου",
+    "exited": "Έξοδος από λειτουργία σχεδίου",
+    "readyToCode": "Έτοιμοι για κώδικα;",
+    "autoAccept": "Αυτόματη αποδοχή αλλαγών",
+    "manualApproval": "Χειροκίνητη έγκριση",
+    "waitingApproval": "Αναμονή έγκρισής σας...",
+    "feedbackSent": "Τα σχόλια στάλθηκαν στον Claude:",
+    "wasExited": "Η λειτουργία σχεδίου τερματίστηκε"
+  },
+  "welcome": {
+    "title": "Καλώς ήρθατε στο Claude Unbound",
+    "message": "Απελευθερώστε την πλήρη δύναμη του Claude AI. Ρωτήστε οτιδήποτε για τον κώδικά σας ή αφήστε με να σας βοηθήσω να δημιουργήσετε κάτι νέο.",
+    "undoChanges": "Αναίρεση αλλαγών αρχείων μετά από αυτό το σημείο",
+    "sentMidStream": "↳ στάλθηκε mid-stream",
+    "queued": "στην ουρά"
+  },
+  "subagentTypes": {
+    "codeReviewer": "Αναθεωρητής Κώδικα",
+    "explorer": "Εξερευνητής",
+    "planner": "Σχεδιαστής",
+    "agent": "Agent",
+    "guide": "Οδηγός",
+    "setup": "Ρύθμιση"
+  },
+  "subagentDisplay": {
+    "tools": "{n} εργαλείο | {n} εργαλεία",
+    "openLog": "Άνοιγμα αρχείου καταγραφής agent",
+    "viewPrompt": "Προβολή προτροπής",
+    "result": "Αποτέλεσμα",
+    "working": "Ο agent εργάζεται...",
+    "noActivity": "Δεν καταγράφηκε δραστηριότητα"
+  },
+  "diffView": {
+    "noChanges": "Χωρίς αλλαγές",
+    "copyNew": "Αντιγραφή νέου περιεχομένου",
+    "reject": "Απόρριψη",
+    "approve": "Έγκριση",
+    "hiddenLines": "κρυμμένες γραμμές"
+  },
+  "fileTree": {
+    "title": "Αρχεία που Προσπελάστηκαν"
+  },
+  "thinking": {
+    "thinking": "Σκέψη",
+    "thought": "Σκέφτηκε"
+  },
+  "atMention": {
+    "indexing": "Ευρετηρίαση χώρου εργασίας...",
+    "noMatches": "Δεν βρέθηκαν αποτελέσματα",
+    "tryDifferent": "Δοκιμάστε διαφορετικό όρο αναζήτησης",
+    "builtin": "ενσωματωμένο"
+  },
+  "codeBlock": {
+    "copyCode": "Αντιγραφή κώδικα"
+  },
+  "compactMarker": {
+    "boundary": "όριο context",
+    "title": "Το Context Συμπτύχθηκε",
+    "auto": "ΑΥΤΟΜΑΤΟ",
+    "manual": "ΧΕΙΡΟΚΙΝΗΤΟ",
+    "summary": "Περίληψη",
+    "summaryHeader": "Περίληψη Προηγούμενου Context",
+    "noSummary": "Δεν υπάρχει διαθέσιμη περίληψη για αυτή τη σύμπτυξη"
+  },
+  "diffOverlay": {
+    "write": "Εγγραφή",
+    "edit": "Επεξεργασία"
+  },
+  "imageLightbox": {
+    "enlarged": "Μεγεθυμένη εικόνα"
+  },
+  "imageThumbnail": {
+    "attachedImage": "Συνημμένη εικόνα",
+    "remove": "Αφαίρεση {name}"
+  },
+  "mcpIndicator": {
+    "connecting": "MCP: {connected}/{total} συνδέεται",
+    "withFailures": "MCP: {connected}/{total} ({failed} απέτυχαν)",
+    "connected": "MCP: {connected}/{total}",
+    "label": "MCP"
+  },
+  "mcpToolOverlay": {
+    "response": "Απάντηση",
+    "running": "Το εργαλείο MCP εκτελείται...",
+    "noResponse": "Δεν υπάρχει διαθέσιμη απάντηση"
+  },
+  "pluginIndicator": {
+    "noPlugins": "Plugins: Δεν έχουν εγκατασταθεί plugins",
+    "loading": "Plugins: {loaded}/{enabled} φόρτωση",
+    "withFailures": "Plugins: {loaded}/{enabled} ({failed} απέτυχαν)",
+    "ready": "Plugins: {enabled} έτοιμα",
+    "loaded": "Plugins: {loaded}/{total}",
+    "label": "Plugins"
+  },
+  "slashCommand": {
+    "loading": "Φόρτωση εντολών...",
+    "noMatches": "Δεν βρέθηκαν εντολές",
+    "createHint": "Δημιουργήστε εντολές στο .claude/commands/"
+  },
+  "subagentIndicator": {
+    "active": "Ενεργοί agents:",
+    "recent": "Πρόσφατοι agents:"
+  },
+  "toast": {
+    "conversationCleared": "Η συνομιλία διαγράφηκε",
+    "interrupted": "Το μήνυμα διακόπηκε - η εντολή επαναφέρθηκε στην είσοδο",
+    "rewindBoth": "Τα αρχεία και η συνομιλία επαναφέρθηκαν - επεξεργαστείτε το μήνυμά σας και ξαναστείλτε",
+    "rewindConversation": "Η συνομιλία επαναφέρθηκε - επεξεργαστείτε το μήνυμά σας και ξαναστείλτε",
+    "truncateFailed": "Δεν ήταν δυνατή η περικοπή του ιστορικού συνομιλίας - το μήνυμα δεν βρέθηκε",
+    "rewindFilesPartial": "Τα αρχεία επαναφέρθηκαν επιτυχώς",
+    "rewindFiles": "Τα αρχεία επαναφέρθηκαν επιτυχώς",
+    "rewindFailed": "Η επαναφορά απέτυχε: {message}"
+  },
+  "imageAttachment": {
+    "maxAllowed": "Επιτρέπονται το πολύ {n} εικόνες",
+    "tooLarge": "Η εικόνα είναι πολύ μεγάλη (μέγιστο {n}MB)",
+    "unsupportedType": "Μη υποστηριζόμενος τύπος εικόνας. Χρησιμοποιήστε PNG, JPEG, GIF ή WebP",
+    "readFailed": "Αποτυχία ανάγνωσης αρχείου εικόνας",
+    "noImagesInClipboard": "Δεν βρέθηκαν εικόνες στο πρόχειρο"
+  }
+}

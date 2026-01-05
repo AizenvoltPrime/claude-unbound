@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ListboxRoot, ListboxItem, ListboxContent } from 'reka-ui';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useQuestionStore } from '@/stores/useQuestionStore';
 import type { Question } from '@shared/types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   visible: boolean;
@@ -50,12 +53,12 @@ const isLastQuestionTab = computed(() =>
 const tabHeaders = computed(() => {
   const headers = store.questions.map((q, idx) => ({
     index: idx,
-    label: q.header || `Q${idx + 1}`,
+    label: q.header || t('question.questionTab', { n: idx + 1 }),
     isComplete: hasAnswerFor(q),
   }));
   headers.push({
     index: store.questions.length,
-    label: 'Submit',
+    label: t('question.submitTab'),
     isComplete: false,
   });
   return headers;
@@ -128,7 +131,7 @@ function getAnswerSummary(question: Question): string {
   if (customInput.trim()) {
     parts.push(customInput.trim());
   }
-  return parts.join(', ') || '(no answer)';
+  return parts.join(', ') || t('question.noAnswer');
 }
 
 watch(() => props.visible, (visible) => {
@@ -260,11 +263,11 @@ watch(() => store.currentTabIndex, () => {
               </span>
               <span class="flex-1 min-w-0">
                 <template v-if="hasCustomInput">
-                  <span class="block text-primary">Custom response</span>
+                  <span class="block text-primary">{{ t('question.customResponse') }}</span>
                   <span class="block text-xs text-muted-foreground mt-0.5 truncate">{{ customInputPreview }}</span>
                 </template>
                 <template v-else>
-                  <span>Type a custom response...</span>
+                  <span>{{ t('question.customPlaceholder') }}</span>
                 </template>
               </span>
             </ListboxItem>
@@ -277,7 +280,7 @@ watch(() => store.currentTabIndex, () => {
               @select="handleNextOrSubmit"
             >
               <span class="w-4 h-4" />
-              <span>{{ isLastQuestionTab ? 'Review answers →' : 'Next question →' }}</span>
+              <span>{{ isLastQuestionTab ? t('question.reviewAnswers') : t('question.nextQuestion') }}</span>
             </ListboxItem>
           </ListboxContent>
         </ListboxRoot>
@@ -289,7 +292,7 @@ watch(() => store.currentTabIndex, () => {
           ref="textareaRef"
           v-model="customInputValue"
           class="min-h-20 bg-card border-border resize-none focus:border-primary mb-3"
-          placeholder="Enter your custom response..."
+          :placeholder="t('question.customTextareaPlaceholder')"
           @keydown.enter.ctrl="handleCustomInputSave"
           @keydown.escape="handleCustomInputBack"
         />
@@ -299,13 +302,13 @@ watch(() => store.currentTabIndex, () => {
             size="sm"
             @click="handleCustomInputBack"
           >
-            Back
+            {{ t('common.back') }}
           </Button>
           <Button
             size="sm"
             @click="handleCustomInputSave"
           >
-            Save
+            {{ t('common.save') }}
           </Button>
         </div>
       </div>
@@ -314,7 +317,7 @@ watch(() => store.currentTabIndex, () => {
     <!-- Submit tab - review answers -->
     <template v-else-if="isOnSubmitTab">
       <div class="px-4 py-3 text-sm text-foreground font-medium">
-        Review your answers
+        {{ t('question.reviewHeading') }}
       </div>
 
       <div class="px-4 pb-3 space-y-2">
@@ -323,7 +326,7 @@ watch(() => store.currentTabIndex, () => {
           :key="question.question"
           class="p-2 rounded bg-card text-sm"
         >
-          <div class="text-muted-foreground text-xs mb-1">{{ question.header || 'Question' }}</div>
+          <div class="text-muted-foreground text-xs mb-1">{{ question.header || t('question.questionHeader') }}</div>
           <div class="text-foreground">{{ getAnswerSummary(question) }}</div>
         </div>
       </div>
@@ -334,14 +337,14 @@ watch(() => store.currentTabIndex, () => {
           size="sm"
           @click="handleCancel"
         >
-          Cancel
+          {{ t('common.cancel') }}
         </Button>
         <Button
           size="sm"
           :disabled="!allAnswered"
           @click="handleSubmit"
         >
-          Submit
+          {{ t('common.submit') }}
         </Button>
       </div>
     </template>

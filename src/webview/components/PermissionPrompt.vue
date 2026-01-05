@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ListboxRoot, ListboxItem, ListboxContent } from 'reka-ui';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   visible: boolean;
@@ -31,17 +34,17 @@ const isBash = computed(() => props.toolName === 'Bash');
 const isNewFile = computed(() => !props.originalContent);
 
 const actionLabel = computed(() => {
-  if (isBash.value) return 'Run this command?';
-  if (isNewFile.value) return 'Create this file';
-  return 'Make this edit to';
+  if (isBash.value) return t('permission.runCommand');
+  if (isNewFile.value) return t('permission.createFile');
+  return t('permission.editFile');
 });
 
-const options = [
-  { value: 'yes', label: 'Yes', shortcut: '1' },
-  { value: 'yes-accept-all', label: 'Yes, accept all edits', shortcut: '2' },
-  { value: 'no', label: 'No', shortcut: '3' },
-  { value: 'custom', label: 'Tell Claude what to do instead', shortcut: null },
-] as const;
+const options = computed(() => [
+  { value: 'yes', label: t('permission.options.yes'), shortcut: '1' },
+  { value: 'yes-accept-all', label: t('permission.options.yesAcceptAll'), shortcut: '2' },
+  { value: 'no', label: t('permission.options.no'), shortcut: '3' },
+  { value: 'custom', label: t('permission.options.customMessage'), shortcut: null },
+] as const);
 
 function handleSelect(value: string) {
   switch (value) {
@@ -126,7 +129,7 @@ watch(() => props.visible, (visible) => {
         {{ agentDescription }}
       </span>
       <span v-if="queueTotal && queueTotal > 1" class="ml-auto text-xs text-muted-foreground">
-        {{ queuePosition }} of {{ queueTotal }} pending
+        {{ t('permission.queuePosition', { position: queuePosition, total: queueTotal }) }}
       </span>
     </div>
 
@@ -173,7 +176,7 @@ watch(() => props.visible, (visible) => {
         ref="textareaRef"
         v-model="customMessage"
         class="min-h-20 bg-card border-border resize-none focus:border-primary mb-3"
-        placeholder="e.g., Use a different approach, rename the file, add error handling..."
+        :placeholder="t('permission.customPlaceholder')"
         @keydown.enter.ctrl="handleCustomSubmit"
         @keydown.escape="handleCustomBack"
       />
@@ -183,14 +186,14 @@ watch(() => props.visible, (visible) => {
           size="sm"
           @click="handleCustomBack"
         >
-          Back
+          {{ t('common.back') }}
         </Button>
         <Button
           size="sm"
           :disabled="!customMessage.trim()"
           @click="handleCustomSubmit"
         >
-          Send to Claude
+          {{ t('permission.sendToClaude') }}
         </Button>
       </div>
     </div>

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted, computed } from "vue";
+import { useI18n } from 'vue-i18n';
 import { usePhraseCycler } from "../composables/usePhraseCycler";
 import LottieSpinner from "./LottieSpinner.vue";
+
+const { t } = useI18n();
 
 const props = defineProps<{
   isProcessing: boolean;
@@ -53,7 +56,7 @@ onUnmounted(() => {
   <div v-if="isProcessing" class="flex items-center pl-2 pr-4 pt-1 border-t border-border/30 bg-card">
     <LottieSpinner :size="52" class="shrink-0" />
     <span class="flex-1 text-base text-muted-foreground italic truncate">
-      {{ currentToolName ? `Running ${currentToolName}...` : currentPhrase }}
+      {{ currentToolName ? t('status.running', { tool: currentToolName }) : currentPhrase }}
     </span>
     <span class="text-sm text-muted-foreground font-mono">
       {{ formattedTime }}

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
@@ -10,6 +11,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { IconWarning } from '@/components/icons';
 import type { RewindOption } from '@shared/types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   visible: boolean;
@@ -25,32 +28,32 @@ const emit = defineEmits<{
 
 const selectedIndex = ref(-1);
 
-const options: { key: RewindOption; label: string; description: string; shortcut: string }[] = [
+const options = computed<{ key: RewindOption; label: string; description: string; shortcut: string }[]>(() => [
   {
     key: 'code-and-conversation',
-    label: 'Restore code and conversation',
-    description: 'Revert files and remove messages after this point',
+    label: t('rewind.options.codeAndConversation.label'),
+    description: t('rewind.options.codeAndConversation.description'),
     shortcut: '1',
   },
   {
     key: 'conversation-only',
-    label: 'Restore conversation only',
-    description: 'Remove messages but keep current file state',
+    label: t('rewind.options.conversationOnly.label'),
+    description: t('rewind.options.conversationOnly.description'),
     shortcut: '2',
   },
   {
     key: 'code-only',
-    label: 'Restore code only',
-    description: 'Revert files but keep conversation history',
+    label: t('rewind.options.codeOnly.label'),
+    description: t('rewind.options.codeOnly.description'),
     shortcut: '3',
   },
   {
     key: 'cancel',
-    label: 'Cancel',
-    description: 'Do not rewind',
+    label: t('rewind.options.cancel.label'),
+    description: t('rewind.options.cancel.description'),
     shortcut: '4',
   },
-];
+]);
 
 watch(() => props.visible, (visible) => {
   if (visible) {
@@ -77,14 +80,14 @@ function handleKeyDown(event: KeyboardEvent) {
     case 'ArrowUp':
       event.preventDefault();
       if (selectedIndex.value <= 0) {
-        selectedIndex.value = options.length - 1;
+        selectedIndex.value = options.value.length - 1;
       } else {
         selectedIndex.value--;
       }
       break;
     case 'ArrowDown':
       event.preventDefault();
-      if (selectedIndex.value < 0 || selectedIndex.value >= options.length - 1) {
+      if (selectedIndex.value < 0 || selectedIndex.value >= options.value.length - 1) {
         selectedIndex.value = 0;
       } else {
         selectedIndex.value++;
@@ -104,7 +107,7 @@ function handleKeyDown(event: KeyboardEvent) {
 }
 
 function selectOption(index: number) {
-  const option = options[index];
+  const option = options.value[index];
   if (option.key === 'cancel') {
     emit('cancel');
   } else {
@@ -126,14 +129,14 @@ onUnmounted(() => {
     <AlertDialogContent class="bg-card border-border max-w-md">
       <AlertDialogHeader>
         <AlertDialogTitle class="flex items-center gap-2">
-          Restore Options
+          {{ t('rewind.title') }}
         </AlertDialogTitle>
         <AlertDialogDescription>
           <div class="flex items-start gap-3 mt-2">
             <IconWarning :size="24" class="shrink-0 text-warning" />
             <div>
               <p class="mb-2 text-foreground">
-                Choose how to restore to this point in the conversation.
+                {{ t('rewind.description') }}
               </p>
             </div>
           </div>
@@ -141,15 +144,15 @@ onUnmounted(() => {
       </AlertDialogHeader>
 
       <div v-if="messagePreview" class="p-3 rounded bg-muted text-sm">
-        <div class="text-xs text-muted-foreground mb-1">Rewind to after:</div>
+        <div class="text-xs text-muted-foreground mb-1">{{ t('rewind.rewindToAfter') }}</div>
         <div class="italic break-words">"{{ messagePreview }}"</div>
       </div>
 
       <div v-if="filesAffected" class="flex items-center gap-3 text-xs text-muted-foreground px-1">
-        <span>{{ filesAffected }} files affected</span>
+        <span>{{ t('rewind.filesAffected', { n: filesAffected }, filesAffected) }}</span>
         <template v-if="linesChanged">
-          <span class="text-success">+{{ linesChanged.added }}</span>
-          <span class="text-error">-{{ linesChanged.removed }}</span>
+          <span class="text-success">{{ t('diff.linesAdded', { n: linesChanged.added }) }}</span>
+          <span class="text-error">{{ t('diff.linesRemoved', { n: linesChanged.removed }) }}</span>
         </template>
       </div>
 
@@ -180,9 +183,9 @@ onUnmounted(() => {
       </div>
 
       <Alert class="bg-warning/20 border-warning/30">
-        <AlertTitle class="text-warning font-semibold text-xs">Note</AlertTitle>
+        <AlertTitle class="text-warning font-semibold text-xs">{{ t('common.note') }}</AlertTitle>
         <AlertDescription class="text-xs text-foreground/70">
-          File checkpoints are stored in memory. This action cannot be undone once the session ends.
+          {{ t('rewind.checkpointWarning') }}
         </AlertDescription>
       </Alert>
 

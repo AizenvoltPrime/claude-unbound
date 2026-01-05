@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { IconChartBar, IconChevronDown, IconChevronUp } from '@/components/icons';
+
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { ContextUsageData } from '@shared/types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   data: ContextUsageData;
@@ -20,12 +24,12 @@ const progressColor = computed(() => {
 });
 
 const categories = computed(() => [
-  { label: 'System prompt', tokens: props.data.breakdown.systemPrompt, color: 'bg-info' },
-  { label: 'System tools', tokens: props.data.breakdown.systemTools, color: 'bg-primary' },
-  { label: 'Custom agents', tokens: props.data.breakdown.customAgents, color: 'bg-accent' },
-  { label: 'Memory files', tokens: props.data.breakdown.memoryFiles, color: 'bg-success' },
-  { label: 'Messages', tokens: props.data.breakdown.messages, color: 'bg-primary' },
-  { label: 'Free space', tokens: props.data.breakdown.freeSpace, color: 'bg-muted', isFree: true },
+  { label: t('context.breakdown.systemPrompt'), tokens: props.data.breakdown.systemPrompt, color: 'bg-info' },
+  { label: t('context.breakdown.systemTools'), tokens: props.data.breakdown.systemTools, color: 'bg-primary' },
+  { label: t('context.breakdown.customAgents'), tokens: props.data.breakdown.customAgents, color: 'bg-accent' },
+  { label: t('context.breakdown.memoryFiles'), tokens: props.data.breakdown.memoryFiles, color: 'bg-success' },
+  { label: t('context.breakdown.messages'), tokens: props.data.breakdown.messages, color: 'bg-primary' },
+  { label: t('context.breakdown.freeSpace'), tokens: props.data.breakdown.freeSpace, color: 'bg-muted', isFree: true },
 ]);
 
 function formatTokens(tokens: number): string {
@@ -47,7 +51,7 @@ function getPercent(tokens: number): number {
   <div class="border border-border rounded-lg bg-muted overflow-hidden">
     <div class="px-4 py-3 flex items-center gap-2 border-b border-border/30">
       <IconChartBar :size="16" class="text-primary" />
-      <span class="font-medium text-sm">Context Usage</span>
+      <span class="font-medium text-sm">{{ t('context.title') }}</span>
     </div>
 
     <div class="p-4 space-y-4">
@@ -100,7 +104,7 @@ function getPercent(tokens: number): number {
           <CollapsibleTrigger class="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group">
             <IconChevronDown :size="12" class="group-data-[state=open]:hidden" />
             <IconChevronUp :size="12" class="hidden group-data-[state=open]:block" />
-            <span>Memory files ({{ data.details.memoryFiles.length }})</span>
+            <span>{{ t('context.breakdown.memoryFiles') }} ({{ data.details.memoryFiles.length }})</span>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div class="mt-2 ml-4 space-y-1">
@@ -122,7 +126,7 @@ function getPercent(tokens: number): number {
           <CollapsibleTrigger class="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group">
             <IconChevronDown :size="12" class="group-data-[state=open]:hidden" />
             <IconChevronUp :size="12" class="hidden group-data-[state=open]:block" />
-            <span>Skills ({{ data.details.skills.length }})</span>
+            <span>{{ t('context.breakdown.skills') }} ({{ data.details.skills.length }})</span>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div class="mt-2 ml-4 space-y-1">
@@ -144,7 +148,7 @@ function getPercent(tokens: number): number {
           <CollapsibleTrigger class="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group">
             <IconChevronDown :size="12" class="group-data-[state=open]:hidden" />
             <IconChevronUp :size="12" class="hidden group-data-[state=open]:block" />
-            <span>Custom agents ({{ data.details.customAgents.length }})</span>
+            <span>{{ t('context.breakdown.customAgents') }} ({{ data.details.customAgents.length }})</span>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div class="mt-2 ml-4 space-y-1">

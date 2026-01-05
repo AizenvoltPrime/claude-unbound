@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { ToolCall } from '@shared/types';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import {
@@ -10,6 +11,8 @@ import {
   IconMessageSquare,
 } from '@/components/icons';
 import LoadingSpinner from './LoadingSpinner.vue';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   toolCall: ToolCall;
@@ -58,10 +61,10 @@ const cardClass = computed(() => {
 });
 
 const headerText = computed(() => {
-  if (isCompleted.value) return `Skill "${skillName.value}" executed`;
-  if (isDenied.value) return `Skill "${skillName.value}" denied`;
-  if (isAbandoned.value) return `Skill "${skillName.value}" skipped`;
-  return `Use skill "${skillName.value}"?`;
+  if (isCompleted.value) return t('skillTool.executed', { name: skillName.value });
+  if (isDenied.value) return t('skillTool.denied', { name: skillName.value });
+  if (isAbandoned.value) return t('skillTool.skipped', { name: skillName.value });
+  return t('skillTool.useSkill', { name: skillName.value });
 });
 </script>
 
@@ -84,14 +87,14 @@ const headerText = computed(() => {
       <div v-if="isAwaitingApproval" class="px-3 py-2 bg-primary/10" :class="{ 'border-t border-primary/20': !skillDescription }">
         <div class="flex items-center gap-2 text-xs text-primary">
           <span class="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
-          <span>Waiting for your approval...</span>
+          <span>{{ t('skillTool.waitingApproval') }}</span>
         </div>
       </div>
 
       <div v-else-if="isCompleted" class="px-3 py-2 bg-success/10" :class="{ 'border-t border-success/20': !skillDescription }">
         <div class="flex items-center gap-2 text-xs text-success">
           <IconCheckCircle :size="12" />
-          <span>Skill executed successfully</span>
+          <span>{{ t('skillTool.executedSuccess') }}</span>
         </div>
       </div>
 
@@ -99,20 +102,20 @@ const headerText = computed(() => {
         <div v-if="toolCall.feedback" class="space-y-1">
           <div class="flex items-center gap-2 text-xs text-error/80">
             <IconMessageSquare :size="12" />
-            <span>Feedback sent to Claude:</span>
+            <span>{{ t('skillTool.feedbackSent') }}</span>
           </div>
           <p class="text-xs text-foreground/80 pl-5 italic">"{{ toolCall.feedback }}"</p>
         </div>
         <div v-else class="flex items-center gap-2 text-xs text-error/80">
           <IconXCircle :size="12" />
-          <span>User denied skill execution</span>
+          <span>{{ t('skillTool.userDenied') }}</span>
         </div>
       </div>
 
       <div v-else-if="isAbandoned" class="px-3 py-2 bg-muted/30" :class="{ 'border-t border-border/30': !skillDescription }">
         <div class="flex items-center gap-2 text-xs text-muted-foreground">
           <IconBan :size="12" />
-          <span>Skill request was skipped</span>
+          <span>{{ t('skillTool.requestSkipped') }}</span>
         </div>
       </div>
     </CardContent>

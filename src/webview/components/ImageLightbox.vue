@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import { DialogRoot, DialogPortal, DialogOverlay, DialogContent, DialogClose } from 'reka-ui';
 import { IconX } from '@/components/icons';
+
+const { t } = useI18n();
 
 defineProps<{
   open: boolean;
@@ -24,7 +27,7 @@ defineEmits<{
         <div class="relative inline-block">
           <img
             :src="imageUrl"
-            alt="Enlarged image"
+            :alt="t('imageLightbox.enlarged')"
             class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
           />
           <DialogClose
@@ -33,7 +36,7 @@ defineEmits<{
                    hover:bg-muted transition-colors cursor-pointer"
           >
             <IconX :size="18" />
-            <span class="sr-only">Close</span>
+            <span class="sr-only">{{ t('common.close') }}</span>
           </DialogClose>
         </div>
       </DialogContent>

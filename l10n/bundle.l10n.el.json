@@ -1,0 +1,11 @@
+{
+  "Could not open file: {0}": "Δεν ήταν δυνατό το άνοιγμα του αρχείου: {0}",
+  "No active session to view": "Δεν υπάρχει ενεργή συνεδρία για προβολή",
+  "Agent log file not found: {0}": "Το αρχείο καταγραφής agent δεν βρέθηκε: {0}",
+  "Claude wants to use the \"{0}\" tool. Allow?": "Ο Claude θέλει να χρησιμοποιήσει το εργαλείο \"{0}\". Να επιτραπεί;",
+  "Allow": "Επιτρέπεται",
+  "Deny": "Απορρίπτεται",
+  "Cannot send mid-stream message: no active streaming session": "Δεν είναι δυνατή η αποστολή μηνύματος κατά τη ροή: δεν υπάρχει ενεργή συνεδρία ροής",
+  "Failed to rename session: {0}": "Αποτυχία μετονομασίας συνεδρίας: {0}",
+  "Failed to delete session: {0}": "Αποτυχία διαγραφής συνεδρίας: {0}"
+}

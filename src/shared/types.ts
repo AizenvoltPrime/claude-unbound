@@ -513,7 +513,9 @@ export type WebviewToExtensionMessage =
       approved: boolean;
       approvalMode?: "acceptEdits" | "manual";
       customMessage?: string;
-    };
+    }
+  // i18n - save user's language preference to extension global state
+  | { type: "setLanguagePreference"; locale: string };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
@@ -645,7 +647,9 @@ export type ExtensionToWebviewMessage =
       type: "interruptRecovery";
       correlationId: string;
       promptContent: string;
-    };
+    }
+  // i18n
+  | { type: "languageChange"; locale: string };
 
 // Chat message for UI rendering
 export interface ChatMessage {

@@ -1,0 +1,11 @@
+{
+  "Could not open file: {0}": "Could not open file: {0}",
+  "No active session to view": "No active session to view",
+  "Agent log file not found: {0}": "Agent log file not found: {0}",
+  "Claude wants to use the \"{0}\" tool. Allow?": "Claude wants to use the \"{0}\" tool. Allow?",
+  "Allow": "Allow",
+  "Deny": "Deny",
+  "Cannot send mid-stream message: no active streaming session": "Cannot send mid-stream message: no active streaming session",
+  "Failed to rename session: {0}": "Failed to rename session: {0}",
+  "Failed to delete session: {0}": "Failed to delete session: {0}"
+}

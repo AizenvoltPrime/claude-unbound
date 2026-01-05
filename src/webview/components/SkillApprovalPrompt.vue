@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ListboxRoot, ListboxItem, ListboxContent } from 'reka-ui';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   visible: boolean;
@@ -20,12 +23,12 @@ const selectedValue = ref<string>('yes');
 const listboxRef = ref<InstanceType<typeof ListboxRoot> | null>(null);
 const textareaRef = ref<{ $el?: HTMLElement } | null>(null);
 
-const options = [
-  { value: 'yes', label: 'Yes', shortcut: '1' },
-  { value: 'yes-always', label: "Yes, don't ask again", shortcut: '2' },
-  { value: 'no', label: 'No', shortcut: '3' },
-  { value: 'custom', label: 'Tell Claude what to do instead', shortcut: null },
-] as const;
+const options = computed(() => [
+  { value: 'yes', label: t('skill.options.yes'), shortcut: '1' },
+  { value: 'yes-always', label: t('skill.options.yesDontAsk'), shortcut: '2' },
+  { value: 'no', label: t('skill.options.no'), shortcut: '3' },
+  { value: 'custom', label: t('skill.options.custom'), shortcut: null },
+] as const);
 
 function handleSelect(value: string) {
   switch (value) {
@@ -105,9 +108,9 @@ watch(() => props.visible, (visible) => {
   >
     <!-- Header question -->
     <div class="px-4 py-3 text-sm text-foreground">
-      <div class="font-medium">Use skill "{{ skillName }}"?</div>
+      <div class="font-medium">{{ t('skill.title', { name: skillName }) }}</div>
       <div class="mt-2 text-muted-foreground text-xs">
-        Claude may use instructions, code, or files from this Skill.
+        {{ t('skill.explanation') }}
       </div>
       <div v-if="skillDescription" class="mt-2 text-muted-foreground text-xs">
         {{ skillDescription }}
@@ -130,7 +133,7 @@ watch(() => props.visible, (visible) => {
           :value="option.value"
           class="flex items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors cursor-pointer outline-none data-highlighted:bg-primary data-highlighted:text-primary-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground hover:bg-card"
           :class="option.value === 'custom' ? 'border-t border-border/30 text-muted-foreground' : 'text-foreground'"
-          @select="handleSelect(option.value)"
+          @select="handleSelect(option.value as string)"
         >
           <span v-if="option.shortcut" class="font-medium w-4">{{ option.shortcut }}</span>
           <span v-else class="w-4" />
@@ -145,7 +148,7 @@ watch(() => props.visible, (visible) => {
         ref="textareaRef"
         v-model="customMessage"
         class="min-h-20 bg-card border-border resize-none focus:border-primary mb-3"
-        placeholder="e.g., Use a different skill, skip this step, try a different approach..."
+        :placeholder="t('skill.customPlaceholder')"
         @keydown.enter.ctrl="handleCustomSubmit"
         @keydown.escape="handleCustomBack"
       />
@@ -155,14 +158,14 @@ watch(() => props.visible, (visible) => {
           size="sm"
           @click="handleCustomBack"
         >
-          Back
+          {{ t('common.back') }}
         </Button>
         <Button
           size="sm"
           :disabled="!customMessage.trim()"
           @click="handleCustomSubmit"
         >
-          Send to Claude
+          {{ t('permission.sendToClaude') }}
         </Button>
       </div>
     </div>

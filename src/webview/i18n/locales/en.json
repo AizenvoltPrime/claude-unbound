@@ -1,0 +1,451 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "submit": "Submit",
+    "back": "Back",
+    "delete": "Delete",
+    "yes": "Yes",
+    "no": "No",
+    "loading": "Loading...",
+    "dismiss": "Dismiss",
+    "tokens": "tokens",
+    "noFile": "No file",
+    "settings": "Settings",
+    "note": "Note",
+    "navigate": "navigate",
+    "select": "select",
+    "close": "close",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "error": "Error"
+  },
+  "time": {
+    "justNow": "just now",
+    "minutesAgo": "{n}m ago",
+    "hoursAgo": "{n}h ago",
+    "daysAgo": "{n}d ago",
+    "minAgo": "{n} min ago | {n} mins ago",
+    "hourAgo": "{n} hour ago | {n} hours ago",
+    "dayAgo": "{n} day ago | {n} days ago"
+  },
+  "chatInput": {
+    "placeholder": "Ask Claude anything...",
+    "placeholderQueued": "Type to queue next message...",
+    "willQueue": "Will queue",
+    "lineCount": "{n} line | {n} lines",
+    "includeContext": "Click to include context",
+    "excludeContext": "Click to exclude context",
+    "permissionModes": {
+      "default": {
+        "label": "Ask before edits",
+        "short": "Ask"
+      },
+      "acceptEdits": {
+        "label": "Accept edits",
+        "short": "Accept"
+      },
+      "bypassPermissions": {
+        "label": "Bypass permissions",
+        "short": "Bypass"
+      },
+      "plan": {
+        "label": "Plan mode",
+        "short": "Plan"
+      }
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "defaultPermissionMode": "Default Permission Mode",
+    "defaultPermissionModeDescription": "Default mode for new chat panels. Each panel can override this.",
+    "model": "Model",
+    "budgetLimit": "Budget Limit (USD)",
+    "budgetLimitDescription": "Leave empty for no limit. Warning shown at 80%.",
+    "budgetPlaceholder": "Unlimited",
+    "extendedThinking": "Extended Thinking",
+    "extendedThinkingCondition": "Only available for Sonnet models",
+    "betaFeatures": "Beta Features",
+    "beta1mContext": "1M Context Window",
+    "beta1mContextDescription": "Extended context for Sonnet 4/4.5",
+    "language": "Language",
+    "openVsCodeSettings": "Open VS Code Settings",
+    "settingsInfo": "Changes apply to the current session and persist in workspace settings.",
+    "permissionOptions": {
+      "default": {
+        "label": "Ask before edits",
+        "description": "Prompt for file changes"
+      },
+      "acceptEdits": {
+        "label": "Accept edits",
+        "description": "Auto-approve file changes"
+      },
+      "bypassPermissions": {
+        "label": "Bypass all",
+        "description": "Auto-approve everything"
+      },
+      "plan": {
+        "label": "Plan mode",
+        "description": "Read-only, no execution"
+      }
+    }
+  },
+  "session": {
+    "selectSession": "Select a session ({n})",
+    "renameSession": "Rename session",
+    "deleteSession": "Delete session",
+    "enterNewName": "Enter new name...",
+    "loadMore": "Load more sessions",
+    "scrollToBottom": "Scroll to bottom",
+    "loadingHistory": "Loading history..."
+  },
+  "deleteSession": {
+    "title": "Delete Session",
+    "warning": "Delete this session? This action cannot be undone.",
+    "sessionLabel": "Session:"
+  },
+  "rewind": {
+    "title": "Restore Options",
+    "description": "Choose how to restore to this point in the conversation.",
+    "rewindToAfter": "Rewind to after:",
+    "filesAffected": "{n} file affected | {n} files affected",
+    "options": {
+      "codeAndConversation": {
+        "label": "Restore code and conversation",
+        "description": "Revert files and remove messages after this point"
+      },
+      "conversationOnly": {
+        "label": "Restore conversation only",
+        "description": "Remove messages but keep current file state"
+      },
+      "codeOnly": {
+        "label": "Restore code only",
+        "description": "Revert files but keep conversation history"
+      },
+      "cancel": {
+        "label": "Cancel",
+        "description": "Do not rewind"
+      }
+    },
+    "checkpointWarning": "File checkpoints are stored in memory. This action cannot be undone once the session ends."
+  },
+  "permission": {
+    "runCommand": "Run this command?",
+    "createFile": "Create this file",
+    "editFile": "Make this edit to",
+    "queuePosition": "{position} of {total} pending",
+    "options": {
+      "yes": "Yes",
+      "yesAcceptAll": "Yes, accept all edits",
+      "no": "No",
+      "customMessage": "Tell Claude what to do instead"
+    },
+    "sendToClaude": "Send to Claude",
+    "customPlaceholder": "e.g., Use a different approach, rename the file, add error handling..."
+  },
+  "question": {
+    "questionTab": "Q{n}",
+    "submitTab": "Submit",
+    "reviewAnswers": "Review answers →",
+    "nextQuestion": "Next question →",
+    "reviewHeading": "Review your answers",
+    "questionHeader": "Question",
+    "customResponse": "Custom response",
+    "customPlaceholder": "Type a custom response...",
+    "customTextareaPlaceholder": "Enter your custom response...",
+    "noAnswer": "(no answer)"
+  },
+  "planMode": {
+    "title": "Enter plan mode?",
+    "explanation": "Claude wants to enter plan mode to explore and design an implementation approach.",
+    "inPlanMode": "In plan mode, Claude will:",
+    "steps": {
+      "explore": "Explore the codebase thoroughly",
+      "patterns": "Identify existing patterns",
+      "design": "Design an implementation strategy",
+      "present": "Present a plan for your approval"
+    },
+    "disclaimer": "No code changes will be made until you approve the plan.",
+    "options": {
+      "yes": "Yes, enter plan mode",
+      "no": "No, start implementing now",
+      "custom": "Tell Claude what to do instead"
+    },
+    "customPlaceholder": "e.g., Just implement it directly, focus on a specific part first, ask me clarifying questions..."
+  },
+  "skill": {
+    "title": "Use skill \"{name}\"?",
+    "explanation": "Claude may use instructions, code, or files from this Skill.",
+    "options": {
+      "yes": "Yes",
+      "yesDontAsk": "Yes, don't ask again",
+      "no": "No",
+      "custom": "Tell Claude what to do instead"
+    },
+    "customPlaceholder": "e.g., Use a different skill, skip this step, try a different approach..."
+  },
+  "budget": {
+    "exceeded": "Budget limit exceeded",
+    "approaching": "Approaching budget limit",
+    "progress": "{current} / {limit} ({percent}%)"
+  },
+  "status": {
+    "running": "Running {tool}..."
+  },
+  "subagent": {
+    "running": "Running",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "duration": "{seconds}s",
+    "tokens": "{n} tokens",
+    "toolCalls": "{n} tool call | {n} tool calls"
+  },
+  "todo": {
+    "title": "Tasks",
+    "currentTasks": "Current Tasks",
+    "pending": "pending",
+    "inProgress": "in progress",
+    "completed": "completed",
+    "noTasks": "No tasks"
+  },
+  "mcp": {
+    "title": "MCP Servers",
+    "description": "View and manage MCP server connections",
+    "refresh": "Refresh",
+    "noServers": "No MCP servers configured",
+    "addServers": "Add servers in .mcp.json at your workspace root",
+    "connected": "Connected",
+    "failed": "Failed",
+    "pending": "Connecting...",
+    "disabled": "Disabled",
+    "idle": "Idle",
+    "ready": "Ready",
+    "needsAuth": "Needs Authentication",
+    "unknown": "Unknown"
+  },
+  "plugin": {
+    "title": "Plugins",
+    "description": "View and manage installed plugins",
+    "refresh": "Refresh",
+    "noPlugins": "No plugins installed",
+    "addPlugins": "Install plugins via claude plugin add or place in ~/.claude/plugins/",
+    "loaded": "Loaded",
+    "failed": "Failed",
+    "pending": "Loading...",
+    "disabled": "Disabled",
+    "idle": "Idle",
+    "ready": "Ready",
+    "unknown": "Unknown"
+  },
+  "context": {
+    "title": "Context Usage",
+    "model": "Model",
+    "total": "Total",
+    "breakdown": {
+      "systemPrompt": "System Prompt",
+      "systemTools": "System Tools",
+      "customAgents": "Custom Agents",
+      "memoryFiles": "Memory Files",
+      "skills": "Skills",
+      "messages": "Messages",
+      "freeSpace": "Free Space"
+    }
+  },
+  "diff": {
+    "original": "Original",
+    "proposed": "Proposed",
+    "newFile": "(new file)",
+    "linesAdded": "+{n}",
+    "linesRemoved": "-{n}"
+  },
+  "rewindBrowser": {
+    "title": "Rewind to Previous Prompt",
+    "searchPlaceholder": "Search prompts...",
+    "loadingHistory": "Loading history...",
+    "noPrompts": "No prompts found",
+    "noFilesRestored": "No files will be restored",
+    "filesRestored": "{n} file will be restored | {n} files will be restored",
+    "moreFiles": "+{n} more",
+    "warning": "Does not affect manually edited files",
+    "navigate": "navigate",
+    "select": "select"
+  },
+  "stats": {
+    "contextUsage": "Context window usage",
+    "sessionTokens": "Session tokens (input / output)",
+    "cache": "Cache (write / read)",
+    "turns": "{n} turn | {n} turns",
+    "cost": "Session cost",
+    "openLog": "Open session log file"
+  },
+  "planApproval": {
+    "readyToCode": "Ready to code?",
+    "reviewPlan": "Review Claude's plan before proceeding",
+    "feedbackPlaceholder": "Type feedback to revise the plan...",
+    "sendFeedback": "Send Feedback",
+    "manualApprove": "Yes, manually approve",
+    "autoAccept": "Yes, auto-accept edits"
+  },
+  "toolCall": {
+    "clickToExpand": "Click to expand",
+    "awaitingApproval": "Awaiting your approval",
+    "respondToDialog": "Please respond to the dialog",
+    "notExecuted": "Not executed",
+    "changedCourse": "Claude changed course before running this tool"
+  },
+  "questionTool": {
+    "askingQuestion": "Asking a question",
+    "hasQuestion": "Claude has a question",
+    "hasQuestions": "Claude has {n} questions",
+    "moreOptions": "+{n} more",
+    "waitingResponse": "Waiting for your response...",
+    "cancelled": "Question cancelled",
+    "movedOn": "Claude moved on before asking"
+  },
+  "skillTool": {
+    "executed": "Skill \"{name}\" executed",
+    "denied": "Skill \"{name}\" denied",
+    "skipped": "Skill \"{name}\" skipped",
+    "useSkill": "Use skill \"{name}\"?",
+    "waitingApproval": "Waiting for your approval...",
+    "executedSuccess": "Skill executed successfully",
+    "feedbackSent": "Feedback sent to Claude:",
+    "userDenied": "User denied skill execution",
+    "requestSkipped": "Skill request was skipped"
+  },
+  "planModeTool": {
+    "entered": "Plan mode entered",
+    "declined": "Plan mode declined",
+    "skipped": "Plan mode skipped",
+    "enterPlanMode": "Enter plan mode?",
+    "waitingApproval": "Waiting for your approval...",
+    "nowExploring": "Now exploring and designing an implementation approach",
+    "feedbackSent": "Feedback sent to Claude:",
+    "implementDirectly": "User chose to start implementing directly",
+    "requestSkipped": "Plan mode request was skipped",
+    "exited": "Plan mode exited"
+  },
+  "exitPlanMode": {
+    "approved": "Plan approved",
+    "revisionRequested": "Plan revision requested",
+    "exited": "Plan mode exited",
+    "readyToCode": "Ready to code?",
+    "autoAccept": "Auto-accept edits",
+    "manualApproval": "Manual approval",
+    "waitingApproval": "Waiting for your approval...",
+    "feedbackSent": "Feedback sent to Claude:",
+    "wasExited": "Plan mode was exited"
+  },
+  "welcome": {
+    "title": "Welcome to Claude Unbound",
+    "message": "Unleash the full power of Claude AI. Ask anything about your code or let me help you build something new.",
+    "undoChanges": "Undo file changes after this point",
+    "sentMidStream": "↳ sent mid-stream",
+    "queued": "queued"
+  },
+  "subagentTypes": {
+    "codeReviewer": "Code Reviewer",
+    "explorer": "Explorer",
+    "planner": "Planner",
+    "agent": "Agent",
+    "guide": "Guide",
+    "setup": "Setup"
+  },
+  "subagentDisplay": {
+    "tools": "{n} tool | {n} tools",
+    "openLog": "Open agent log file",
+    "viewPrompt": "View prompt",
+    "result": "Result",
+    "working": "Agent is working...",
+    "noActivity": "No activity recorded"
+  },
+  "diffView": {
+    "noChanges": "No changes",
+    "copyNew": "Copy new content",
+    "reject": "Reject",
+    "approve": "Approve",
+    "hiddenLines": "hidden lines"
+  },
+  "fileTree": {
+    "title": "Files Accessed"
+  },
+  "thinking": {
+    "thinking": "Thinking",
+    "thought": "Thought"
+  },
+  "atMention": {
+    "indexing": "Indexing workspace...",
+    "noMatches": "No matches found",
+    "tryDifferent": "Try a different search term",
+    "builtin": "built-in"
+  },
+  "codeBlock": {
+    "copyCode": "Copy code"
+  },
+  "compactMarker": {
+    "boundary": "context boundary",
+    "title": "Context Compacted",
+    "auto": "AUTO",
+    "manual": "MANUAL",
+    "summary": "Summary",
+    "summaryHeader": "Previous Context Summary",
+    "noSummary": "No summary available for this compaction"
+  },
+  "diffOverlay": {
+    "write": "Write",
+    "edit": "Edit"
+  },
+  "imageLightbox": {
+    "enlarged": "Enlarged image"
+  },
+  "imageThumbnail": {
+    "attachedImage": "Attached image",
+    "remove": "Remove {name}"
+  },
+  "mcpIndicator": {
+    "connecting": "MCP: {connected}/{total} connecting",
+    "withFailures": "MCP: {connected}/{total} ({failed} failed)",
+    "connected": "MCP: {connected}/{total}",
+    "label": "MCP"
+  },
+  "mcpToolOverlay": {
+    "response": "Response",
+    "running": "MCP tool is running...",
+    "noResponse": "No response available"
+  },
+  "pluginIndicator": {
+    "noPlugins": "Plugins: No plugins installed",
+    "loading": "Plugins: {loaded}/{enabled} loading",
+    "withFailures": "Plugins: {loaded}/{enabled} ({failed} failed)",
+    "ready": "Plugins: {enabled} ready",
+    "loaded": "Plugins: {loaded}/{total}",
+    "label": "Plugins"
+  },
+  "slashCommand": {
+    "loading": "Loading commands...",
+    "noMatches": "No matching commands",
+    "createHint": "Create commands in .claude/commands/"
+  },
+  "subagentIndicator": {
+    "active": "Active agents:",
+    "recent": "Recent agents:"
+  },
+  "toast": {
+    "conversationCleared": "Conversation cleared",
+    "interrupted": "Message interrupted - prompt restored to input",
+    "rewindBoth": "Files and conversation rewound - edit your message and resend",
+    "rewindConversation": "Conversation rewound - edit your message and resend",
+    "truncateFailed": "Could not truncate conversation history - message not found",
+    "rewindFilesPartial": "Files were rewound successfully",
+    "rewindFiles": "Files rewound successfully",
+    "rewindFailed": "Rewind failed: {message}"
+  },
+  "imageAttachment": {
+    "maxAllowed": "Maximum {n} images allowed",
+    "tooLarge": "Image too large (max {n}MB)",
+    "unsupportedType": "Unsupported image type. Use PNG, JPEG, GIF, or WebP",
+    "readFailed": "Failed to read image file",
+    "noImagesInClipboard": "No images found in clipboard"
+  }
+}

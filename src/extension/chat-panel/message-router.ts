@@ -26,7 +26,10 @@ export interface MessageRouterConfig {
   historyManager: HistoryManager;
   settingsManager: SettingsManager;
   workspaceManager: WorkspaceManager;
+  context: vscode.ExtensionContext;
 }
+
+const LANGUAGE_PREFERENCE_KEY = "userLanguagePreference";
 
 interface HandlerContext {
   panel: vscode.WebviewPanel;
@@ -49,6 +52,7 @@ export class MessageRouter {
   private readonly historyManager: HistoryManager;
   private readonly settingsManager: SettingsManager;
   private readonly workspaceManager: WorkspaceManager;
+  private readonly context: vscode.ExtensionContext;
   private readonly handlers: Record<string, MessageHandler>;
 
   constructor(config: MessageRouterConfig) {
@@ -59,7 +63,16 @@ export class MessageRouter {
     this.historyManager = config.historyManager;
     this.settingsManager = config.settingsManager;
     this.workspaceManager = config.workspaceManager;
+    this.context = config.context;
     this.handlers = this.buildHandlerRegistry();
+  }
+
+  private getLanguagePreference(): string {
+    return this.context.globalState.get<string>(LANGUAGE_PREFERENCE_KEY) ?? vscode.env.language;
+  }
+
+  private async setLanguagePreference(locale: string): Promise<void> {
+    await this.context.globalState.update(LANGUAGE_PREFERENCE_KEY, locale);
   }
 
   async handleWebviewMessage(message: WebviewToExtensionMessage, panelId: string): Promise<void> {
@@ -147,7 +160,7 @@ export class MessageRouter {
         } else {
           this.postMessage(ctx.panel, {
             type: "notification",
-            message: "Cannot send mid-stream message: no active streaming session",
+            message: vscode.l10n.t("Cannot send mid-stream message: no active streaming session"),
             notificationType: "error",
           });
         }
@@ -241,6 +254,7 @@ export class MessageRouter {
         this.settingsManager.sendAvailableModels(ctx.session, ctx.panel);
         this.settingsManager.sendMcpConfig(ctx.panel);
         this.settingsManager.sendPluginConfig(ctx.panel);
+        this.postMessage(ctx.panel, { type: "languageChange", locale: this.getLanguagePreference() });
 
         try {
           const { history, hasMore } = await extractCommandHistory(this.workspacePath, 0);
@@ -368,7 +382,7 @@ export class MessageRouter {
           const doc = await vscode.workspace.openTextDocument(fileUri);
           await vscode.window.showTextDocument(doc, { preview: false });
         } else {
-          vscode.window.showInformationMessage("No active session to view");
+          vscode.window.showInformationMessage(vscode.l10n.t("No active session to view"));
         }
       },
 
@@ -381,7 +395,7 @@ export class MessageRouter {
           await vscode.window.showTextDocument(doc, { preview: false });
         } catch (err) {
           vscode.window.showWarningMessage(
-            `Agent log file not found: ${err instanceof Error ? err.message : "Unknown error"}`
+            vscode.l10n.t("Agent log file not found: {0}", err instanceof Error ? err.message : "Unknown error")
           );
         }
       },
@@ -409,7 +423,7 @@ export class MessageRouter {
           log("[MessageRouter] Error renaming session:", err);
           this.postMessage(ctx.panel, {
             type: "notification",
-            message: `Failed to rename session: ${err instanceof Error ? err.message : "Unknown error"}`,
+            message: vscode.l10n.t("Failed to rename session: {0}", err instanceof Error ? err.message : "Unknown error"),
             notificationType: "error",
           });
         }
@@ -440,7 +454,7 @@ export class MessageRouter {
           log("[MessageRouter] Error deleting session:", err);
           this.postMessage(ctx.panel, {
             type: "notification",
-            message: `Failed to delete session: ${err instanceof Error ? err.message : "Unknown error"}`,
+            message: vscode.l10n.t("Failed to delete session: {0}", err instanceof Error ? err.message : "Unknown error"),
             notificationType: "error",
           });
         }
@@ -494,6 +508,11 @@ export class MessageRouter {
       requestCustomAgents: async (msg, ctx) => {
         const enabledPluginIds = this.settingsManager.getEnabledPluginIds();
         await this.workspaceManager.sendCustomAgents(ctx.panel, enabledPluginIds);
+      },
+
+      setLanguagePreference: async (msg) => {
+        if (msg.type !== "setLanguagePreference") return;
+        await this.setLanguagePreference(msg.locale);
       },
     };
   }

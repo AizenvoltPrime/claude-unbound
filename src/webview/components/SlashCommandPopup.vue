@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { IconLoader, IconTerminal } from '@/components/icons';
 import type { SlashCommandItem } from '@shared/types';
 import { escapeHtml } from '@shared/utils';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   isOpen: boolean;
@@ -123,13 +126,13 @@ function getSourceBadge(command: SlashCommandItem): string | null {
             <!-- Loading State -->
             <div v-if="isLoading" class="px-3 py-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <IconLoader :size="16" class="animate-spin text-primary" />
-              <span>Loading commands...</span>
+              <span>{{ t('slashCommand.loading') }}</span>
             </div>
 
             <!-- Empty State -->
             <div v-else-if="commands.length === 0" class="px-3 py-4 text-center text-sm text-muted-foreground">
-              <div class="mb-1">No matching commands</div>
-              <div class="text-xs opacity-70">Create commands in .claude/commands/</div>
+              <div class="mb-1">{{ t('slashCommand.noMatches') }}</div>
+              <div class="text-xs opacity-70">{{ t('slashCommand.createHint') }}</div>
             </div>
 
             <!-- Command List -->
@@ -184,15 +187,15 @@ function getSourceBadge(command: SlashCommandItem): string | null {
         <div class="px-3 py-2 border-t border-border/30 bg-card/30 text-xs text-muted-foreground flex items-center gap-4">
           <span class="flex items-center gap-1">
             <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">↑↓</kbd>
-            <span class="opacity-80">navigate</span>
+            <span class="opacity-80">{{ t('common.navigate') }}</span>
           </span>
           <span class="flex items-center gap-1">
             <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Tab</kbd>
-            <span class="opacity-80">select</span>
+            <span class="opacity-80">{{ t('common.select') }}</span>
           </span>
           <span class="flex items-center gap-1">
             <kbd class="px-1.5 py-0.5 bg-card rounded text-[10px] font-mono">Esc</kbd>
-            <span class="opacity-80">close</span>
+            <span class="opacity-80">{{ t('common.close') }}</span>
           </span>
         </div>
       </div>

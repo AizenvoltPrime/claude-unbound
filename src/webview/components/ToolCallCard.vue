@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { ToolCall } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import type { ExpandedDiff } from '@/stores/useDiffStore';
+
 import {
   IconGear,
   IconLock,
@@ -24,6 +26,8 @@ import {
 } from '@/components/icons';
 import LoadingSpinner from './LoadingSpinner.vue';
 import DiffView from './DiffView.vue';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   toolCall: ToolCall;
@@ -214,7 +218,7 @@ function formatInput(input: Record<string, unknown>): string {
             size="sm"
             class="opacity-0 group-hover:opacity-100 transition-opacity text-xs pointer-events-none"
           >
-            Click to expand
+            {{ t('toolCall.clickToExpand') }}
           </Button>
         </div>
       </div>
@@ -233,8 +237,8 @@ function formatInput(input: Record<string, unknown>): string {
         v-if="isAwaitingApproval"
         class="m-3 p-2 text-xs bg-amber-900/20 border-amber-500/30 animate-pulse"
       >
-        <AlertTitle class="text-amber-400 font-semibold mb-0">Awaiting your approval</AlertTitle>
-        <AlertDescription class="text-amber-400">Please respond to the dialog</AlertDescription>
+        <AlertTitle class="text-amber-400 font-semibold mb-0">{{ t('toolCall.awaitingApproval') }}</AlertTitle>
+        <AlertDescription class="text-amber-400">{{ t('toolCall.respondToDialog') }}</AlertDescription>
       </Alert>
 
       <div v-if="isRunning" class="h-0.5 bg-muted rounded overflow-hidden mx-3 mb-2">
@@ -275,16 +279,16 @@ function formatInput(input: Record<string, unknown>): string {
         v-if="isAwaitingApproval"
         class="p-2 text-xs bg-amber-900/20 border-amber-500/30 animate-pulse"
       >
-        <AlertTitle class="text-amber-400 font-semibold mb-0">Awaiting your approval</AlertTitle>
-        <AlertDescription class="text-amber-400">Please respond to the dialog</AlertDescription>
+        <AlertTitle class="text-amber-400 font-semibold mb-0">{{ t('toolCall.awaitingApproval') }}</AlertTitle>
+        <AlertDescription class="text-amber-400">{{ t('toolCall.respondToDialog') }}</AlertDescription>
       </Alert>
 
       <Alert
         v-if="isAbandoned"
         class="p-2 text-xs bg-gray-800/40 border-gray-600/30"
       >
-        <AlertTitle class="text-gray-400 font-semibold mb-0">Not executed</AlertTitle>
-        <AlertDescription class="text-gray-400">Claude changed course before running this tool</AlertDescription>
+        <AlertTitle class="text-gray-400 font-semibold mb-0">{{ t('toolCall.notExecuted') }}</AlertTitle>
+        <AlertDescription class="text-gray-400">{{ t('toolCall.changedCourse') }}</AlertDescription>
       </Alert>
 
       <div v-if="isRunning" class="h-0.5 bg-muted rounded overflow-hidden">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
   Collapsible,
   CollapsibleContent,
@@ -8,6 +9,8 @@ import {
 import { IconBrain, IconChevronDown } from '@/components/icons';
 import { useTextStreaming } from '@/composables/useTextStreaming';
 import MarkdownRenderer from './MarkdownRenderer.vue';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   thinking?: string;
@@ -107,7 +110,7 @@ onUnmounted(() => {
       <!-- Label and duration -->
       <div class="flex items-center gap-2">
         <span class="text-sm text-muted-foreground">
-          {{ isStreaming ? 'Thinking' : 'Thought' }}
+          {{ isStreaming ? t('thinking.thinking') : t('thinking.thought') }}
         </span>
         <span
           v-if="isStreaming || displaySeconds > 0"

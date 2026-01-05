@@ -2,6 +2,7 @@
 import type { PluginStatusInfo } from '@shared/types';
 import type { Component } from 'vue';
 import { onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -19,6 +20,8 @@ import {
   IconPuzzle,
 } from '@/components/icons';
 import LoadingSpinner from './LoadingSpinner.vue';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   plugins: PluginStatusInfo[];
@@ -67,17 +70,17 @@ function getStatusIcon(status: PluginStatusInfo['status']): Component | null {
 function getStatusLabel(status: PluginStatusInfo['status']): string {
   switch (status) {
     case 'loaded':
-      return 'Loaded';
+      return t('plugin.loaded');
     case 'failed':
-      return 'Failed';
+      return t('plugin.failed');
     case 'pending':
-      return 'Loading...';
+      return t('plugin.pending');
     case 'disabled':
-      return 'Disabled';
+      return t('plugin.disabled');
     case 'idle':
-      return 'Ready';
+      return t('plugin.ready');
     default:
-      return 'Unknown';
+      return t('plugin.unknown');
   }
 }
 
@@ -121,9 +124,9 @@ function getStatusBadgeClass(status: PluginStatusInfo['status']): string {
     <DialogContent class="bg-card border-border max-w-md max-h-96 overflow-hidden flex flex-col">
       <DialogHeader class="flex flex-row items-center justify-between shrink-0 pr-8">
         <div>
-          <DialogTitle>Plugins</DialogTitle>
+          <DialogTitle>{{ t('plugin.title') }}</DialogTitle>
           <DialogDescription class="sr-only">
-            View and manage installed plugins
+            {{ t('plugin.description') }}
           </DialogDescription>
         </div>
         <Button
@@ -131,14 +134,14 @@ function getStatusBadgeClass(status: PluginStatusInfo['status']): string {
           class="h-7"
           @click="emit('refresh')"
         >
-          Refresh
+          {{ t('plugin.refresh') }}
         </Button>
       </DialogHeader>
 
       <div class="flex-1 overflow-y-auto py-2">
         <div v-if="plugins.length === 0" class="text-center py-8 opacity-50">
-          <p>No plugins installed</p>
-          <p class="text-xs mt-2">Install plugins via claude plugin add or place in ~/.claude/plugins/</p>
+          <p>{{ t('plugin.noPlugins') }}</p>
+          <p class="text-xs mt-2">{{ t('plugin.addPlugins') }}</p>
         </div>
 
         <div v-else class="space-y-2">

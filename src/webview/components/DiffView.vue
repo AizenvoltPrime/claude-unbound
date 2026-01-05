@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
+
 import { IconCheck, IconCopy } from '@/components/icons';
 import { useCopyToClipboard } from '@/composables/useCopyToClipboard';
 import {
@@ -11,6 +13,8 @@ import {
 } from '@/utils/parseUnifiedDiff';
 import { highlightDiffLines, type HighlightedDiffLine } from '@/utils/highlightDiff';
 import { escapeHtml } from '@/utils/stringUtils';
+
+const { t } = useI18n();
 
 const props = withDefaults(
   defineProps<{
@@ -55,7 +59,7 @@ const diffSummary = computed(() => {
   const parts: string[] = [];
   if (added > 0) parts.push(`+${added}`);
   if (removed > 0) parts.push(`-${removed}`);
-  return parts.join(' / ') || 'No changes';
+  return parts.join(' / ') || t('diffView.noChanges');
 });
 
 async function highlightLines() {
@@ -142,7 +146,7 @@ onUnmounted(() => {
           size="icon-sm"
           class="h-6 w-6 opacity-0 transition-opacity text-muted-foreground hover:text-foreground"
           :class="{ 'opacity-100': isHovering || hasCopied, 'text-success': hasCopied }"
-          title="Copy new content"
+          :title="t('diffView.copyNew')"
           @click="handleCopyNewContent"
         >
           <IconCheck v-if="hasCopied" :size="14" />
@@ -151,10 +155,10 @@ onUnmounted(() => {
 
         <template v-if="showActions">
           <Button variant="destructive" size="sm" @click="emit('reject')">
-            Reject
+            {{ t('diffView.reject') }}
           </Button>
           <Button size="sm" class="bg-success hover:bg-success/80" @click="emit('approve')">
-            Approve
+            {{ t('diffView.approve') }}
           </Button>
         </template>
       </div>
@@ -166,7 +170,7 @@ onUnmounted(() => {
           <template v-for="(line, idx) in highlightedLines" :key="idx">
             <tr v-if="line.type === 'gap'" class="diff-gap-row">
               <td colspan="4" class="text-center py-1 text-muted-foreground text-xs">
-                <span v-if="line.hiddenCount">{{ line.hiddenCount }} hidden lines</span>
+                <span v-if="line.hiddenCount">{{ line.hiddenCount }} {{ t('diffView.hiddenLines') }}</span>
                 <span v-else>───</span>
               </td>
             </tr>

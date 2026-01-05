@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { SessionStats } from '@shared/types';
 import { IconArrowDown, IconArrowUp, IconChartBar, IconDatabase, IconFile } from '@/components/icons';
 import { Button } from '@/components/ui/button';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   stats: SessionStats;
@@ -22,9 +25,9 @@ const contextPercentage = computed(() => {
 });
 
 const contextStatusColor = computed(() => {
-  if (contextPercentage.value >= 95) return { fill: 'var(--color-error, #f87171)', text: 'text-error' };
-  if (contextPercentage.value >= 80) return { fill: 'var(--color-warning, #facc15)', text: 'text-warning' };
-  return { fill: 'var(--color-success, #4ade80)', text: 'text-success' };
+  if (contextPercentage.value >= 95) return { fill: 'var(--color-error)', text: 'text-error' };
+  if (contextPercentage.value >= 80) return { fill: 'var(--color-warning)', text: 'text-warning' };
+  return { fill: 'var(--color-success)', text: 'text-success' };
 });
 
 const hasCacheActivity = computed(() => {
@@ -51,7 +54,7 @@ function formatNumber(num: number): string {
     <div class="flex items-center gap-3">
       <span
         class="flex items-center gap-1.5"
-        title="Context window usage"
+        :title="t('stats.contextUsage')"
       >
         <!-- Status circle indicator -->
         <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -60,7 +63,7 @@ function formatNumber(num: number): string {
         <span :class="contextStatusColor.text">{{ formatNumber(totalContext) }}/{{ formatNumber(stats.contextWindowSize) }} ({{ contextPercentage }}%)</span>
       </span>
 
-      <span class="flex items-center gap-1.5" title="Session tokens (input / output)">
+      <span class="flex items-center gap-1.5" :title="t('stats.sessionTokens')">
         <IconChartBar :size="14" class="text-muted-foreground shrink-0" />
         <span class="flex items-center gap-0.5 text-foreground">
           {{ formatNumber(stats.totalInputTokens) }}<IconArrowDown :size="10" />
@@ -73,7 +76,7 @@ function formatNumber(num: number): string {
       <span
         v-if="hasCacheActivity"
         class="flex items-center gap-1.5"
-        title="Cache (write / read)"
+        :title="t('stats.cache')"
       >
         <IconDatabase :size="14" class="text-muted-foreground shrink-0" />
         <span class="flex items-center gap-0.5 text-purple-400">
@@ -86,16 +89,16 @@ function formatNumber(num: number): string {
     </div>
 
     <div class="flex items-center gap-3">
-      <span v-if="stats.numTurns > 0" class="text-muted-foreground" title="Conversation turns">
-        {{ stats.numTurns }} turn{{ stats.numTurns !== 1 ? 's' : '' }}
+      <span v-if="stats.numTurns > 0" class="text-muted-foreground" :title="t('stats.turns', { n: stats.numTurns }, stats.numTurns)">
+        {{ t('stats.turns', { n: stats.numTurns }, stats.numTurns) }}
       </span>
-      <span class="font-medium text-foreground" title="Session cost">
+      <span class="font-medium text-foreground" :title="t('stats.cost')">
         {{ formatCost(stats.totalCostUsd) }}
       </span>
       <Button
         variant="ghost"
         class="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-        title="Open session log file"
+        :title="t('stats.openLog')"
         @click="emit('openLog')"
       >
         <IconFile :size="14" />

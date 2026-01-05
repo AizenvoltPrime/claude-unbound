@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, type Component } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { PermissionMode, UserContentBlock } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +21,7 @@ import AtMentionPopup from './AtMentionPopup.vue';
 import SlashCommandPopup from './SlashCommandPopup.vue';
 import ImageThumbnailStrip from './ImageThumbnailStrip.vue';
 
+const { t } = useI18n();
 const uiStore = useUIStore();
 
 const MAX_TEXTAREA_HEIGHT = 200;
@@ -133,16 +135,16 @@ defineExpose({ focus, setInput });
 
 const canSend = computed(() => inputText.value.trim().length > 0 || hasImageAttachments.value);
 
-const modeConfig: Record<PermissionMode, { icon: Component; label: string; shortLabel: string }> = {
-  default: { icon: IconPencil, label: 'Ask before edits', shortLabel: 'Ask' },
-  acceptEdits: { icon: IconCheck, label: 'Accept edits', shortLabel: 'Accept' },
-  bypassPermissions: { icon: IconBolt, label: 'Bypass permissions', shortLabel: 'Bypass' },
-  plan: { icon: IconClipboard, label: 'Plan mode', shortLabel: 'Plan' },
-};
+const modeConfig = computed<Record<PermissionMode, { icon: Component; label: string; shortLabel: string }>>(() => ({
+  default: { icon: IconPencil, label: t('chatInput.permissionModes.default.label'), shortLabel: t('chatInput.permissionModes.default.short') },
+  acceptEdits: { icon: IconCheck, label: t('chatInput.permissionModes.acceptEdits.label'), shortLabel: t('chatInput.permissionModes.acceptEdits.short') },
+  bypassPermissions: { icon: IconBolt, label: t('chatInput.permissionModes.bypassPermissions.label'), shortLabel: t('chatInput.permissionModes.bypassPermissions.short') },
+  plan: { icon: IconClipboard, label: t('chatInput.permissionModes.plan.label'), shortLabel: t('chatInput.permissionModes.plan.short') },
+}));
 
 const modeOrder: PermissionMode[] = ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
 
-const currentModeConfig = computed(() => modeConfig[props.permissionMode]);
+const currentModeConfig = computed(() => modeConfig.value[props.permissionMode]);
 
 function cycleMode() {
   const currentIndex = modeOrder.indexOf(props.permissionMode);
@@ -152,9 +154,9 @@ function cycleMode() {
 
 const ideContextLabel = computed(() => {
   const ctx = uiStore.ideContext;
-  if (!ctx) return 'No file';
+  if (!ctx) return t('common.noFile');
   if (ctx.type === 'selection' && ctx.lineCount) {
-    return `${ctx.lineCount} line${ctx.lineCount > 1 ? 's' : ''}`;
+    return t('chatInput.lineCount', { n: ctx.lineCount }, ctx.lineCount);
   }
   return ctx.fileName;
 });
@@ -165,7 +167,7 @@ const ideContextEnabled = computed(() => {
 
 const ideContextTooltip = computed(() => {
   const ctx = uiStore.ideContext;
-  const action = ideContextEnabled.value ? 'Click to exclude context' : 'Click to include context';
+  const action = ideContextEnabled.value ? t('chatInput.excludeContext') : t('chatInput.includeContext');
   if (!ctx) return action;
   return `${ctx.filePath}\n\n${action}`;
 });
@@ -349,7 +351,7 @@ onUnmounted(() => {
         <textarea
           ref="textareaRef"
           v-model="inputText"
-          :placeholder="isProcessing ? 'Type to queue next message...' : 'Ask Claude anything...'"
+          :placeholder="isProcessing ? t('chatInput.placeholderQueued') : t('chatInput.placeholder')"
           rows="1"
           class="w-full p-3 bg-transparent text-foreground resize-none overflow-hidden
                  focus:outline-none placeholder:text-muted-foreground"
@@ -405,7 +407,7 @@ onUnmounted(() => {
               v-if="isProcessing && canSend"
               class="text-xs text-foreground"
             >
-              Will queue
+              {{ t('chatInput.willQueue') }}
             </span>
 
             <!-- Send/Stop button -->

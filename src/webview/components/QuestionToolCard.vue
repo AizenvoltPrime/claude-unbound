@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { ToolCall, Question } from '@shared/types';
+
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import {
   IconQuestionCircle,
@@ -10,6 +12,8 @@ import {
   IconBan,
 } from '@/components/icons';
 import LoadingSpinner from './LoadingSpinner.vue';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   toolCall: ToolCall;
@@ -78,9 +82,9 @@ const cardClass = computed(() => {
 
 const headerText = computed(() => {
   const count = questions.value.length;
-  if (count === 0) return 'Asking a question';
-  if (count === 1) return 'Claude has a question';
-  return `Claude has ${count} questions`;
+  if (count === 0) return t('questionTool.askingQuestion');
+  if (count === 1) return t('questionTool.hasQuestion');
+  return t('questionTool.hasQuestions', { n: count });
 });
 
 function getAnswerForQuestion(question: Question): string | null {
@@ -137,7 +141,7 @@ function truncateText(text: string, maxLength: number): string {
               v-if="question.options.length > 3"
               class="inline-flex items-center px-1.5 py-0.5 text-[10px] text-muted-foreground"
             >
-              +{{ question.options.length - 3 }} more
+              {{ t('questionTool.moreOptions', { n: question.options.length - 3 }) }}
             </span>
           </div>
 
@@ -155,21 +159,21 @@ function truncateText(text: string, maxLength: number): string {
       <div v-if="isAwaitingApproval" class="px-3 py-2 bg-primary/10 border-t border-primary/20">
         <div class="flex items-center gap-2 text-xs text-primary">
           <span class="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
-          <span>Waiting for your response...</span>
+          <span>{{ t('questionTool.waitingResponse') }}</span>
         </div>
       </div>
 
       <div v-else-if="isDenied" class="px-3 py-2 bg-error/10 border-t border-error/20">
         <div class="flex items-center gap-2 text-xs text-error/80">
           <IconXCircle :size="12" />
-          <span>Question cancelled</span>
+          <span>{{ t('questionTool.cancelled') }}</span>
         </div>
       </div>
 
       <div v-else-if="isAbandoned" class="px-3 py-2 bg-muted/30 border-t border-border/30">
         <div class="flex items-center gap-2 text-xs text-muted-foreground">
           <IconBan :size="12" />
-          <span>Claude moved on before asking</span>
+          <span>{{ t('questionTool.movedOn') }}</span>
         </div>
       </div>
     </CardContent>

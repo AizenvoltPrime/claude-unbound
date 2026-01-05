@@ -2,6 +2,7 @@
 import type { McpServerStatusInfo } from '@shared/types';
 import type { Component } from 'vue';
 import { onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -20,6 +21,8 @@ import {
   IconBan,
 } from '@/components/icons';
 import LoadingSpinner from './LoadingSpinner.vue';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   servers: McpServerStatusInfo[];
@@ -70,19 +73,19 @@ function getStatusIcon(status: McpServerStatusInfo['status']): Component | null 
 function getStatusLabel(status: McpServerStatusInfo['status']): string {
   switch (status) {
     case 'connected':
-      return 'Connected';
+      return t('mcp.connected');
     case 'failed':
-      return 'Failed';
+      return t('mcp.failed');
     case 'needs-auth':
-      return 'Needs Authentication';
+      return t('mcp.needsAuth');
     case 'pending':
-      return 'Connecting...';
+      return t('mcp.pending');
     case 'idle':
-      return 'Ready';
+      return t('mcp.ready');
     case 'disabled':
-      return 'Disabled';
+      return t('mcp.disabled');
     default:
-      return 'Unknown';
+      return t('mcp.unknown');
   }
 }
 
@@ -130,9 +133,9 @@ function getStatusBadgeClass(status: McpServerStatusInfo['status']): string {
     <DialogContent class="bg-card border-border max-w-md max-h-96 overflow-hidden flex flex-col">
       <DialogHeader class="flex flex-row items-center justify-between shrink-0 pr-8">
         <div>
-          <DialogTitle>MCP Servers</DialogTitle>
+          <DialogTitle>{{ t('mcp.title') }}</DialogTitle>
           <DialogDescription class="sr-only">
-            View and manage MCP server connections
+            {{ t('mcp.description') }}
           </DialogDescription>
         </div>
         <Button
@@ -140,14 +143,14 @@ function getStatusBadgeClass(status: McpServerStatusInfo['status']): string {
           class="h-7"
           @click="emit('refresh')"
         >
-          Refresh
+          {{ t('mcp.refresh') }}
         </Button>
       </DialogHeader>
 
       <div class="flex-1 overflow-y-auto py-2">
         <div v-if="servers.length === 0" class="text-center py-8 opacity-50">
-          <p>No MCP servers configured</p>
-          <p class="text-xs mt-2">Add servers in .mcp.json at your workspace root</p>
+          <p>{{ t('mcp.noServers') }}</p>
+          <p class="text-xs mt-2">{{ t('mcp.addServers') }}</p>
         </div>
 
         <div v-else class="space-y-2">

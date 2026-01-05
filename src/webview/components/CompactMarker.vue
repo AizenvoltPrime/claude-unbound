@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { CompactMarker as CompactMarkerType } from '@shared/types';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { IconChevronDown, IconChevronUp } from '@/components/icons';
 import MarkdownRenderer from './MarkdownRenderer.vue';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   marker: CompactMarkerType;
@@ -44,7 +47,7 @@ function formatTimestamp(timestamp: number): string {
     <!-- Compact boundary indicator line -->
     <div class="flex items-center gap-3 py-2 px-4">
       <div class="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
-      <span class="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">context boundary</span>
+      <span class="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">{{ t('compactMarker.boundary') }}</span>
       <div class="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
     </div>
 
@@ -70,19 +73,19 @@ function formatTimestamp(timestamp: number): string {
             </div>
 
             <div class="flex flex-col items-start">
-              <span class="text-sm font-semibold text-foreground">Context Compacted</span>
+              <span class="text-sm font-semibold text-foreground">{{ t('compactMarker.title') }}</span>
               <div class="flex items-center gap-2 mt-0.5">
                 <span
                   v-if="marker.trigger === 'auto'"
                   class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-info/20 text-info border border-info/30"
                 >
-                  AUTO
+                  {{ t('compactMarker.auto') }}
                 </span>
                 <span
                   v-else
                   class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/20 text-primary border border-primary/30"
                 >
-                  MANUAL
+                  {{ t('compactMarker.manual') }}
                 </span>
                 <span class="text-[10px] text-muted-foreground">{{ tokenReduction }} tokens</span>
                 <span class="text-[10px] text-muted-foreground">•</span>
@@ -92,7 +95,7 @@ function formatTimestamp(timestamp: number): string {
           </div>
 
           <div v-if="hasSummary" class="flex items-center gap-2">
-            <span class="text-xs text-muted-foreground">{{ isExpanded ? 'Collapse' : 'Expand' }} Summary</span>
+            <span class="text-xs text-muted-foreground">{{ isExpanded ? t('common.collapse') : t('common.expand') }} {{ t('compactMarker.summary') }}</span>
             <div class="w-6 h-6 rounded-full bg-muted flex items-center justify-center border border-border">
               <component
                 :is="isExpanded ? IconChevronUp : IconChevronDown"
@@ -109,7 +112,7 @@ function formatTimestamp(timestamp: number): string {
             <!-- Summary header -->
             <div class="flex items-center gap-2 mb-3">
               <div class="w-1 h-4 rounded-full bg-primary"></div>
-              <span class="text-xs font-semibold text-foreground uppercase tracking-wider">Previous Context Summary</span>
+              <span class="text-xs font-semibold text-foreground uppercase tracking-wider">{{ t('compactMarker.summaryHeader') }}</span>
             </div>
 
             <!-- Summary content with styled scrollbar -->
@@ -123,7 +126,7 @@ function formatTimestamp(timestamp: number): string {
 
         <!-- No summary state -->
         <div v-if="!hasSummary" class="px-4 py-3 text-xs text-muted-foreground italic">
-          No summary available for this compaction
+          {{ t('compactMarker.noSummary') }}
         </div>
       </div>
     </div>

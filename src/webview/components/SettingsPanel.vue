@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { setLocale, i18n } from '@/i18n';
 import type { ExtensionSettings, ModelInfo, PermissionMode } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +22,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+const { t } = useI18n();
+
 const props = defineProps<{
   settings: ExtensionSettings;
   availableModels: ModelInfo[];
@@ -36,12 +40,23 @@ const emit = defineEmits<{
   (e: 'openVSCodeSettings'): void;
 }>();
 
-const permissionModeOptions: { value: PermissionMode; label: string; description: string }[] = [
-  { value: 'default', label: 'Ask before edits', description: 'Prompt for file changes' },
-  { value: 'acceptEdits', label: 'Accept edits', description: 'Auto-approve file changes' },
-  { value: 'bypassPermissions', label: 'Bypass all', description: 'Auto-approve everything' },
-  { value: 'plan', label: 'Plan mode', description: 'Read-only, no execution' },
+const permissionModeOptions = computed<{ value: PermissionMode; label: string; description: string }[]>(() => [
+  { value: 'default', label: t('settings.permissionOptions.default.label'), description: t('settings.permissionOptions.default.description') },
+  { value: 'acceptEdits', label: t('settings.permissionOptions.acceptEdits.label'), description: t('settings.permissionOptions.acceptEdits.description') },
+  { value: 'bypassPermissions', label: t('settings.permissionOptions.bypassPermissions.label'), description: t('settings.permissionOptions.bypassPermissions.description') },
+  { value: 'plan', label: t('settings.permissionOptions.plan.label'), description: t('settings.permissionOptions.plan.description') },
+]);
+
+const languageOptions = [
+  { value: 'en', label: 'English' },
+  { value: 'el', label: 'Ελληνικά' },
 ];
+
+const currentLocale = computed(() => i18n.global.locale.value);
+
+function handleLanguageChange(value: string) {
+  setLocale(value);
+}
 
 function handleDefaultModeChange(mode: string) {
   emit('setDefaultPermissionMode', mode as PermissionMode);
@@ -157,12 +172,12 @@ const currentModelDisplayName = computed(() => {
   <Sheet :open="visible" @update:open="(open: boolean) => !open && emit('close')">
     <SheetContent side="right" class="w-80 bg-card border-l border-border overflow-y-auto">
       <SheetHeader class="mb-6">
-        <SheetTitle class="text-foreground">Settings</SheetTitle>
+        <SheetTitle class="text-foreground">{{ t('settings.title') }}</SheetTitle>
       </SheetHeader>
 
       <!-- Default Permission Mode -->
       <div class="mb-5">
-        <Label class="block mb-2 text-primary font-medium">Default Permission Mode</Label>
+        <Label class="block mb-2 text-primary font-medium">{{ t('settings.defaultPermissionMode') }}</Label>
         <Select :model-value="settings.defaultPermissionMode" @update:model-value="handleDefaultModeChange">
           <SelectTrigger class="w-full bg-input border-border">
             <SelectValue />
@@ -178,13 +193,13 @@ const currentModelDisplayName = computed(() => {
           </SelectContent>
         </Select>
         <p class="text-xs text-muted-foreground mt-1">
-          Default mode for new chat panels. Each panel can override this.
+          {{ t('settings.defaultPermissionModeDescription') }}
         </p>
       </div>
 
       <!-- Model Selection -->
       <div class="mb-5">
-        <Label class="block mb-2 text-primary font-medium">Model</Label>
+        <Label class="block mb-2 text-primary font-medium">{{ t('settings.model') }}</Label>
         <Select :model-value="localModel || 'claude-opus-4-5-20251101'" @update:model-value="handleModelChange">
           <SelectTrigger class="w-full bg-input border-border">
             <SelectValue :placeholder="currentModelDisplayName" />
@@ -203,18 +218,18 @@ const currentModelDisplayName = computed(() => {
 
       <!-- Budget Limit -->
       <div class="mb-5">
-        <Label class="block mb-2 text-primary font-medium">Budget Limit (USD)</Label>
+        <Label class="block mb-2 text-primary font-medium">{{ t('settings.budgetLimit') }}</Label>
         <Input
           type="number"
           :model-value="localBudgetLimit ?? ''"
           step="0.1"
           min="0"
-          placeholder="Unlimited"
+          :placeholder="t('settings.budgetPlaceholder')"
           class="bg-input border-border placeholder:text-muted-foreground"
           @change="handleBudgetChange"
         />
         <p class="text-xs text-muted-foreground mt-1">
-          Leave empty for no limit. Warning shown at 80%.
+          {{ t('settings.budgetLimitDescription') }}
         </p>
       </div>
 
@@ -222,7 +237,7 @@ const currentModelDisplayName = computed(() => {
       <div class="mb-5">
         <div class="flex items-center justify-between mb-2">
           <Label for="extended-thinking" class="text-primary font-medium">
-            Extended Thinking
+            {{ t('settings.extendedThinking') }}
           </Label>
           <Switch
             id="extended-thinking"
@@ -239,16 +254,16 @@ const currentModelDisplayName = computed(() => {
             class="bg-input border-border text-center"
             @change="handleThinkingTokensChange"
           />
-          <span class="text-sm text-muted-foreground whitespace-nowrap">tokens</span>
+          <span class="text-sm text-muted-foreground whitespace-nowrap">{{ t('common.tokens') }}</span>
         </div>
       </div>
 
       <!-- Beta Features -->
       <div class="mb-5">
-        <Label class="block mb-2 text-foreground font-medium">Beta Features</Label>
+        <Label class="block mb-2 text-foreground font-medium">{{ t('settings.betaFeatures') }}</Label>
         <div class="flex items-center justify-between">
           <Label for="context-1m" class="text-sm font-normal text-foreground" :class="{ 'text-muted-foreground': !modelSupports1MContext }">
-            1M Context Window
+            {{ t('settings.beta1mContext') }}
           </Label>
           <Switch
             id="context-1m"
@@ -257,8 +272,27 @@ const currentModelDisplayName = computed(() => {
           />
         </div>
         <p class="text-xs text-muted-foreground mt-1">
-          {{ modelSupports1MContext ? 'Extended context for Sonnet 4/4.5' : 'Only available for Sonnet models' }}
+          {{ modelSupports1MContext ? t('settings.beta1mContextDescription') : t('settings.extendedThinkingCondition') }}
         </p>
+      </div>
+
+      <!-- Language Selection -->
+      <div class="mb-5">
+        <Label class="block mb-2 text-primary font-medium">{{ t('settings.language') }}</Label>
+        <Select :model-value="currentLocale" @update:model-value="handleLanguageChange">
+          <SelectTrigger class="w-full bg-input border-border">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent class="bg-popover border-border">
+            <SelectItem
+              v-for="lang in languageOptions"
+              :key="lang.value"
+              :value="lang.value"
+            >
+              {{ lang.label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <!-- Divider -->
@@ -269,12 +303,12 @@ const currentModelDisplayName = computed(() => {
         class="w-full"
         @click="emit('openVSCodeSettings')"
       >
-        Open VS Code Settings
+        {{ t('settings.openVsCodeSettings') }}
       </Button>
 
       <!-- Info -->
       <p class="text-xs text-muted-foreground mt-4 text-center">
-        Changes apply to the current session and persist in workspace settings.
+        {{ t('settings.settingsInfo') }}
       </p>
     </SheetContent>
   </Sheet>

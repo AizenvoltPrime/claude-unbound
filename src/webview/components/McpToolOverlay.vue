@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { ToolCall } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +14,8 @@ import {
 import LoadingSpinner from './LoadingSpinner.vue';
 import MarkdownRenderer from './MarkdownRenderer.vue';
 import { useOverlayEscape } from '@/composables/useOverlayEscape';
+
+const { t } = useI18n();
 
 interface ContentBlock {
   type: string;
@@ -131,7 +134,7 @@ const hasResult = computed(() => Boolean(parsedResult.value?.trim()));
       <div v-if="isFailed && tool.errorMessage" class="text-error">
         <div class="flex items-center gap-2 mb-2 text-xs font-medium">
           <IconXCircle :size="14" />
-          <span>Error</span>
+          <span>{{ t('common.error') }}</span>
         </div>
         <div class="pl-2 font-mono text-sm">{{ tool.errorMessage }}</div>
       </div>
@@ -139,7 +142,7 @@ const hasResult = computed(() => Boolean(parsedResult.value?.trim()));
       <div v-else-if="hasResult">
         <div class="flex items-center gap-2 mb-2 text-xs text-primary font-medium">
           <IconCheck :size="14" />
-          <span>Response</span>
+          <span>{{ t('mcpToolOverlay.response') }}</span>
         </div>
         <div class="pl-2">
           <MarkdownRenderer :content="parsedResult" />
@@ -148,11 +151,11 @@ const hasResult = computed(() => Boolean(parsedResult.value?.trim()));
 
       <div v-else-if="isRunning" class="text-center text-muted-foreground text-sm py-8">
         <LoadingSpinner :size="24" class="mx-auto mb-2" />
-        <p>MCP tool is running...</p>
+        <p>{{ t('mcpToolOverlay.running') }}</p>
       </div>
 
       <div v-else class="text-center text-muted-foreground text-sm py-8">
-        <p>No response available</p>
+        <p>{{ t('mcpToolOverlay.noResponse') }}</p>
       </div>
     </div>
   </div>

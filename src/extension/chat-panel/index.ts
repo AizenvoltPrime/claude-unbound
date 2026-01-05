@@ -22,7 +22,7 @@ export class ChatPanelProvider {
 
   constructor(
     private readonly extensionUri: vscode.Uri,
-    _context: vscode.ExtensionContext
+    private readonly context: vscode.ExtensionContext
   ) {
     const homeDir = process.env.HOME || process.env.USERPROFILE || "";
     this.workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || homeDir;
@@ -73,6 +73,7 @@ export class ChatPanelProvider {
       historyManager: this.historyManager,
       settingsManager: this.settingsManager,
       workspaceManager: this.workspaceManager,
+      context: this.context,
     });
 
     this.panelManager = new PanelManager({

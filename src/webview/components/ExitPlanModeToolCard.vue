@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { ToolCall } from '@shared/types';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import {
@@ -14,6 +15,8 @@ import {
 import MarkdownRenderer from './MarkdownRenderer.vue';
 import LoadingSpinner from './LoadingSpinner.vue';
 import { usePermissionStore } from '@/stores/usePermissionStore';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   toolCall: ToolCall;
@@ -65,15 +68,15 @@ const cardClass = computed(() => {
 });
 
 const headerText = computed(() => {
-  if (isCompleted.value) return 'Plan approved';
-  if (isDenied.value) return 'Plan revision requested';
-  if (isAbandoned.value) return 'Plan mode exited';
-  return 'Ready to code?';
+  if (isCompleted.value) return t('exitPlanMode.approved');
+  if (isDenied.value) return t('exitPlanMode.revisionRequested');
+  if (isAbandoned.value) return t('exitPlanMode.exited');
+  return t('exitPlanMode.readyToCode');
 });
 
 const approvalModeLabel = computed(() => {
   if (!approvalMode.value) return null;
-  return approvalMode.value === 'acceptEdits' ? 'Auto-accept edits' : 'Manual approval';
+  return approvalMode.value === 'acceptEdits' ? t('exitPlanMode.autoAccept') : t('exitPlanMode.manualApproval');
 });
 
 const approvalModeIcon = computed(() => {
@@ -110,7 +113,7 @@ const approvalModeIcon = computed(() => {
       <div v-if="isAwaitingApproval" class="px-3 py-2 bg-primary/10 border-t border-primary/20">
         <div class="flex items-center gap-2 text-xs text-primary">
           <span class="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
-          <span>Waiting for your approval...</span>
+          <span>{{ t('exitPlanMode.waitingApproval') }}</span>
         </div>
       </div>
 
@@ -118,20 +121,20 @@ const approvalModeIcon = computed(() => {
         <div v-if="toolCall.feedback" class="space-y-1">
           <div class="flex items-center gap-2 text-xs text-error/80">
             <IconMessageSquare :size="12" />
-            <span>Feedback sent to Claude:</span>
+            <span>{{ t('exitPlanMode.feedbackSent') }}</span>
           </div>
           <p class="text-xs text-foreground/80 pl-5 italic">"{{ toolCall.feedback }}"</p>
         </div>
         <div v-else class="flex items-center gap-2 text-xs text-error/80">
           <IconXCircle :size="12" />
-          <span>Plan revision requested</span>
+          <span>{{ t('exitPlanMode.revisionRequested') }}</span>
         </div>
       </div>
 
       <div v-else-if="isAbandoned" class="px-3 py-2 bg-muted/30 border-t border-border/30">
         <div class="flex items-center gap-2 text-xs text-muted-foreground">
           <IconBan :size="12" />
-          <span>Plan mode was exited</span>
+          <span>{{ t('exitPlanMode.wasExited') }}</span>
         </div>
       </div>
     </CardContent>

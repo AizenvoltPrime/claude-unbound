@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { IconStop, IconWarning, IconXMark } from '@/components/icons';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   currentSpend: number;
@@ -44,10 +47,10 @@ const iconComponent = computed((): Component => props.exceeded ? IconStop : Icon
 
     <div class="flex-1 min-w-0">
       <AlertTitle v-if="exceeded" class="font-medium text-error mb-0">
-        Budget limit exceeded
+        {{ t('budget.exceeded') }}
       </AlertTitle>
       <AlertTitle v-else class="font-medium text-warning mb-0">
-        Approaching budget limit
+        {{ t('budget.approaching') }}
       </AlertTitle>
 
       <AlertDescription class="flex items-center gap-3 mt-1">
@@ -68,7 +71,7 @@ const iconComponent = computed((): Component => props.exceeded ? IconStop : Icon
       size="icon-sm"
       class="opacity-50 hover:opacity-100 h-6 w-6 shrink-0"
       @click="$emit('dismiss')"
-      title="Dismiss"
+      :title="t('common.dismiss')"
     >
       <IconXMark :size="12" />
     </Button>

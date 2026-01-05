@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { initLocaleMessaging } from '@/i18n';
 import { onKeyStroke, useIntersectionObserver } from '@vueuse/core';
 import { storeToRefs } from 'pinia';
 import MessageList from './components/MessageList.vue';
@@ -61,6 +63,9 @@ import type {
 } from '@shared/types';
 
 const { postMessage, setState, getState } = useVSCode();
+const { t } = useI18n();
+
+initLocaleMessaging(postMessage);
 
 const uiStore = useUIStore();
 const {
@@ -325,10 +330,10 @@ function formatSessionTime(timestamp: number): string {
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffMins < 1) return t('time.justNow');
+  if (diffMins < 60) return t('time.minutesAgo', { n: diffMins });
+  if (diffHours < 24) return t('time.hoursAgo', { n: diffHours });
+  if (diffDays < 7) return t('time.daysAgo', { n: diffDays });
   return date.toLocaleDateString();
 }
 
@@ -614,7 +619,7 @@ const rewindMessagePreview = computed(() => {
           {{ getSessionDisplayName(selectedSession) }}
         </span>
         <span v-else class="flex-1 text-left text-muted-foreground">
-          Select a session ({{ storedSessions.length }})
+          {{ t('session.selectSession', { n: storedSessions.length }) }}
         </span>
         <component :is="showSessionPicker ? IconChevronUp : IconChevronDown" :size="12" class="text-muted-foreground shrink-0" />
       </Button>

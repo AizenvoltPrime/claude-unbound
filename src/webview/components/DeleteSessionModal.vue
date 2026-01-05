@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -8,6 +9,8 @@ import {
   AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 import { IconWarning } from '@/components/icons';
+
+const { t } = useI18n();
 
 defineProps<{
   visible: boolean;
@@ -34,29 +37,29 @@ function handleCancel() {
       <AlertDialogHeader>
         <AlertDialogTitle class="flex items-center gap-2">
           <IconWarning :size="20" class="text-error" />
-          Delete Session
+          {{ t('deleteSession.title') }}
         </AlertDialogTitle>
         <AlertDialogDescription>
           <p class="text-foreground">
-            Delete this session? This action cannot be undone.
+            {{ t('deleteSession.warning') }}
           </p>
         </AlertDialogDescription>
       </AlertDialogHeader>
 
       <div v-if="sessionName" class="p-3 rounded bg-muted text-sm overflow-hidden">
-        <div class="text-xs text-muted-foreground mb-1">Session:</div>
+        <div class="text-xs text-muted-foreground mb-1">{{ t('deleteSession.sessionLabel') }}</div>
         <div class="break-words">{{ sessionName }}</div>
       </div>
 
       <div class="flex justify-end gap-2 mt-4">
         <Button variant="ghost" @click="handleCancel">
-          Cancel
+          {{ t('common.cancel') }}
         </Button>
         <Button
           class="bg-destructive hover:bg-destructive/80 text-destructive-foreground"
           @click="handleConfirm"
         >
-          Delete
+          {{ t('common.delete') }}
         </Button>
       </div>
     </AlertDialogContent>

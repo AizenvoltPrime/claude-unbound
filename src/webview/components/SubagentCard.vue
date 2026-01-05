@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, type Component } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { SubagentState } from '@shared/types';
 import { formatModelDisplayName } from '@shared/utils';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
@@ -15,6 +16,8 @@ import {
   IconGear,
 } from '@/components/icons';
 import LoadingSpinner from './LoadingSpinner.vue';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   subagent: SubagentState;
@@ -100,20 +103,22 @@ const statusBadgeClass = computed(() => {
 
 const displayAgentType = computed(() => {
   const typeMap: Record<string, string> = {
-    'code-reviewer': 'Code Reviewer',
-    Explore: 'Explorer',
-    Plan: 'Planner',
-    'general-purpose': 'Agent',
-    'claude-code-guide': 'Guide',
-    'statusline-setup': 'Setup',
+    'code-reviewer': t('subagentTypes.codeReviewer'),
+    Explore: t('subagentTypes.explorer'),
+    Plan: t('subagentTypes.planner'),
+    'general-purpose': t('subagentTypes.agent'),
+    'claude-code-guide': t('subagentTypes.guide'),
+    'statusline-setup': t('subagentTypes.setup'),
   };
   return typeMap[props.subagent.agentType] || props.subagent.agentType;
 });
 
 const displayModel = computed(() => formatModelDisplayName(props.subagent.model));
 
+const formattedToolCount = computed(() => t('subagentDisplay.tools', { n: toolCount.value }, toolCount.value));
+
 const metadataItems = computed(() => [
-  `${toolCount.value} tool${toolCount.value !== 1 ? 's' : ''}`,
+  formattedToolCount.value,
   formattedDuration.value,
   displayModel.value,
 ].filter(Boolean));

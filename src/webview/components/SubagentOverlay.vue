@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, type Component } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { SubagentState } from '@shared/types';
 import { formatModelDisplayName } from '@shared/utils';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,8 @@ import ToolCallCard from './ToolCallCard.vue';
 import ThinkingIndicator from './ThinkingIndicator.vue';
 import MarkdownRenderer from './MarkdownRenderer.vue';
 import { useOverlayEscape } from '@/composables/useOverlayEscape';
+
+const { t } = useI18n();
 
 interface StreamingState {
   content?: string;
@@ -106,22 +109,22 @@ const statusBadgeClass = computed(() => {
 
 const displayStatus = computed(() => {
   const statusMap: Record<string, string> = {
-    running: 'Running',
-    completed: 'Completed',
-    failed: 'Failed',
-    cancelled: 'Cancelled',
+    running: t('subagent.running'),
+    completed: t('subagent.completed'),
+    failed: t('subagent.failed'),
+    cancelled: t('subagent.cancelled'),
   };
   return statusMap[props.subagent.status] || props.subagent.status;
 });
 
 const displayAgentType = computed(() => {
   const typeMap: Record<string, string> = {
-    'code-reviewer': 'Code Reviewer',
-    Explore: 'Explorer',
-    Plan: 'Planner',
-    'general-purpose': 'Agent',
-    'claude-code-guide': 'Guide',
-    'statusline-setup': 'Setup',
+    'code-reviewer': t('subagentTypes.codeReviewer'),
+    Explore: t('subagentTypes.explorer'),
+    Plan: t('subagentTypes.planner'),
+    'general-purpose': t('subagentTypes.agent'),
+    'claude-code-guide': t('subagentTypes.guide'),
+    'statusline-setup': t('subagentTypes.setup'),
   };
   return typeMap[props.subagent.agentType] || props.subagent.agentType;
 });
@@ -144,7 +147,7 @@ const formattedTokens = computed(() => {
 const formattedToolCount = computed(() => {
   const count = props.subagent.result?.totalToolUseCount;
   if (!count) return null;
-  return `${count} tool${count === 1 ? '' : 's'}`;
+  return t('subagentDisplay.tools', { n: count }, count);
 });
 
 const displayModel = computed(() => formatModelDisplayName(props.subagent.model));
@@ -189,7 +192,7 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
         variant="ghost"
         size="icon-sm"
         class="text-muted-foreground hover:text-foreground hover:bg-background shrink-0"
-        title="Open agent log file"
+        :title="t('subagentDisplay.openLog')"
         @click="emit('openLog', subagent.sdkAgentId!)"
       >
         <IconFile :size="16" />
@@ -217,7 +220,7 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
               class="transition-transform duration-200"
               :class="{ '-rotate-90': !isPromptExpanded }"
             />
-            <span class="text-sm">View prompt</span>
+            <span class="text-sm">{{ t('subagentDisplay.viewPrompt') }}</span>
           </Button>
         </CollapsibleTrigger>
 
@@ -263,7 +266,7 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
       <div v-if="hasResult" class="mt-4 pt-4 border-t border-border/30">
         <div class="flex items-center gap-2 mb-2 text-xs text-primary font-medium">
           <IconCheck :size="14" />
-          <span>Result</span>
+          <span>{{ t('subagentDisplay.result') }}</span>
         </div>
         <div class="pl-2">
           <MarkdownRenderer :content="subagent.result!.content" />
@@ -272,7 +275,7 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
 
       <div v-if="!hasStreamingContent && !hasResult && subagent.messages.length === 0 && subagent.toolCalls.length === 0" class="text-center text-muted-foreground text-sm py-8">
         <LoadingSpinner v-if="subagent.status === 'running'" :size="24" class="mx-auto mb-2" />
-        <p>{{ subagent.status === 'running' ? 'Agent is working...' : 'No activity recorded' }}</p>
+        <p>{{ subagent.status === 'running' ? t('subagentDisplay.working') : t('subagentDisplay.noActivity') }}</p>
       </div>
     </div>
   </div>

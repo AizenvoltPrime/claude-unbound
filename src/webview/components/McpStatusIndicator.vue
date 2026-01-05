@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { McpServerStatusInfo } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { IconCheck, IconExclamation } from '@/components/icons';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   servers: McpServerStatusInfo[];
@@ -26,7 +29,7 @@ const statusSummary = computed(() => {
   if (pending > 0) {
     return {
       icon: null,
-      label: `MCP: ${connected}/${total} connecting`,
+      label: t('mcpIndicator.connecting', { connected, total }),
       color: 'text-warning',
       text: '...',
       count: connected,
@@ -36,7 +39,7 @@ const statusSummary = computed(() => {
   if (failed > 0) {
     return {
       icon: IconExclamation,
-      label: `MCP: ${connected}/${total} (${failed} failed)`,
+      label: t('mcpIndicator.withFailures', { connected, total, failed }),
       color: 'text-error',
       text: '',
       count: connected,
@@ -45,7 +48,7 @@ const statusSummary = computed(() => {
 
   return {
     icon: IconCheck,
-    label: `MCP: ${connected}/${total}`,
+    label: t('mcpIndicator.connected', { connected, total }),
     color: 'text-success',
     text: '',
     count: connected,
@@ -73,6 +76,6 @@ const hasServers = computed(() => props.servers.length > 0);
       <component v-if="statusSummary.icon" :is="statusSummary.icon" :size="12" />
       <span v-else class="text-[10px] font-bold">{{ statusSummary.text }}</span>
     </span>
-    <span class="hidden sm:inline opacity-70">{{ statusSummary.count }} MCP</span>
+    <span class="hidden sm:inline opacity-70">{{ statusSummary.count }} {{ t('mcpIndicator.label') }}</span>
   </Button>
 </template>

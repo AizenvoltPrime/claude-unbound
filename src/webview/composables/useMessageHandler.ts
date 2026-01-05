@@ -9,6 +9,7 @@ import { usePermissionStore } from "@/stores/usePermissionStore";
 import { useStreamingStore } from "@/stores/useStreamingStore";
 import { useSubagentStore } from "@/stores/useSubagentStore";
 import { useQuestionStore } from "@/stores/useQuestionStore";
+import { applyLocale, i18n } from "@/i18n";
 import {
   FEEDBACK_MARKER,
   type ChatMessage,
@@ -259,7 +260,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           sessionStore.clearSessionData();
           uiStore.setProcessing(false);
           uiStore.setTodosPanelCollapsed(true);
-          toast.success("Conversation cleared");
+          toast.success(i18n.global.t('toast.conversationCleared'));
           break;
 
         case "sessionRenamed":
@@ -535,7 +536,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           const contentToRecover = removedContent ?? message.promptContent;
           if (contentToRecover) {
             chatInputRef.value?.setInput(contentToRecover);
-            toast.info("Message interrupted - prompt restored to input");
+            toast.info(i18n.global.t('toast.interrupted'));
           }
           break;
         }
@@ -579,24 +580,24 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             if (removedContent !== null) {
               chatInputRef.value?.setInput(removedContent);
               if (option === 'code-and-conversation') {
-                toast.success("Files and conversation rewound - edit your message and resend");
+                toast.success(i18n.global.t('toast.rewindBoth'));
               } else {
-                toast.success("Conversation rewound - edit your message and resend");
+                toast.success(i18n.global.t('toast.rewindConversation'));
               }
             } else {
-              toast.warning("Could not truncate conversation history - message not found");
+              toast.warning(i18n.global.t('toast.truncateFailed'));
               if (option === 'code-and-conversation') {
-                toast.success("Files were rewound successfully");
+                toast.success(i18n.global.t('toast.rewindFilesPartial'));
               }
             }
           } else {
-            toast.success("Files rewound successfully");
+            toast.success(i18n.global.t('toast.rewindFiles'));
           }
           break;
         }
 
         case "rewindError":
-          toast.error(`Rewind failed: ${message.message}`);
+          toast.error(i18n.global.t('toast.rewindFailed', { message: message.message }));
           break;
 
         case "userReplay":
@@ -727,6 +728,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
         case "ideContextUpdate":
           uiStore.setIdeContext(message.context);
+          break;
+
+        case "languageChange":
+          applyLocale(message.locale);
           break;
       }
 

@@ -37,6 +37,7 @@
 - **Hooks Support**: Claude Code hooks (shell commands that run on events like tool calls) work automatically
 - **Plugins Support**: Enable/disable Claude Code plugins from the UI - plugins can provide agents and slash commands
 - **Skills Support**: Approve or deny skill invocations
+- **Localization**: UI translated into multiple languages, automatically matches VS Code's display language
 
 ## Installation
 
@@ -159,6 +160,17 @@ Enable or disable plugins from the plugin status panel in the UI. Plugin setting
 | `claude-unbound.permissionMode`  | How to handle tool permissions (`default`, `acceptEdits`, `bypassPermissions`, `plan`) | `default` |
 | `claude-unbound.maxTurns`        | Maximum conversation turns per session                                                 | `50`      |
 | `claude-unbound.maxIndexedFiles` | Maximum files to index for @ mention autocomplete                                      | `5000`    |
+
+## Localization
+
+The extension automatically uses VS Code's display language. Currently supported:
+
+| Language | Code |
+| -------- | ---- |
+| English  | `en` |
+| Greek    | `el` |
+
+To change the language, set VS Code's display language via **Configure Display Language** command (`Ctrl+Shift+P` → "Configure Display Language").
 
 ## Requirements
 

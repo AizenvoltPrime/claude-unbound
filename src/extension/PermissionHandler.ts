@@ -250,14 +250,16 @@ export class PermissionHandler {
       return { behavior: 'allow', updatedInput: input };
     }
 
+    const allowLabel = vscode.l10n.t("Allow");
+    const denyLabel = vscode.l10n.t("Deny");
     const result = await vscode.window.showInformationMessage(
-      `Claude wants to use the "${toolName}" tool. Allow?`,
+      vscode.l10n.t("Claude wants to use the \"{0}\" tool. Allow?", toolName),
       { modal: true },
-      'Allow',
-      'Deny'
+      allowLabel,
+      denyLabel
     );
 
-    if (result === 'Allow') {
+    if (result === allowLabel) {
       return { behavior: 'allow', updatedInput: input };
     }
 
