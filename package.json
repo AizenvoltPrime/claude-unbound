@@ -2,7 +2,7 @@
   "name": "claude-unbound",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "AizenvoltPrime",
   "icon": "resources/icon.png",
   "license": "MIT",
@@ -10,6 +10,10 @@
     "type": "git",
     "url": "https://github.com/AizenvoltPrime/claude-unbound.git"
   },
+  "bugs": {
+    "url": "https://github.com/AizenvoltPrime/claude-unbound/issues"
+  },
+  "homepage": "https://github.com/AizenvoltPrime/claude-unbound#readme",
   "engines": {
     "vscode": "^1.95.0"
   },
