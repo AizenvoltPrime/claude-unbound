@@ -47,10 +47,20 @@ export class DiffManager {
       if (!originalContent) {
         return null;
       }
-      proposedContent = originalContent.replace(input.old_string || '', input.new_string || '');
-      if (proposedContent === originalContent) {
+
+      const normalizeToLF = (str: string): string => str.replace(/\r\n/g, '\n');
+
+      const normalizedOriginal = normalizeToLF(originalContent);
+      const normalizedOldString = normalizeToLF(input.old_string || '');
+      const normalizedNewString = normalizeToLF(input.new_string || '');
+
+      const normalizedProposed = normalizedOriginal.replace(normalizedOldString, normalizedNewString);
+      if (normalizedProposed === normalizedOriginal) {
         return null;
       }
+
+      const useCRLF = originalContent.includes('\r\n');
+      proposedContent = useCRLF ? normalizedProposed.replace(/\n/g, '\r\n') : normalizedProposed;
     }
 
     return { originalContent, proposedContent };

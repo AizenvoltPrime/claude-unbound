@@ -56,6 +56,7 @@
 
 - `Ctrl+Shift+U` / `Cmd+Shift+U`: Focus the chat panel
 - `↑` / `↓`: Navigate through command history (like terminal shell)
+- `Shift+Tab`: Cycle through permission modes
 - `Escape`: Cancel current request (when processing)
 - `Escape Escape`: Open rewind popup to restore previous state
 

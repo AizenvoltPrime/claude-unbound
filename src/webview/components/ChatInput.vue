@@ -133,7 +133,6 @@ defineExpose({ focus, setInput });
 
 const canSend = computed(() => inputText.value.trim().length > 0 || hasImageAttachments.value);
 
-// Permission mode configuration
 const modeConfig: Record<PermissionMode, { icon: Component; label: string; shortLabel: string }> = {
   default: { icon: IconPencil, label: 'Ask before edits', shortLabel: 'Ask' },
   acceptEdits: { icon: IconCheck, label: 'Accept edits', shortLabel: 'Accept' },
@@ -205,6 +204,14 @@ function handleButtonClick() {
 }
 
 function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Tab' && event.shiftKey) {
+    event.preventDefault();
+    if (!props.isProcessing) {
+      cycleMode();
+    }
+    return;
+  }
+
   if (slashCommandOpen.value) {
     if (['ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Escape'].includes(event.key)) {
       const handled = handleSlashCommandKeyDown(event);
@@ -368,7 +375,7 @@ onUnmounted(() => {
               class="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
               :disabled="isProcessing"
               @click="cycleMode"
-              :title="`Click to change mode. Current: ${currentModeConfig.label}`"
+              :title="`${currentModeConfig.label} (Shift+Tab to cycle)`"
             >
               <component :is="currentModeConfig.icon" :size="12" />
               <span>{{ currentModeConfig.label }}</span>
