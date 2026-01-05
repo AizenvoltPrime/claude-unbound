@@ -9,6 +9,7 @@ import { usePermissionStore } from "@/stores/usePermissionStore";
 import { useStreamingStore } from "@/stores/useStreamingStore";
 import { useSubagentStore } from "@/stores/useSubagentStore";
 import { useQuestionStore } from "@/stores/useQuestionStore";
+import { usePlanViewStore } from "@/stores/usePlanViewStore";
 import { applyLocale, i18n } from "@/i18n";
 import {
   FEEDBACK_MARKER,
@@ -64,6 +65,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
   const streamingStore = useStreamingStore();
   const subagentStore = useSubagentStore();
   const questionStore = useQuestionStore();
+  const planViewStore = usePlanViewStore();
 
   onMounted(() => {
     onMessage((message) => {
@@ -245,6 +247,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           subagentStore.$reset();
           questionStore.$reset();
           permissionStore.$reset();
+          planViewStore.$reset();
           sessionStore.clearSessionData();
           sessionStore.setCurrentSession(null);
           sessionStore.setSelectedSession(null);
@@ -257,6 +260,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           subagentStore.$reset();
           questionStore.$reset();
           permissionStore.$reset();
+          planViewStore.$reset();
           sessionStore.clearSessionData();
           uiStore.setProcessing(false);
           uiStore.setTodosPanelCollapsed(true);
@@ -731,6 +735,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
         case "languageChange":
           applyLocale(message.locale);
+          break;
+
+        case "showPlanContent":
+          planViewStore.setViewingPlan(message.content);
           break;
       }
 

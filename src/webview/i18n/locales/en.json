@@ -277,7 +277,12 @@
     "cache": "Cache (write / read)",
     "turns": "{n} turn | {n} turns",
     "cost": "Session cost",
+    "openPlan": "View session plan",
     "openLog": "Open session log file"
+  },
+  "planView": {
+    "title": "Session Plan",
+    "subtitle": "Implementation plan for this session"
   },
   "planApproval": {
     "readyToCode": "Ready to code?",

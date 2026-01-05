@@ -466,6 +466,7 @@ export type WebviewToExtensionMessage =
   | { type: "renameSession"; sessionId: string; newName: string }
   | { type: "deleteSession"; sessionId: string }
   | { type: "openSessionLog" }
+  | { type: "openSessionPlan" }
   | { type: "openAgentLog"; agentId: string }
   // History pagination
   | { type: "requestMoreHistory"; sessionId: string; offset: number }
@@ -649,7 +650,9 @@ export type ExtensionToWebviewMessage =
       promptContent: string;
     }
   // i18n
-  | { type: "languageChange"; locale: string };
+  | { type: "languageChange"; locale: string }
+  // Plan viewer
+  | { type: "showPlanContent"; content: string };
 
 // Chat message for UI rendering
 export interface ChatMessage {

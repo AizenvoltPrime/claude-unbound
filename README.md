@@ -29,7 +29,7 @@
 - **Model Selection**: Switch between Opus 4.5, Sonnet 4.5, and Haiku 4.5
 - **Extended Thinking**: Toggle thinking mode on/off with adjustable token budget (1K-64K)
 - **Per-Panel Permission Mode**: Each panel can have its own permission mode independent of the global default
-- **Plan Mode**: When enabled, Claude creates implementation plans for your approval before making changes. Review plans in a modal, approve with auto-accept or manual mode, or request revisions with feedback
+- **Plan Mode**: When enabled, Claude creates implementation plans for your approval before making changes. Review plans in a modal, approve with auto-accept or manual mode, or request revisions with feedback. View session plan anytime via the header button
 - **File Checkpointing**: Track file changes and rewind to any previous state with the Rewind Browser (`/rewind`)
 - **Todo List**: Visual display of Claude's current task list with real-time progress tracking
 - **Message Queue**: Send messages while Claude is working - they're injected at the next tool boundary
@@ -89,13 +89,13 @@ Attached images appear as thumbnails below the input. Hover over a thumbnail to 
 
 **Mention types:**
 
-| Syntax                     | Description                                   |
-| -------------------------- | --------------------------------------------- |
-| `@path/to/file.ts`         | Reference a workspace file                    |
-| `@agent-Explore`           | Use the fast codebase exploration agent       |
-| `@agent-Plan`              | Use the architecture planning agent           |
-| `@agent-<name>`            | Use a custom agent from `.claude/agents/`     |
-| `@agent-<plugin>:<name>`   | Use an agent provided by an installed plugin  |
+| Syntax                   | Description                                  |
+| ------------------------ | -------------------------------------------- |
+| `@path/to/file.ts`       | Reference a workspace file                   |
+| `@agent-Explore`         | Use the fast codebase exploration agent      |
+| `@agent-Plan`            | Use the architecture planning agent          |
+| `@agent-<name>`          | Use a custom agent from `.claude/agents/`    |
+| `@agent-<plugin>:<name>` | Use an agent provided by an installed plugin |
 
 Custom agents are loaded from `.claude/agents/*.md` (project) and `~/.claude/agents/*.md` (user). Project agents override user agents with the same name. Plugin agents are loaded from enabled plugins' `agents/` directories.
 

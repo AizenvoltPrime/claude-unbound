@@ -25,6 +25,7 @@ import DeleteSessionModal from './components/DeleteSessionModal.vue';
 import PermissionPrompt from './components/PermissionPrompt.vue';
 import QuestionPrompt from './components/QuestionPrompt.vue';
 import PlanApprovalOverlay from './components/PlanApprovalOverlay.vue';
+import PlanViewOverlay from './components/PlanViewOverlay.vue';
 import EnterPlanModePrompt from './components/EnterPlanModePrompt.vue';
 import SkillApprovalPrompt from './components/SkillApprovalPrompt.vue';
 import TodoListCard from './components/TodoListCard.vue';
@@ -42,6 +43,7 @@ import {
   useQuestionStore,
   useDiffStore,
 } from './stores';
+import { usePlanViewStore } from './stores/usePlanViewStore';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -53,6 +55,7 @@ import {
   IconTrash,
   IconChevronUp,
   IconChevronDown,
+  IconFileText,
 } from '@/components/icons';
 import type {
   StoredSession,
@@ -132,6 +135,9 @@ const { pendingQuestion } = storeToRefs(questionStore);
 
 const diffStore = useDiffStore();
 const { expandedDiff } = storeToRefs(diffStore);
+
+const planViewStore = usePlanViewStore();
+const { viewingPlan } = storeToRefs(planViewStore);
 
 const messageContainerRef = ref<HTMLElement | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
@@ -375,6 +381,10 @@ function handleOpenSessionLog() {
   postMessage({ type: 'openSessionLog' });
 }
 
+function handleOpenPlan() {
+  postMessage({ type: 'openSessionPlan' });
+}
+
 function handleOpenAgentLog(agentId: string) {
   postMessage({ type: 'openAgentLog', agentId });
 }
@@ -568,6 +578,17 @@ const rewindMessagePreview = computed(() => {
       </Popover>
 
       <div class="flex-1"></div>
+
+      <!-- View Plan Button -->
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        class="text-muted-foreground hover:bg-muted hover:text-foreground"
+        :title="t('stats.openPlan')"
+        @click="handleOpenPlan"
+      >
+        <IconFileText :size="16" />
+      </Button>
 
       <!-- MCP Status Indicator -->
       <McpStatusIndicator
@@ -914,6 +935,13 @@ const rewindMessagePreview = computed(() => {
       @approve="handlePlanApprove"
       @feedback="handlePlanFeedback"
       @cancel="handlePlanCancel"
+    />
+
+    <!-- Plan View Overlay (read-only, full-screen) -->
+    <PlanViewOverlay
+      v-if="viewingPlan"
+      :plan-content="viewingPlan"
+      @close="planViewStore.closePlanView"
     />
 
   </div>

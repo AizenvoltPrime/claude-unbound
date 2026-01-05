@@ -14,7 +14,10 @@ import type {
 } from "../../shared/types";
 import type { PanelInstance } from "./types";
 import type { IdeContextManager } from "./ide-context-manager";
-import { getSessionFilePath, getAgentFilePath, renameSession, deleteSession, extractCommandHistory } from "../session";
+import { getSessionFilePath, getAgentFilePath, getSessionMetadata, renameSession, deleteSession, extractCommandHistory } from "../session";
+import * as os from "os";
+import * as fs from "fs/promises";
+import * as path from "path";
 import { log } from "../logger";
 import { extractTextFromContent, hasImageContent } from "../../shared/utils";
 
@@ -392,6 +395,37 @@ export class MessageRouter {
           vscode.window.showWarningMessage(
             vscode.l10n.t("Agent log file not found: {0}", err instanceof Error ? err.message : "Unknown error")
           );
+        }
+      },
+
+      openSessionPlan: async (msg, ctx) => {
+        const sessionId = ctx.session.currentSessionId;
+        if (!sessionId) {
+          vscode.window.showInformationMessage(vscode.l10n.t("No active session"));
+          return;
+        }
+
+        const metadata = await getSessionMetadata(this.workspacePath, sessionId);
+        if (!metadata?.slug) {
+          vscode.window.showInformationMessage(vscode.l10n.t("No plan exists for this session"));
+          return;
+        }
+
+        const slug = metadata.slug;
+        if (slug.includes("..") || slug.includes("/") || slug.includes("\\")) {
+          log("[MessageRouter] Invalid plan slug detected:", slug);
+          vscode.window.showInformationMessage(vscode.l10n.t("No plan exists for this session"));
+          return;
+        }
+
+        const planPath = path.join(os.homedir(), ".claude", "plans", `${slug}.md`);
+
+        try {
+          const content = await fs.readFile(planPath, "utf-8");
+          this.postMessage(ctx.panel, { type: "showPlanContent", content });
+        } catch (err) {
+          log("[MessageRouter] Error reading plan file:", err);
+          vscode.window.showInformationMessage(vscode.l10n.t("No plan exists for this session"));
         }
       },
 
