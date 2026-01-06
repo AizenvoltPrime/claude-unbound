@@ -24,7 +24,6 @@
 - **Panel Persistence**: Panels and active sessions survive VS Code restarts
 - **Multi-Panel Sync**: Command history syncs across all open panels instantly
 - **Context Stats**: Live tracking of token usage, cache activity, context window %, and session cost
-- **Context Usage Panel**: Detailed breakdown of context window usage by category (`/context`)
 - **Session Logs**: Quick access button to open the raw JSONL session file (also works for subagent logs)
 - **Model Selection**: Switch between Opus 4.5, Sonnet 4.5, and Haiku 4.5
 - **Extended Thinking**: Toggle thinking mode on/off with adjustable token budget (1K-64K)
@@ -151,7 +150,7 @@ Enable or disable plugins from the plugin status panel in the UI. Plugin setting
 | Setting                          | Description                                                                            | Default   |
 | -------------------------------- | -------------------------------------------------------------------------------------- | --------- |
 | `claude-unbound.permissionMode`  | How to handle tool permissions (`default`, `acceptEdits`, `bypassPermissions`, `plan`) | `default` |
-| `claude-unbound.maxTurns`        | Maximum conversation turns per session                                                 | `50`      |
+| `claude-unbound.maxTurns`        | Maximum conversation turns per session                                                 | `100`     |
 | `claude-unbound.maxIndexedFiles` | Maximum files to index for @ mention autocomplete                                      | `5000`    |
 
 ## Localization

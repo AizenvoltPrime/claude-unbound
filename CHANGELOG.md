@@ -2,6 +2,13 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.3] - 2026-01-06
+
+### Fixed
+
+- Fix maxTurns default value in documentation (50 → 100)
+- Remove outdated /context command reference
+
 ## [1.0.2] - 2026-01-05
 
 ### Fixed
@@ -45,6 +52,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.3]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/AizenvoltPrime/claude-unbound/releases/tag/v1.0.0
