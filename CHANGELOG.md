@@ -2,6 +2,21 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.4] - 2026-01-06
+
+### Added
+
+- Add "Open in Editor" button to plan view header
+
+### Fixed
+
+- Fix ESC incorrectly restoring prompt to ChatInput when streaming had already started
+- Fix diff view ENOENT errors when temp directory was cleaned by OS
+
+### Changed
+
+- Refactor DiffManager to use VS Code virtual documents instead of temp files
+
 ## [1.0.3] - 2026-01-06
 
 ### Fixed
@@ -52,6 +67,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.4]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.0...v1.0.1

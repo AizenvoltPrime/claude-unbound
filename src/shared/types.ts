@@ -653,7 +653,7 @@ export type ExtensionToWebviewMessage =
   // i18n
   | { type: "languageChange"; locale: string }
   // Plan viewer
-  | { type: "showPlanContent"; content: string };
+  | { type: "showPlanContent"; content: string; filePath: string };
 
 // Chat message for UI rendering
 export interface ChatMessage {

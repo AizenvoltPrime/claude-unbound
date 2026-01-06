@@ -422,7 +422,7 @@ export class MessageRouter {
 
         try {
           const content = await fs.readFile(planPath, "utf-8");
-          this.postMessage(ctx.panel, { type: "showPlanContent", content });
+          this.postMessage(ctx.panel, { type: "showPlanContent", content, filePath: planPath });
         } catch (err) {
           log("[MessageRouter] Error reading plan file:", err);
           vscode.window.showInformationMessage(vscode.l10n.t("No plan exists for this session"));

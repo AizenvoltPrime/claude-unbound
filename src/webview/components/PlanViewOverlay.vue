@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
-import { IconArrowLeft, IconFileText } from '@/components/icons';
+import { IconArrowLeft, IconFileText, IconExternalLink } from '@/components/icons';
 import MarkdownRenderer from './MarkdownRenderer.vue';
 import { useOverlayEscape } from '@/composables/useOverlayEscape';
+import { useVSCode } from '@/composables/useVSCode';
+import { usePlanViewStore } from '@/stores/usePlanViewStore';
 
 const { t } = useI18n();
+const { postMessage } = useVSCode();
+const planViewStore = usePlanViewStore();
 
 defineProps<{
   planContent: string;
@@ -16,6 +20,12 @@ const emit = defineEmits<{
 }>();
 
 useOverlayEscape(() => emit('close'));
+
+function handleOpenInEditor() {
+  if (planViewStore.viewingPlanPath) {
+    postMessage({ type: 'openFile', filePath: planViewStore.viewingPlanPath });
+  }
+}
 </script>
 
 <template>
@@ -37,6 +47,17 @@ useOverlayEscape(() => emit('close'));
         <h2 class="text-sm font-medium text-foreground">{{ t('planView.title') }}</h2>
         <p class="text-xs text-muted-foreground">{{ t('planView.subtitle') }}</p>
       </div>
+
+      <Button
+        v-if="planViewStore.viewingPlanPath"
+        variant="ghost"
+        size="icon-sm"
+        class="text-muted-foreground hover:text-foreground hover:bg-background shrink-0"
+        :title="t('planView.openInEditor')"
+        @click="handleOpenInEditor"
+      >
+        <IconExternalLink :size="16" />
+      </Button>
     </header>
 
     <!-- Scrollable content -->

@@ -282,7 +282,8 @@
   },
   "planView": {
     "title": "Session Plan",
-    "subtitle": "Implementation plan for this session"
+    "subtitle": "Implementation plan for this session",
+    "openInEditor": "Open in editor"
   },
   "planApproval": {
     "readyToCode": "Ready to code?",

@@ -749,7 +749,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
 
         case "showPlanContent":
-          planViewStore.setViewingPlan(message.content);
+          planViewStore.setViewingPlan(message.content, message.filePath);
           break;
       }
 
