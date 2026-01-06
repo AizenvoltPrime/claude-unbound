@@ -206,7 +206,13 @@ export class ClaudeSession {
     const prompt = this.checkpointManager.currentPrompt;
 
     if (correlationId && prompt) {
-      if (!sessionId) {
+      const streamingContent = this.streamingManager.currentStreamingContent;
+      const hasStreamingStarted =
+        streamingContent.thinking.length > 0 ||
+        streamingContent.text.length > 0 ||
+        streamingContent.hasStreamedTools;
+
+      if (!hasStreamingStarted) {
         this.options.onMessage({
           type: 'interruptRecovery',
           correlationId,
@@ -214,11 +220,11 @@ export class ClaudeSession {
         });
         this.checkpointManager.currentPrompt = null;
         this.checkpointManager.currentCorrelationId = null;
-      } else {
+      } else if (sessionId) {
         this.checkpointManager.handleInterruptPersistence(
           sessionId,
           this.streamingManager.lastUserMessageId,
-          this.streamingManager.currentStreamingContent,
+          streamingContent,
           this.queryManager.currentModel
         ).then(() => {
           this.checkpointManager.currentPrompt = null;

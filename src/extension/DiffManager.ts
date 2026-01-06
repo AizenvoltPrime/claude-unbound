@@ -1,7 +1,5 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 
 export interface DiffInfo {
   originalContent: string;
@@ -13,15 +11,39 @@ interface ActiveDiff {
   proposedUri: vscode.Uri;
 }
 
+const DIFF_SCHEME = 'claude-diff';
+
+class DiffContentProvider implements vscode.TextDocumentContentProvider {
+  private contents: Map<string, string> = new Map();
+
+  setContent(key: string, content: string): void {
+    this.contents.set(key, content);
+  }
+
+  deleteContent(key: string): void {
+    this.contents.delete(key);
+  }
+
+  provideTextDocumentContent(uri: vscode.Uri): string {
+    return this.contents.get(uri.path) || '';
+  }
+
+  dispose(): void {
+    this.contents.clear();
+  }
+}
+
 export class DiffManager {
-  private tempDir: string;
   private activeDiffs: Map<string, ActiveDiff> = new Map();
+  private contentProvider: DiffContentProvider;
+  private registration: vscode.Disposable;
 
   constructor() {
-    this.tempDir = path.join(os.tmpdir(), 'claude-unbound-diffs');
-    if (!fs.existsSync(this.tempDir)) {
-      fs.mkdirSync(this.tempDir, { recursive: true });
-    }
+    this.contentProvider = new DiffContentProvider();
+    this.registration = vscode.workspace.registerTextDocumentContentProvider(
+      DIFF_SCHEME,
+      this.contentProvider
+    );
   }
 
   async prepareDiff(
@@ -69,14 +91,14 @@ export class DiffManager {
   async showDiffView(diffId: string, filePath: string, originalContent: string, proposedContent: string): Promise<void> {
     const fileName = path.basename(filePath);
 
-    const originalTempPath = path.join(this.tempDir, `${diffId}-original-${fileName}`);
-    const proposedTempPath = path.join(this.tempDir, `${diffId}-proposed-${fileName}`);
+    const originalKey = `/${diffId}-original-${fileName}`;
+    const proposedKey = `/${diffId}-proposed-${fileName}`;
 
-    fs.writeFileSync(originalTempPath, originalContent);
-    fs.writeFileSync(proposedTempPath, proposedContent);
+    this.contentProvider.setContent(originalKey, originalContent);
+    this.contentProvider.setContent(proposedKey, proposedContent);
 
-    const originalUri = vscode.Uri.file(originalTempPath);
-    const proposedUri = vscode.Uri.file(proposedTempPath);
+    const originalUri = vscode.Uri.parse(`${DIFF_SCHEME}:${originalKey}`);
+    const proposedUri = vscode.Uri.parse(`${DIFF_SCHEME}:${proposedKey}`);
 
     this.activeDiffs.set(diffId, { originalUri, proposedUri });
 
@@ -101,7 +123,7 @@ export class DiffManager {
       for (const tab of tabGroup.tabs) {
         if (tab.input instanceof vscode.TabInputTextDiff) {
           const diffInput = tab.input as vscode.TabInputTextDiff;
-          if (diffInput.modified.fsPath === proposedUri.fsPath) {
+          if (diffInput.modified.toString() === proposedUri.toString()) {
             await vscode.window.tabGroups.close(tab);
             break;
           }
@@ -109,13 +131,8 @@ export class DiffManager {
       }
     }
 
-    try {
-      fs.unlinkSync(activeDiff.originalUri.fsPath);
-      fs.unlinkSync(activeDiff.proposedUri.fsPath);
-    } catch {
-      // Ignore cleanup errors
-    }
-
+    this.contentProvider.deleteContent(activeDiff.originalUri.path);
+    this.contentProvider.deleteContent(activeDiff.proposedUri.path);
     this.activeDiffs.delete(diffId);
   }
 
@@ -123,11 +140,7 @@ export class DiffManager {
     for (const diffId of this.activeDiffs.keys()) {
       await this.closeDiffView(diffId);
     }
-
-    try {
-      fs.rmdirSync(this.tempDir);
-    } catch {
-      // Ignore if not empty or other errors
-    }
+    this.contentProvider.dispose();
+    this.registration.dispose();
   }
 }
