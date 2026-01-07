@@ -56,8 +56,31 @@ export interface BuiltinSlashCommandInfo {
   source: "builtin";
 }
 
-// Union type for autocomplete - custom, plugin, and built-in commands
-export type SlashCommandItem = CustomSlashCommandInfo | PluginSlashCommandInfo | BuiltinSlashCommandInfo;
+// Skill from .claude/skills/ directories (project or user)
+export interface SkillInfo {
+  name: string;
+  description: string;
+  filePath: string;
+  source: "project" | "user";
+}
+
+// Skill from plugin skills/ directories
+export interface PluginSkillInfo {
+  name: string;
+  description: string;
+  filePath: string;
+  source: "plugin";
+  pluginName: string;
+  pluginFullId: string;
+}
+
+// Union type for autocomplete - custom, plugin, built-in commands, and skills
+export type SlashCommandItem =
+  | CustomSlashCommandInfo
+  | PluginSlashCommandInfo
+  | BuiltinSlashCommandInfo
+  | SkillInfo
+  | PluginSkillInfo;
 
 // System initialization data from SDK 'system' message (subtype: 'init')
 export interface SystemInitData {

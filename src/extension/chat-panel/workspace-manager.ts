@@ -25,10 +25,22 @@ export class WorkspaceManager {
     this.customAgentService = new CustomAgentService(this.workspacePath);
   }
 
+  async isSkill(name: string, enabledPluginIds?: Set<string>): Promise<boolean> {
+    return this.slashCommandService.isSkill(name, enabledPluginIds);
+  }
+
   async getCustomSlashCommands(enabledPluginIds?: Set<string>): Promise<SlashCommandItem[]> {
     const customCommands = await this.slashCommandService.getCommands();
     const pluginCommands = await this.slashCommandService.getPluginCommands(enabledPluginIds);
-    const allCommands = [...BUILTIN_SLASH_COMMANDS, ...customCommands, ...pluginCommands];
+    const skills = await this.slashCommandService.getSkills();
+    const pluginSkills = await this.slashCommandService.getPluginSkills(enabledPluginIds);
+    const allCommands = [
+      ...BUILTIN_SLASH_COMMANDS,
+      ...customCommands,
+      ...pluginCommands,
+      ...skills,
+      ...pluginSkills,
+    ];
     return allCommands.sort((a, b) => a.name.localeCompare(b.name));
   }
 

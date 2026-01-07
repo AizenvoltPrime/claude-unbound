@@ -2,6 +2,15 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.5] - 2026-01-08
+
+### Added
+
+- Skills can now be invoked directly via slash commands (`/skill-name`)
+- Skills appear in slash command autocomplete alongside regular commands
+- Skills invoked via slash command are auto-approved (no approval prompt needed)
+- Plugin skills support with format `/plugin:skill-name`
+
 ## [1.0.4] - 2026-01-06
 
 ### Added
@@ -67,6 +76,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.5]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.1...v1.0.2

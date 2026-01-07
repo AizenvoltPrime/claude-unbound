@@ -93,6 +93,14 @@ export class PermissionHandler {
     this._permissionMode = mode;
   }
 
+  preApproveSkill(skillName: string): void {
+    this.autoApprovedSkills.add(skillName);
+  }
+
+  revokeSkillPreApproval(skillName: string): void {
+    this.autoApprovedSkills.delete(skillName);
+  }
+
   getPermissionMode(): PermissionMode {
     return this._permissionMode;
   }

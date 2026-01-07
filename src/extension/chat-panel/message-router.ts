@@ -113,22 +113,52 @@ export class MessageRouter {
         if (msg.type !== "sendMessage") return;
 
         const msgContent = msg.content;
-        const textContent = extractTextFromContent(msgContent);
-        if (!textContent.trim() && !hasImageContent(msgContent)) return;
+        const originalTextContent = extractTextFromContent(msgContent);
+        if (!originalTextContent.trim() && !hasImageContent(msgContent)) return;
+
+        // Detect and transform skill invocations: /skill-name [args]
+        let transformedContent: string | null = null;
+        let preApprovedSkillName: string | null = null;
+        const skillMatch = originalTextContent.trim().match(/^\/([a-zA-Z0-9_:-]+)(?:\s+(.*))?$/);
+        if (skillMatch) {
+          const [, skillName, skillArgs] = skillMatch;
+          const enabledPluginIds = this.settingsManager.getEnabledPluginIds();
+          const isSkill = await this.workspaceManager.isSkill(skillName, enabledPluginIds);
+          if (isSkill) {
+            // Pre-approve since user explicitly invoked via slash command
+            ctx.permissionHandler.preApproveSkill(skillName);
+            preApprovedSkillName = skillName;
+            // Transform to skill invocation
+            transformedContent = skillArgs
+              ? `Execute skill ${skillName}\nAdditional info: ${skillArgs}`
+              : `Execute skill ${skillName}`;
+          }
+        }
 
         const correlationId = `corr-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const contentBlocks = hasImageContent(msgContent) ? (msgContent as UserContentBlock[]) : undefined;
-        this.postMessage(ctx.panel, { type: "userMessage", content: textContent, contentBlocks, correlationId });
+        this.postMessage(ctx.panel, { type: "userMessage", content: originalTextContent, contentBlocks, correlationId });
 
-        if (textContent.trim()) {
-          this.storageManager.broadcastCommandHistoryEntry(textContent.trim());
+        if (originalTextContent.trim()) {
+          this.storageManager.broadcastCommandHistoryEntry(originalTextContent.trim());
         }
 
-        const content = msg.includeIdeContext
-          ? ctx.ideContextManager.buildContentBlocks(msgContent)
-          : msgContent;
+        // Use transformed content for skill invocations, original for everything else
+        // Apply IDE context to both transformed and original content when requested
+        const baseContent = transformedContent ?? msgContent;
+        const finalContent = msg.includeIdeContext
+          ? ctx.ideContextManager.buildContentBlocks(baseContent)
+          : baseContent;
 
-        await ctx.session.sendMessage(content, msg.agentId, correlationId);
+        try {
+          await ctx.session.sendMessage(finalContent, msg.agentId, correlationId);
+        } catch (err) {
+          // Revoke pre-approval if message failed to send
+          if (preApprovedSkillName) {
+            ctx.permissionHandler.revokeSkillPreApproval(preApprovedSkillName);
+          }
+          throw err;
+        }
       },
 
       cancelSession: (_msg, ctx) => {

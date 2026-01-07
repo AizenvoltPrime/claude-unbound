@@ -2,10 +2,12 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import * as vscode from "vscode";
-import type { CustomSlashCommandInfo, PluginSlashCommandInfo } from "../shared/types";
+import type { CustomSlashCommandInfo, PluginSlashCommandInfo, SkillInfo, PluginSkillInfo } from "../shared/types";
 import { log } from "./logger";
 
 const COMMANDS_FOLDER = ".claude/commands";
+const SKILLS_FOLDER = ".claude/skills";
+const SKILL_FILE = "SKILL.md";
 const PLUGINS_FOLDER = ".claude/plugins";
 const INSTALLED_PLUGINS_FILE = "installed_plugins.json";
 const VALID_COMMAND_NAME = /^[a-zA-Z0-9_-]+$/;
@@ -31,10 +33,16 @@ interface InstalledPluginsRegistry {
 export class SlashCommandService {
   private cache: CustomSlashCommandInfo[] | null = null;
   private pluginCache: PluginSlashCommandInfo[] | null = null;
+  private skillCache: SkillInfo[] | null = null;
+  private pluginSkillCache: PluginSkillInfo[] | null = null;
   private projectWatcher: vscode.FileSystemWatcher | null = null;
   private userWatcher: vscode.FileSystemWatcher | null = null;
   private pluginWatcher: vscode.FileSystemWatcher | null = null;
-  private debounceTimer: NodeJS.Timeout | null = null;
+  private projectSkillWatcher: vscode.FileSystemWatcher | null = null;
+  private userSkillWatcher: vscode.FileSystemWatcher | null = null;
+  private commandDebounceTimer: NodeJS.Timeout | null = null;
+  private pluginDebounceTimer: NodeJS.Timeout | null = null;
+  private skillDebounceTimer: NodeJS.Timeout | null = null;
 
   constructor(private workspacePath: string) {
     this.setupFileWatchers();
@@ -42,22 +50,33 @@ export class SlashCommandService {
 
   private setupFileWatchers(): void {
     const invalidateCache = () => {
-      if (this.debounceTimer) {
-        clearTimeout(this.debounceTimer);
+      if (this.commandDebounceTimer) {
+        clearTimeout(this.commandDebounceTimer);
       }
-      this.debounceTimer = setTimeout(() => {
+      this.commandDebounceTimer = setTimeout(() => {
         this.cache = null;
         log("Slash command cache invalidated due to file change");
       }, 300);
     };
 
     const invalidatePluginCache = () => {
-      if (this.debounceTimer) {
-        clearTimeout(this.debounceTimer);
+      if (this.pluginDebounceTimer) {
+        clearTimeout(this.pluginDebounceTimer);
       }
-      this.debounceTimer = setTimeout(() => {
+      this.pluginDebounceTimer = setTimeout(() => {
         this.pluginCache = null;
-        log("Plugin command cache invalidated due to file change");
+        this.pluginSkillCache = null;
+        log("Plugin command/skill cache invalidated due to file change");
+      }, 300);
+    };
+
+    const invalidateSkillCache = () => {
+      if (this.skillDebounceTimer) {
+        clearTimeout(this.skillDebounceTimer);
+      }
+      this.skillDebounceTimer = setTimeout(() => {
+        this.skillCache = null;
+        log("Skill cache invalidated due to file change");
       }, 300);
     };
 
@@ -82,6 +101,22 @@ export class SlashCommandService {
     this.pluginWatcher.onDidCreate(invalidatePluginCache);
     this.pluginWatcher.onDidChange(invalidatePluginCache);
     this.pluginWatcher.onDidDelete(invalidatePluginCache);
+
+    const projectSkillPattern = new vscode.RelativePattern(
+      this.workspacePath,
+      `${SKILLS_FOLDER}/**/${SKILL_FILE}`
+    );
+    this.projectSkillWatcher = vscode.workspace.createFileSystemWatcher(projectSkillPattern);
+    this.projectSkillWatcher.onDidCreate(invalidateSkillCache);
+    this.projectSkillWatcher.onDidChange(invalidateSkillCache);
+    this.projectSkillWatcher.onDidDelete(invalidateSkillCache);
+
+    const userSkillsPath = path.join(os.homedir(), SKILLS_FOLDER);
+    const userSkillPattern = `${userSkillsPath.replace(/\\/g, "/")}/**/${SKILL_FILE}`;
+    this.userSkillWatcher = vscode.workspace.createFileSystemWatcher(userSkillPattern);
+    this.userSkillWatcher.onDidCreate(invalidateSkillCache);
+    this.userSkillWatcher.onDidChange(invalidateSkillCache);
+    this.userSkillWatcher.onDidDelete(invalidateSkillCache);
   }
 
   async getCommands(): Promise<CustomSlashCommandInfo[]> {
@@ -331,6 +366,160 @@ export class SlashCommandService {
     return commands;
   }
 
+  async isSkill(name: string, enabledPluginIds?: Set<string>): Promise<boolean> {
+    const skills = await this.getSkills();
+    const pluginSkills = await this.getPluginSkills(enabledPluginIds);
+    return skills.some(s => s.name === name) || pluginSkills.some(s => s.name === name);
+  }
+
+  async getSkills(): Promise<SkillInfo[]> {
+    if (this.skillCache) {
+      return this.skillCache;
+    }
+
+    const skills: SkillInfo[] = [];
+
+    const projectSkillsDir = path.join(this.workspacePath, SKILLS_FOLDER);
+    const projectSkills = await this.scanSkillsDirectory(projectSkillsDir, "project");
+    skills.push(...projectSkills);
+
+    const userSkillsDir = path.join(os.homedir(), SKILLS_FOLDER);
+    const userSkills = await this.scanSkillsDirectory(userSkillsDir, "user");
+
+    for (const userSkill of userSkills) {
+      const exists = skills.some((s) => s.name === userSkill.name);
+      if (!exists) {
+        skills.push(userSkill);
+      }
+    }
+
+    skills.sort((a, b) => a.name.localeCompare(b.name));
+
+    this.skillCache = skills;
+    return skills;
+  }
+
+  private async scanSkillsDirectory(
+    dir: string,
+    source: "project" | "user"
+  ): Promise<SkillInfo[]> {
+    const skills: SkillInfo[] = [];
+
+    try {
+      await fs.promises.access(dir, fs.constants.R_OK);
+    } catch {
+      return skills;
+    }
+
+    try {
+      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        if (!VALID_COMMAND_NAME.test(entry.name)) continue;
+
+        const skillFilePath = path.join(dir, entry.name, SKILL_FILE);
+
+        try {
+          const content = await fs.promises.readFile(skillFilePath, "utf-8");
+          const parsed = this.parseMarkdownFile(content);
+
+          skills.push({
+            name: entry.name,
+            description: parsed.description,
+            filePath: skillFilePath,
+            source,
+          });
+        } catch {
+          // SKILL.md doesn't exist or isn't readable - skip
+        }
+      }
+    } catch (err) {
+      log(`Error scanning skills directory ${dir}: ${err}`);
+    }
+
+    return skills;
+  }
+
+  async getPluginSkills(enabledPluginIds?: Set<string>): Promise<PluginSkillInfo[]> {
+    if (!this.pluginSkillCache) {
+      const skills: PluginSkillInfo[] = [];
+      const registryPath = path.join(os.homedir(), PLUGINS_FOLDER, INSTALLED_PLUGINS_FILE);
+
+      try {
+        const content = await fs.promises.readFile(registryPath, "utf-8");
+        const registry = JSON.parse(content) as InstalledPluginsRegistry;
+
+        for (const [fullName, entries] of Object.entries(registry.plugins)) {
+          for (const entry of entries) {
+            if (entry.scope === "project" && entry.projectPath !== this.workspacePath) {
+              continue;
+            }
+
+            const pluginSkills = await this.scanPluginSkills(entry.installPath, fullName);
+            skills.push(...pluginSkills);
+          }
+        }
+      } catch (err) {
+        const isFileNotFound = (err as NodeJS.ErrnoException).code === "ENOENT";
+        if (!isFileNotFound) {
+          log(`Error reading plugins registry for skills: ${err}`);
+        }
+      }
+
+      skills.sort((a, b) => a.name.localeCompare(b.name));
+      this.pluginSkillCache = skills;
+    }
+
+    if (enabledPluginIds) {
+      return this.pluginSkillCache.filter(skill => enabledPluginIds.has(skill.pluginFullId));
+    }
+    return this.pluginSkillCache;
+  }
+
+  private async scanPluginSkills(pluginPath: string, pluginFullId: string): Promise<PluginSkillInfo[]> {
+    const skills: PluginSkillInfo[] = [];
+    const pluginShortName = pluginFullId.split("@")[0];
+    const skillsDir = path.join(pluginPath, "skills");
+
+    try {
+      await fs.promises.access(skillsDir, fs.constants.R_OK);
+    } catch {
+      return skills;
+    }
+
+    try {
+      const entries = await fs.promises.readdir(skillsDir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        if (!VALID_COMMAND_NAME.test(entry.name)) continue;
+
+        const skillFilePath = path.join(skillsDir, entry.name, SKILL_FILE);
+
+        try {
+          const content = await fs.promises.readFile(skillFilePath, "utf-8");
+          const parsed = this.parseMarkdownFile(content);
+
+          skills.push({
+            name: `${pluginShortName}:${entry.name}`,
+            description: parsed.description,
+            filePath: skillFilePath,
+            source: "plugin",
+            pluginName: pluginShortName,
+            pluginFullId,
+          });
+        } catch {
+          // SKILL.md doesn't exist or isn't readable - skip
+        }
+      }
+    } catch (err) {
+      log(`Error scanning plugin skills directory ${skillsDir}: ${err}`);
+    }
+
+    return skills;
+  }
+
   dispose(): void {
     if (this.projectWatcher) {
       this.projectWatcher.dispose();
@@ -344,9 +533,25 @@ export class SlashCommandService {
       this.pluginWatcher.dispose();
       this.pluginWatcher = null;
     }
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
+    if (this.projectSkillWatcher) {
+      this.projectSkillWatcher.dispose();
+      this.projectSkillWatcher = null;
+    }
+    if (this.userSkillWatcher) {
+      this.userSkillWatcher.dispose();
+      this.userSkillWatcher = null;
+    }
+    if (this.commandDebounceTimer) {
+      clearTimeout(this.commandDebounceTimer);
+      this.commandDebounceTimer = null;
+    }
+    if (this.pluginDebounceTimer) {
+      clearTimeout(this.pluginDebounceTimer);
+      this.pluginDebounceTimer = null;
+    }
+    if (this.skillDebounceTimer) {
+      clearTimeout(this.skillDebounceTimer);
+      this.skillDebounceTimer = null;
     }
   }
 }

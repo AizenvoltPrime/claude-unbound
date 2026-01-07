@@ -120,14 +120,24 @@ Custom commands are loaded from `.claude/commands/*.md` (project) and `~/.claude
 
 ### Skills
 
-Skills are specialized tools that extend Claude's capabilities. When Claude invokes a skill, you'll see an approval prompt:
+Skills are specialized tools that extend Claude's capabilities. You can invoke skills in two ways:
+
+**Via slash command (recommended):**
+
+- Type `/skill-name` to invoke a skill directly - it appears in the autocomplete popup alongside regular commands
+- Skills invoked this way are **auto-approved** (no approval prompt)
+- Pass arguments after the skill name: `/skill-name additional context here`
+
+**Via Claude's autonomous invocation:**
+
+When Claude decides to use a skill on its own, you'll see an approval prompt:
 
 - **Yes**: Approve this invocation (manual mode)
 - **Yes, don't ask again**: Auto-approve this skill for the session
 - **No**: Deny the skill
 - **Tell Claude what to do instead**: Provide custom feedback
 
-Skills are loaded from `.claude/skills/<name>/SKILL.md` (project) and `~/.claude/skills/<name>/SKILL.md` (user). The skill description is parsed from the YAML frontmatter.
+Skills are loaded from `.claude/skills/<name>/SKILL.md` (project) and `~/.claude/skills/<name>/SKILL.md` (user). Plugin skills use the format `/plugin:skill-name`. The skill description is parsed from the YAML frontmatter.
 
 ### Plugins
 
