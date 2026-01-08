@@ -2,6 +2,18 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.6] - 2026-01-08
+
+### Fixed
+
+- Fix MCP server/plugin toggle failing when `settings.local.json` doesn't exist
+- Fix settings path resolution to properly fall back from project to user settings
+- Add error notifications when settings fail to save (MCP, plugins, thinking tokens, budget)
+
+### Changed
+
+- Default thinking tokens now 63999 (extended thinking enabled by default)
+
 ## [1.0.5] - 2026-01-08
 
 ### Added
@@ -76,6 +88,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.6]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.2...v1.0.3

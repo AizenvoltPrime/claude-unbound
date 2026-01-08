@@ -2,7 +2,7 @@
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { setLocale, i18n } from '@/i18n';
-import type { ExtensionSettings, ModelInfo, PermissionMode } from '@shared/types';
+import { DEFAULT_THINKING_TOKENS, type ExtensionSettings, type ModelInfo, type PermissionMode } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,7 +80,7 @@ onUnmounted(() => {
 const localModel = ref(props.settings.model);
 const localMaxThinkingTokens = ref(props.settings.maxThinkingTokens);
 const localBudgetLimit = ref(props.settings.maxBudgetUsd);
-const lastThinkingTokens = ref(props.settings.maxThinkingTokens ?? 10000);
+const lastThinkingTokens = ref(props.settings.maxThinkingTokens ?? DEFAULT_THINKING_TOKENS);
 
 // Computed with getter/setter for derived boolean state
 // This ensures the toggle is always in sync with localMaxThinkingTokens
@@ -88,7 +88,7 @@ const enableExtendedThinking = computed({
   get: () => localMaxThinkingTokens.value !== null,
   set: (enabled: boolean) => {
     if (!enabled) {
-      lastThinkingTokens.value = localMaxThinkingTokens.value ?? 10000;
+      lastThinkingTokens.value = localMaxThinkingTokens.value ?? DEFAULT_THINKING_TOKENS;
       localMaxThinkingTokens.value = null;
       emit('setMaxThinkingTokens', null);
     } else {
@@ -138,7 +138,7 @@ function handleBudgetChange(event: Event) {
 
 function handleThinkingTokensChange(event: Event) {
   const inputValue = (event.target as HTMLInputElement).value;
-  const value = inputValue ? parseInt(inputValue, 10) : 10000;
+  const value = inputValue ? parseInt(inputValue, 10) : DEFAULT_THINKING_TOKENS;
   const clamped = Math.min(63999, Math.max(1000, value));
   localMaxThinkingTokens.value = clamped;
   emit('setMaxThinkingTokens', clamped);
@@ -247,7 +247,7 @@ const currentModelDisplayName = computed(() => {
         <div v-if="enableExtendedThinking" class="mt-3 flex items-center gap-2">
           <Input
             type="number"
-            :model-value="localMaxThinkingTokens ?? 10000"
+            :model-value="localMaxThinkingTokens ?? DEFAULT_THINKING_TOKENS"
             :min="1000"
             :max="63999"
             :step="1000"

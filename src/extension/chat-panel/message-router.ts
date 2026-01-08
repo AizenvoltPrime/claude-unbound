@@ -317,12 +317,32 @@ export class MessageRouter {
 
       setMaxThinkingTokens: async (msg, ctx) => {
         if (msg.type !== "setMaxThinkingTokens") return;
-        await this.settingsManager.handleSetMaxThinkingTokens(ctx.session, msg.tokens);
+        try {
+          await this.settingsManager.handleSetMaxThinkingTokens(ctx.session, msg.tokens);
+        } catch (err) {
+          log("[MessageRouter] Error setting thinking tokens:", err);
+          this.postMessage(ctx.panel, {
+            type: "notification",
+            message: vscode.l10n.t("Failed to save thinking tokens: {0}", err instanceof Error ? err.message : "Unknown error"),
+            notificationType: "error",
+          });
+          await this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
+        }
       },
 
-      setBudgetLimit: async (msg) => {
+      setBudgetLimit: async (msg, ctx) => {
         if (msg.type !== "setBudgetLimit") return;
-        await this.settingsManager.handleSetBudgetLimit(msg.budgetUsd);
+        try {
+          await this.settingsManager.handleSetBudgetLimit(msg.budgetUsd);
+        } catch (err) {
+          log("[MessageRouter] Error setting budget limit:", err);
+          this.postMessage(ctx.panel, {
+            type: "notification",
+            message: vscode.l10n.t("Failed to save budget limit: {0}", err instanceof Error ? err.message : "Unknown error"),
+            notificationType: "error",
+          });
+          await this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
+        }
       },
 
       toggleBeta: async (msg) => {
@@ -375,22 +395,42 @@ export class MessageRouter {
 
       toggleMcpServer: async (msg, ctx) => {
         if (msg.type !== "toggleMcpServer") return;
-        await this.settingsManager.setServerEnabled(msg.serverName, msg.enabled);
-        ctx.session.setMcpServers(this.settingsManager.getEnabledMcpServers());
-        ctx.session.restartForMcpChanges();
-        this.settingsManager.sendMcpConfig(ctx.panel);
+        try {
+          await this.settingsManager.setServerEnabled(msg.serverName, msg.enabled);
+          ctx.session.setMcpServers(this.settingsManager.getEnabledMcpServers());
+          ctx.session.restartForMcpChanges();
+          this.settingsManager.sendMcpConfig(ctx.panel);
+        } catch (err) {
+          log("[MessageRouter] Error toggling MCP server:", err);
+          this.postMessage(ctx.panel, {
+            type: "notification",
+            message: vscode.l10n.t("Failed to save MCP server setting: {0}", err instanceof Error ? err.message : "Unknown error"),
+            notificationType: "error",
+          });
+          this.settingsManager.sendMcpConfig(ctx.panel);
+        }
       },
 
       // Plugin operations
       togglePlugin: async (msg, ctx) => {
         if (msg.type !== "togglePlugin") return;
-        await this.settingsManager.setPluginEnabled(msg.pluginFullId, msg.enabled);
-        ctx.session.setPlugins(this.settingsManager.getEnabledPlugins());
-        ctx.session.restartForPluginChanges();
-        this.settingsManager.sendPluginConfig(ctx.panel);
-        const enabledPluginIds = this.settingsManager.getEnabledPluginIds();
-        await this.workspaceManager.sendCustomSlashCommands(ctx.panel, enabledPluginIds);
-        await this.workspaceManager.sendCustomAgents(ctx.panel, enabledPluginIds);
+        try {
+          await this.settingsManager.setPluginEnabled(msg.pluginFullId, msg.enabled);
+          ctx.session.setPlugins(this.settingsManager.getEnabledPlugins());
+          ctx.session.restartForPluginChanges();
+          this.settingsManager.sendPluginConfig(ctx.panel);
+          const enabledPluginIds = this.settingsManager.getEnabledPluginIds();
+          await this.workspaceManager.sendCustomSlashCommands(ctx.panel, enabledPluginIds);
+          await this.workspaceManager.sendCustomAgents(ctx.panel, enabledPluginIds);
+        } catch (err) {
+          log("[MessageRouter] Error toggling plugin:", err);
+          this.postMessage(ctx.panel, {
+            type: "notification",
+            message: vscode.l10n.t("Failed to save plugin setting: {0}", err instanceof Error ? err.message : "Unknown error"),
+            notificationType: "error",
+          });
+          this.settingsManager.sendPluginConfig(ctx.panel);
+        }
       },
 
       requestPluginStatus: async (msg, ctx) => {

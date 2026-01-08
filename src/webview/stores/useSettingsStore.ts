@@ -1,19 +1,20 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import type {
-  ExtensionSettings,
-  ModelInfo,
-  AccountInfo,
-  McpServerStatusInfo,
-  PluginStatusInfo,
-  PermissionMode,
+import {
+  DEFAULT_THINKING_TOKENS,
+  type ExtensionSettings,
+  type ModelInfo,
+  type AccountInfo,
+  type McpServerStatusInfo,
+  type PluginStatusInfo,
+  type PermissionMode,
 } from '@shared/types';
 
 const DEFAULT_SETTINGS: ExtensionSettings = {
   model: '',
   maxTurns: 50,
   maxBudgetUsd: null,
-  maxThinkingTokens: null,
+  maxThinkingTokens: DEFAULT_THINKING_TOKENS,
   betasEnabled: [],
   permissionMode: 'default',
   defaultPermissionMode: 'default',

@@ -14,50 +14,40 @@ import {
 } from "../claude-settings";
 
 async function syncDisabledServersToClaudeSettings(serverName: string, disabled: boolean): Promise<void> {
-  const settingsPath = await getClaudeSettingsPath();
+  const settingsPath = getClaudeSettingsPath();
+  const settings = await readClaudeSettings();
 
-  try {
-    const settings = await readClaudeSettings();
+  const disabledServers = Array.isArray(settings.disabledMcpjsonServers)
+    ? settings.disabledMcpjsonServers as string[]
+    : [];
 
-    const disabledServers = Array.isArray(settings.disabledMcpjsonServers)
-      ? settings.disabledMcpjsonServers as string[]
-      : [];
-
-    if (disabled) {
-      if (!disabledServers.includes(serverName)) {
-        settings.disabledMcpjsonServers = [...disabledServers, serverName];
-      }
-    } else {
-      settings.disabledMcpjsonServers = disabledServers.filter(s => s !== serverName);
+  if (disabled) {
+    if (!disabledServers.includes(serverName)) {
+      settings.disabledMcpjsonServers = [...disabledServers, serverName];
     }
-
-    await fs.promises.mkdir(path.dirname(settingsPath), { recursive: true });
-    await fs.promises.writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
-    log("[SettingsManager] syncDisabledServersToClaudeSettings: wrote to", settingsPath);
-  } catch (err) {
-    log("[SettingsManager] syncDisabledServersToClaudeSettings: failed to write", err);
+  } else {
+    settings.disabledMcpjsonServers = disabledServers.filter(s => s !== serverName);
   }
+
+  await fs.promises.mkdir(path.dirname(settingsPath), { recursive: true });
+  await fs.promises.writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
+  log("[SettingsManager] syncDisabledServersToClaudeSettings: wrote to", settingsPath);
 }
 
 async function syncEnabledPluginsToClaudeSettings(pluginFullId: string, enabled: boolean): Promise<void> {
-  const settingsPath = await getClaudeSettingsPath();
+  const settingsPath = getClaudeSettingsPath();
+  const settings = await readClaudeSettings();
 
-  try {
-    const settings = await readClaudeSettings();
+  const enabledPlugins = (typeof settings.enabledPlugins === "object" && settings.enabledPlugins !== null)
+    ? settings.enabledPlugins as Record<string, boolean>
+    : {};
 
-    const enabledPlugins = (typeof settings.enabledPlugins === "object" && settings.enabledPlugins !== null)
-      ? settings.enabledPlugins as Record<string, boolean>
-      : {};
+  enabledPlugins[pluginFullId] = enabled;
+  settings.enabledPlugins = enabledPlugins;
 
-    enabledPlugins[pluginFullId] = enabled;
-    settings.enabledPlugins = enabledPlugins;
-
-    await fs.promises.mkdir(path.dirname(settingsPath), { recursive: true });
-    await fs.promises.writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
-    log("[SettingsManager] syncEnabledPluginsToClaudeSettings: wrote to", settingsPath);
-  } catch (err) {
-    log("[SettingsManager] syncEnabledPluginsToClaudeSettings: failed to write", err);
-  }
+  await fs.promises.mkdir(path.dirname(settingsPath), { recursive: true });
+  await fs.promises.writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
+  log("[SettingsManager] syncEnabledPluginsToClaudeSettings: wrote to", settingsPath);
 }
 
 
