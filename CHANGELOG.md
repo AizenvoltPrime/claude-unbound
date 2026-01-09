@@ -2,6 +2,15 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.7] - 2026-01-10
+
+### Fixed
+
+- Fix memory leak when closing panel
+- Call `reset()` instead of `cancel()` on panel dispose for proper SDK cleanup
+- Clean up pending permission promises on dispose to prevent dangling references
+- Add error resilience to PermissionHandler cleanup loops
+
 ## [1.0.6] - 2026-01-08
 
 ### Fixed
@@ -88,6 +97,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.7]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.3...v1.0.4

@@ -602,6 +602,28 @@ export class PermissionHandler {
   }
 
   async dispose(): Promise<void> {
+    const cleanupMap = <T extends { cleanup: () => void; resolve: (result: { approved: false }) => void }>(
+      map: Map<string, T>
+    ) => {
+      for (const [, pending] of map) {
+        try {
+          pending.cleanup();
+          pending.resolve({ approved: false });
+        } catch {
+          // Ignore cleanup errors to ensure all maps are processed
+        }
+      }
+      map.clear();
+    };
+
+    cleanupMap(this.pendingApprovals);
+    cleanupMap(this.pendingQuestions);
+    cleanupMap(this.pendingPlanApprovals);
+    cleanupMap(this.pendingEnterPlanApprovals);
+    cleanupMap(this.pendingSkillApprovals);
+
+    this.autoApprovedSkills.clear();
+
     await this.diffManager.dispose();
   }
 }

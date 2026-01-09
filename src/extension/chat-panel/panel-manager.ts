@@ -133,8 +133,8 @@ export class PanelManager {
     panel.onDidDispose(() => {
       const instance = this.panels.get(panelId);
       if (instance) {
-        instance.session.cancel();
-        instance.permissionHandler.dispose();
+        instance.session.reset();
+        void instance.permissionHandler.dispose();
         instance.ideContextManager.dispose();
         instance.disposables.forEach((d) => d.dispose());
         this.panels.delete(panelId);
@@ -172,8 +172,8 @@ export class PanelManager {
 
   dispose(): void {
     for (const [, instance] of this.panels) {
-      instance.session.cancel();
-      instance.permissionHandler.dispose();
+      instance.session.reset();
+      void instance.permissionHandler.dispose();
       instance.ideContextManager.dispose();
       instance.disposables.forEach((d) => d.dispose());
       instance.panel.dispose();
