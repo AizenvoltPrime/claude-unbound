@@ -8,6 +8,7 @@ import {
   type McpServerStatusInfo,
   type PluginStatusInfo,
   type PermissionMode,
+  type ProviderProfile,
 } from '@shared/types';
 
 const DEFAULT_SETTINGS: ExtensionSettings = {
@@ -35,6 +36,9 @@ export const useSettingsStore = defineStore('settings', () => {
   const mcpServers = ref<McpServerStatusInfo[]>([]);
   const plugins = ref<PluginStatusInfo[]>([]);
   const budgetWarning = ref<BudgetWarningState | null>(null);
+  const providerProfiles = ref<ProviderProfile[]>([]);
+  const activeProviderProfile = ref<string | null>(null);
+  const defaultProviderProfile = ref<string | null>(null);
 
   function updateSettings(settings: ExtensionSettings) {
     currentSettings.value = settings;
@@ -121,6 +125,12 @@ export const useSettingsStore = defineStore('settings', () => {
     budgetWarning.value = null;
   }
 
+  function setProviderProfiles(profiles: ProviderProfile[], active: string | null, defaultProfile: string | null) {
+    providerProfiles.value = profiles;
+    activeProviderProfile.value = active;
+    defaultProviderProfile.value = defaultProfile;
+  }
+
   function $reset() {
     currentSettings.value = { ...DEFAULT_SETTINGS };
     availableModels.value = [];
@@ -128,6 +138,9 @@ export const useSettingsStore = defineStore('settings', () => {
     mcpServers.value = [];
     plugins.value = [];
     budgetWarning.value = null;
+    providerProfiles.value = [];
+    activeProviderProfile.value = null;
+    defaultProviderProfile.value = null;
   }
 
   return {
@@ -137,6 +150,9 @@ export const useSettingsStore = defineStore('settings', () => {
     mcpServers,
     plugins,
     budgetWarning,
+    providerProfiles,
+    activeProviderProfile,
+    defaultProviderProfile,
     updateSettings,
     setModel,
     setPermissionMode,
@@ -152,6 +168,7 @@ export const useSettingsStore = defineStore('settings', () => {
     updatePluginStatuses,
     setBudgetWarning,
     dismissBudgetWarning,
+    setProviderProfiles,
     $reset,
   };
 });

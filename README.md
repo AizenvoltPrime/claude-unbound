@@ -36,6 +36,7 @@
 - **Hooks Support**: Claude Code hooks (shell commands that run on events like tool calls) work automatically
 - **Plugins Support**: Enable/disable Claude Code plugins from the UI - plugins can provide agents and slash commands
 - **Skills Support**: Approve or deny skill invocations
+- **Provider Profiles**: Define and switch between API providers (Anthropic, Z.AI, OpenRouter, etc.) with per-panel profile selection
 - **Localization**: UI translated into multiple languages, automatically matches VS Code's display language
 
 ## Installation
@@ -155,13 +156,58 @@ Enable or disable plugins from the plugin status panel in the UI. Plugin setting
 | Agents         | `@agent-<plugin>:<name>` | `@agent-pdf:analyzer` |
 | Slash commands | `/<plugin>:<command>`    | `/pdf:extract`        |
 
+### Provider Profiles
+
+Provider profiles allow you to define and switch between different API providers (Anthropic, Z.AI, OpenRouter, etc.) directly from the settings panel. Each profile stores environment variables that configure the SDK's connection.
+
+**Security:** API credentials are encrypted using VS Code's SecretStorage API (backed by the OS keychain) and never stored in settings.json. Profile names are visible in settings, but all environment variables containing API keys are stored securely.
+
+**Creating a profile:**
+
+1. Open the settings panel (gear icon in chat header)
+2. Scroll to "Provider Profiles" section
+3. Click "Add Profile"
+4. Enter a profile name and add environment variables
+
+**Common environment variables:**
+
+| Variable                       | Purpose                                     |
+| ------------------------------ | ------------------------------------------- |
+| `ANTHROPIC_BASE_URL`           | Custom API endpoint URL                     |
+| `ANTHROPIC_AUTH_TOKEN`         | API key or auth token for the provider      |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Model name to use when Opus is selected     |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | Model name to use when Sonnet is selected |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Model name to use when Haiku is selected   |
+
+**Example: Z.AI Profile**
+
+```
+Name: zai
+ANTHROPIC_BASE_URL: https://api.zai.com/v1
+ANTHROPIC_AUTH_TOKEN: your-zai-api-key
+ANTHROPIC_DEFAULT_SONNET_MODEL: claude-sonnet-4-20250514
+```
+
+**Per-panel profiles:**
+
+Each open panel can have its own provider profile independent of other panels. The settings panel shows two profile selectors:
+
+- **This panel**: The provider profile for the current panel only
+- **Default for new panels**: The global default that new panels inherit when opened
+
+This allows you to have multiple panels open simultaneously, each connected to a different provider (e.g., one panel using OpenRouter while another uses Z.AI).
+
+When you activate a profile, the session automatically restarts with the new provider configuration. Set to "Default" to use the Anthropic API with your `ANTHROPIC_API_KEY` environment variable.
+
 ## Configuration
 
-| Setting                          | Description                                                                            | Default   |
-| -------------------------------- | -------------------------------------------------------------------------------------- | --------- |
-| `claude-unbound.permissionMode`  | How to handle tool permissions (`default`, `acceptEdits`, `bypassPermissions`, `plan`) | `default` |
-| `claude-unbound.maxTurns`        | Maximum conversation turns per session                                                 | `100`     |
-| `claude-unbound.maxIndexedFiles` | Maximum files to index for @ mention autocomplete                                      | `5000`    |
+| Setting                              | Description                                                                            | Default   |
+| ------------------------------------ | -------------------------------------------------------------------------------------- | --------- |
+| `claude-unbound.permissionMode`      | How to handle tool permissions (`default`, `acceptEdits`, `bypassPermissions`, `plan`) | `default` |
+| `claude-unbound.maxTurns`            | Maximum conversation turns per session                                                 | `100`     |
+| `claude-unbound.maxIndexedFiles`     | Maximum files to index for @ mention autocomplete                                      | `5000`    |
+| `claude-unbound.providerProfiles`    | Array of provider profile names (credentials stored securely in OS keychain)           | `[]`      |
+| `claude-unbound.activeProviderProfile` | Currently active provider profile name                                               | `null`    |
 
 ## Localization
 

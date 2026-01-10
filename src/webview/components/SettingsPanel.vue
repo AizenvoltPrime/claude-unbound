@@ -2,12 +2,14 @@
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { setLocale, i18n } from '@/i18n';
-import { DEFAULT_THINKING_TOKENS, type ExtensionSettings, type ModelInfo, type PermissionMode } from '@shared/types';
+import { DEFAULT_THINKING_TOKENS, type ExtensionSettings, type ModelInfo, type PermissionMode, type ProviderProfile } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import ProfileEditor from './ProfileEditor.vue';
+import { Plus, Pencil, Trash2 } from 'lucide-vue-next';
 import {
   Sheet,
   SheetContent,
@@ -21,6 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const { t } = useI18n();
 
@@ -28,6 +40,9 @@ const props = defineProps<{
   settings: ExtensionSettings;
   availableModels: ModelInfo[];
   visible: boolean;
+  providerProfiles: ProviderProfile[];
+  activeProviderProfile: string | null;
+  defaultProviderProfile: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -38,6 +53,11 @@ const emit = defineEmits<{
   (e: 'toggleBeta', beta: string, enabled: boolean): void;
   (e: 'setDefaultPermissionMode', mode: PermissionMode): void;
   (e: 'openVSCodeSettings'): void;
+  (e: 'createProfile', profile: ProviderProfile): void;
+  (e: 'updateProfile', originalName: string, profile: ProviderProfile): void;
+  (e: 'deleteProfile', profileName: string): void;
+  (e: 'setActiveProfile', profileName: string | null): void;
+  (e: 'setDefaultProfile', profileName: string | null): void;
 }>();
 
 const permissionModeOptions = computed<{ value: PermissionMode; label: string; description: string }[]>(() => [
@@ -166,6 +186,53 @@ const currentModelDisplayName = computed(() => {
   const model = modelOptions.value.find(m => m.value === localModel.value);
   return model?.displayName || localModel.value;
 });
+
+// Provider Profile state
+const profileEditorVisible = ref(false);
+const editingProfile = ref<ProviderProfile | null>(null);
+const profileToDelete = ref<string | null>(null);
+
+function handleActiveProfileChange(value: string) {
+  emit('setActiveProfile', value === '__none__' ? null : value);
+}
+
+function handleDefaultProfileChange(value: string) {
+  emit('setDefaultProfile', value === '__none__' ? null : value);
+}
+
+function openProfileEditor(profile?: ProviderProfile) {
+  editingProfile.value = profile ?? null;
+  profileEditorVisible.value = true;
+}
+
+function closeProfileEditor() {
+  profileEditorVisible.value = false;
+  editingProfile.value = null;
+}
+
+function handleSaveProfile(profile: ProviderProfile) {
+  if (editingProfile.value) {
+    emit('updateProfile', editingProfile.value.name, profile);
+  } else {
+    emit('createProfile', profile);
+  }
+  closeProfileEditor();
+}
+
+function confirmDeleteProfile(profileName: string) {
+  profileToDelete.value = profileName;
+}
+
+function handleDeleteProfile() {
+  if (profileToDelete.value) {
+    emit('deleteProfile', profileToDelete.value);
+    profileToDelete.value = null;
+  }
+}
+
+function cancelDeleteProfile() {
+  profileToDelete.value = null;
+}
 </script>
 
 <template>
@@ -174,6 +241,104 @@ const currentModelDisplayName = computed(() => {
       <SheetHeader class="mb-6">
         <SheetTitle class="text-foreground">{{ t('settings.title') }}</SheetTitle>
       </SheetHeader>
+
+      <!-- Provider Profile -->
+      <div class="mb-5">
+        <div class="flex items-center justify-between mb-2">
+          <Label class="text-primary font-medium">{{ t('settings.providerProfile') }}</Label>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-6 w-6"
+            :title="t('settings.addProfile')"
+            @click="openProfileEditor()"
+          >
+            <Plus class="h-4 w-4" />
+          </Button>
+        </div>
+
+        <!-- This Panel's Profile -->
+        <div class="mb-3">
+          <Label class="text-xs text-muted-foreground mb-1 block">{{ t('settings.thisPanel') }}</Label>
+          <Select
+            :model-value="activeProviderProfile ?? '__none__'"
+            @update:model-value="handleActiveProfileChange"
+          >
+            <SelectTrigger class="w-full bg-input border-border">
+              <SelectValue :placeholder="t('settings.noProfile')" />
+            </SelectTrigger>
+            <SelectContent class="bg-popover border-border">
+              <SelectItem value="__none__">
+                {{ t('settings.noProfile') }}
+              </SelectItem>
+              <SelectItem
+                v-for="profile in providerProfiles"
+                :key="profile.name"
+                :value="profile.name"
+              >
+                {{ profile.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <!-- Default for New Panels -->
+        <div class="mb-2">
+          <Label class="text-xs text-muted-foreground mb-1 block">{{ t('settings.defaultForNewPanels') }}</Label>
+          <Select
+            :model-value="defaultProviderProfile ?? '__none__'"
+            @update:model-value="handleDefaultProfileChange"
+          >
+            <SelectTrigger class="w-full bg-input border-border">
+              <SelectValue :placeholder="t('settings.noProfile')" />
+            </SelectTrigger>
+            <SelectContent class="bg-popover border-border">
+              <SelectItem value="__none__">
+                {{ t('settings.noProfile') }}
+              </SelectItem>
+              <SelectItem
+                v-for="profile in providerProfiles"
+                :key="profile.name"
+                :value="profile.name"
+              >
+                {{ profile.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div v-if="providerProfiles.length > 0" class="mt-2 space-y-1">
+          <div
+            v-for="profile in providerProfiles"
+            :key="profile.name"
+            class="flex items-center justify-between text-xs text-muted-foreground px-1 py-0.5 rounded hover:bg-muted/50"
+          >
+            <span class="truncate">{{ profile.name }}</span>
+            <div class="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                class="h-5 w-5"
+                :title="t('settings.editProfile')"
+                @click="openProfileEditor(profile)"
+              >
+                <Pencil class="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                class="h-5 w-5 text-destructive hover:text-destructive"
+                :title="t('settings.deleteProfile')"
+                @click="confirmDeleteProfile(profile.name)"
+              >
+                <Trash2 class="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-muted-foreground mt-1">
+          {{ t('settings.providerProfileDescription') }}
+        </p>
+      </div>
 
       <!-- Default Permission Mode -->
       <div class="mb-5">
@@ -312,4 +477,30 @@ const currentModelDisplayName = computed(() => {
       </p>
     </SheetContent>
   </Sheet>
+
+  <!-- Profile Editor Modal -->
+  <ProfileEditor
+    :visible="profileEditorVisible"
+    :profile="editingProfile"
+    @close="closeProfileEditor"
+    @save="handleSaveProfile"
+  />
+
+  <!-- Delete Profile Confirmation -->
+  <AlertDialog :open="profileToDelete !== null" @update:open="(open: boolean) => !open && cancelDeleteProfile()">
+    <AlertDialogContent class="bg-card border-border">
+      <AlertDialogHeader>
+        <AlertDialogTitle class="text-foreground">{{ t('settings.deleteProfileConfirmTitle') }}</AlertDialogTitle>
+        <AlertDialogDescription class="text-muted-foreground">
+          {{ t('settings.deleteProfileConfirmMessage', { name: profileToDelete }) }}
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel @click="cancelDeleteProfile">{{ t('common.cancel') }}</AlertDialogCancel>
+        <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="handleDeleteProfile">
+          {{ t('common.delete') }}
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
 </template>

@@ -88,6 +88,35 @@ export class QueryManager {
   }
 
   /**
+   * Resolve model name based on provider environment overrides.
+   * Providers like Z.AI and OpenRouter use ANTHROPIC_DEFAULT_* env vars to map models.
+   * Returns the provider's model if set, otherwise returns the original model.
+   */
+  private resolveModelForProvider(configuredModel: string): string {
+    const env = this.options.providerEnv;
+    if (!env) {
+      return configuredModel;
+    }
+
+    // Match Claude model tiers explicitly (claude-opus-*, claude-sonnet-*, claude-haiku-*)
+    let providerModel: string | undefined;
+
+    if (/^claude-opus-/.test(configuredModel)) {
+      providerModel = env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+    } else if (/^claude-haiku-/.test(configuredModel)) {
+      providerModel = env.ANTHROPIC_DEFAULT_HAIKU_MODEL;
+    } else if (/^claude-sonnet-/.test(configuredModel)) {
+      providerModel = env.ANTHROPIC_DEFAULT_SONNET_MODEL;
+    }
+
+    if (providerModel) {
+      return providerModel;
+    }
+
+    return configuredModel;
+  }
+
+  /**
    * Ensure a streaming query exists for this session.
    * Uses streaming input mode (AsyncIterable) so the query stays alive between messages.
    *
@@ -147,7 +176,10 @@ export class QueryManager {
     const config = vscode.workspace.getConfiguration("claude-unbound");
     const maxTurns = config.get<number>("maxTurns", 100);
     const configuredModel = config.get<string>("model", "");
-    const model = configuredModel || "claude-opus-4-5-20251101";
+
+    // Resolve model: if provider profile sets ANTHROPIC_DEFAULT_* env vars, use those
+    // This allows providers like Z.AI and OpenRouter to control model mapping
+    const model = this.resolveModelForProvider(configuredModel || "claude-opus-4-5-20251101");
     this.maxBudgetUsd = config.get<number | null>("maxBudgetUsd", null);
     const maxThinkingTokens = await readThinkingTokensFromClaudeSettings();
     const betasEnabledRaw = config.get<string[]>("betasEnabled", []);
@@ -161,6 +193,15 @@ export class QueryManager {
       includePartialMessages: true,
       maxTurns,
       model,
+      // Merge providerEnv with process.env (providerEnv overrides process.env)
+      // SDK's env option REPLACES process.env entirely, so we must include system vars
+      ...(this.options.providerEnv &&
+        Object.keys(this.options.providerEnv).length > 0 && {
+          env: {
+            ...process.env,
+            ...this.options.providerEnv,
+          },
+        }),
       ...(this.maxBudgetUsd && { maxBudgetUsd: this.maxBudgetUsd }),
       ...(maxThinkingTokens && { maxThinkingTokens }),
       ...(betasEnabled.length > 0 && { betas: betasEnabled }),
@@ -641,6 +682,25 @@ export class QueryManager {
    * Session ID is preserved - next query will resume.
    */
   restartForPluginChanges(): void {
+    if (this._streamingInputController) {
+      this.closeAndReset();
+    }
+  }
+
+  /**
+   * Update provider environment variables configuration.
+   * Called when user switches provider profiles in the UI.
+   */
+  setProviderEnv(env: Record<string, string> | undefined): void {
+    this.options.providerEnv = env;
+  }
+
+  /**
+   * Close the query to trigger recreation with new provider env vars.
+   * Must call setProviderEnv() first to update the configuration.
+   * Session ID is preserved - next query will resume.
+   */
+  restartForProviderChange(): void {
     if (this._streamingInputController) {
       this.closeAndReset();
     }

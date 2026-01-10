@@ -436,6 +436,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           settingsStore.setPlugins(message.plugins);
           break;
 
+        case "providerProfilesUpdate":
+          settingsStore.setProviderProfiles(message.profiles, message.activeProfile, message.defaultProfile);
+          break;
+
         case "systemInit":
           if (message.data.mcpServers) {
             settingsStore.updateMcpServerStatuses(message.data.mcpServers);

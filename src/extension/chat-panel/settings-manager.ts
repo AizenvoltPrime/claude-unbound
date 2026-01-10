@@ -4,7 +4,7 @@ import * as fs from "fs";
 import type { ClaudeSession } from "../claude-session";
 import type { PermissionHandler } from "../PermissionHandler";
 import type { PluginService } from "../PluginService";
-import type { ExtensionToWebviewMessage, McpServerConfig, McpServerStatusInfo, PluginConfig, PluginStatusInfo, ExtensionSettings, PermissionMode } from "../../shared/types";
+import type { ExtensionToWebviewMessage, McpServerConfig, McpServerStatusInfo, PluginConfig, PluginStatusInfo, ExtensionSettings, PermissionMode, ProviderProfile } from "../../shared/types";
 import { log } from "../logger";
 import {
   getClaudeSettingsPath,
@@ -96,6 +96,7 @@ function modelSupports1MContext(model: string): boolean {
 
 export interface SettingsManagerConfig {
   postMessage: (panel: vscode.WebviewPanel, message: ExtensionToWebviewMessage) => void;
+  secrets: vscode.SecretStorage;
 }
 
 export class SettingsManager {
@@ -104,11 +105,17 @@ export class SettingsManager {
   private pluginEntries: PluginEntry[] = [];
   private pluginConfigLoaded = false;
   private readonly postMessage: SettingsManagerConfig["postMessage"];
+  private readonly secrets: vscode.SecretStorage;
   private serverToggleLock: Promise<void> = Promise.resolve();
   private pluginToggleLock: Promise<void> = Promise.resolve();
+  private providerProfiles: ProviderProfile[] = [];
+  private activeProviderProfile: string | null = null;
+  private perPanelActiveProfile: Map<string, string | null> = new Map();
+  private static readonly PROFILE_SECRET_PREFIX = "claude-unbound.profile:";
 
   constructor(config: SettingsManagerConfig) {
     this.postMessage = config.postMessage;
+    this.secrets = config.secrets;
   }
 
   async setServerEnabled(serverName: string, enabled: boolean): Promise<void> {
@@ -369,5 +376,199 @@ export class SettingsManager {
 
   async handleSetDefaultPermissionMode(mode: PermissionMode): Promise<void> {
     await updateConfigAtEffectiveScope("claude-unbound", "permissionMode", mode);
+  }
+
+  async loadProviderProfiles(): Promise<void> {
+    const config = vscode.workspace.getConfiguration("claude-unbound");
+    const storedProfiles = config.get<ProviderProfile[]>("providerProfiles", []);
+    this.activeProviderProfile = config.get<string | null>("activeProviderProfile", null);
+
+    // Load env vars from SecretStorage for each profile
+    this.providerProfiles = await Promise.all(
+      storedProfiles.map(async (profile) => {
+        const secretKey = SettingsManager.PROFILE_SECRET_PREFIX + profile.name;
+        const envJson = await this.secrets.get(secretKey);
+        const env = envJson ? JSON.parse(envJson) as Record<string, string> : profile.env || {};
+        return { name: profile.name, env };
+      })
+    );
+
+    log("[SettingsManager] loadProviderProfiles: loaded", this.providerProfiles.length, "profiles, active:", this.activeProviderProfile);
+  }
+
+  async createProviderProfile(profile: ProviderProfile): Promise<void> {
+    if (this.providerProfiles.some(p => p.name === profile.name)) {
+      throw new Error(`Profile "${profile.name}" already exists`);
+    }
+
+    // Store env vars in SecretStorage
+    const secretKey = SettingsManager.PROFILE_SECRET_PREFIX + profile.name;
+    await this.secrets.store(secretKey, JSON.stringify(profile.env));
+
+    // Store only name in VS Code settings (no env vars for security)
+    this.providerProfiles = [...this.providerProfiles, profile];
+    const profileNames = this.providerProfiles.map(p => ({ name: p.name }));
+    await updateConfigAtEffectiveScope("claude-unbound", "providerProfiles", profileNames);
+    log("[SettingsManager] createProviderProfile:", profile.name);
+  }
+
+  async updateProviderProfile(originalName: string, profile: ProviderProfile): Promise<boolean> {
+    const index = this.providerProfiles.findIndex(p => p.name === originalName);
+    if (index === -1) {
+      throw new Error(`Profile "${originalName}" not found`);
+    }
+
+    if (originalName !== profile.name && this.providerProfiles.some(p => p.name === profile.name)) {
+      throw new Error(`Profile "${profile.name}" already exists`);
+    }
+
+    // Handle secret key rename if name changed
+    const oldSecretKey = SettingsManager.PROFILE_SECRET_PREFIX + originalName;
+    const newSecretKey = SettingsManager.PROFILE_SECRET_PREFIX + profile.name;
+
+    if (originalName !== profile.name) {
+      // Delete old secret key
+      await this.secrets.delete(oldSecretKey);
+    }
+    // Store env vars under (possibly new) key
+    await this.secrets.store(newSecretKey, JSON.stringify(profile.env));
+
+    this.providerProfiles = [
+      ...this.providerProfiles.slice(0, index),
+      profile,
+      ...this.providerProfiles.slice(index + 1),
+    ];
+    // Store only names in VS Code settings
+    const profileNames = this.providerProfiles.map(p => ({ name: p.name }));
+    await updateConfigAtEffectiveScope("claude-unbound", "providerProfiles", profileNames);
+
+    const needsRestart = this.activeProviderProfile === originalName;
+    if (needsRestart) {
+      this.activeProviderProfile = profile.name;
+      await updateConfigAtEffectiveScope("claude-unbound", "activeProviderProfile", profile.name);
+    }
+
+    log("[SettingsManager] updateProviderProfile:", originalName, "->", profile.name);
+    return needsRestart;
+  }
+
+  async deleteProviderProfile(profileName: string): Promise<boolean> {
+    const profile = this.providerProfiles.find(p => p.name === profileName);
+    if (!profile) {
+      throw new Error(`Profile "${profileName}" not found`);
+    }
+
+    // Delete env vars from SecretStorage
+    const secretKey = SettingsManager.PROFILE_SECRET_PREFIX + profileName;
+    await this.secrets.delete(secretKey);
+
+    this.providerProfiles = this.providerProfiles.filter(p => p.name !== profileName);
+    // Store only names in VS Code settings
+    const profileNames = this.providerProfiles.map(p => ({ name: p.name }));
+    await updateConfigAtEffectiveScope("claude-unbound", "providerProfiles", profileNames);
+
+    const needsRestart = this.activeProviderProfile === profileName;
+    if (needsRestart) {
+      this.activeProviderProfile = null;
+      await updateConfigAtEffectiveScope("claude-unbound", "activeProviderProfile", null);
+    }
+
+    log("[SettingsManager] deleteProviderProfile:", profileName);
+    return needsRestart;
+  }
+
+  async setActiveProviderProfile(profileName: string | null): Promise<boolean> {
+    if (profileName === this.activeProviderProfile) {
+      return false;
+    }
+
+    if (profileName !== null) {
+      const profile = this.providerProfiles.find(p => p.name === profileName);
+      if (!profile) {
+        throw new Error(`Profile "${profileName}" not found`);
+      }
+    }
+
+    this.activeProviderProfile = profileName;
+    await updateConfigAtEffectiveScope("claude-unbound", "activeProviderProfile", profileName);
+    log("[SettingsManager] setActiveProviderProfile:", profileName);
+    return true;
+  }
+
+  getActiveProviderEnv(): Record<string, string> | undefined {
+    if (!this.activeProviderProfile) {
+      return undefined;
+    }
+    const profile = this.providerProfiles.find(p => p.name === this.activeProviderProfile);
+    return profile?.env;
+  }
+
+  initPanelProfile(panelId: string): void {
+    this.perPanelActiveProfile.set(panelId, this.activeProviderProfile);
+  }
+
+  cleanupPanelProfile(panelId: string): void {
+    this.perPanelActiveProfile.delete(panelId);
+  }
+
+  getActiveProviderProfileForPanel(panelId: string): string | null {
+    return this.perPanelActiveProfile.has(panelId)
+      ? this.perPanelActiveProfile.get(panelId)!
+      : this.activeProviderProfile;
+  }
+
+  setActiveProviderProfileForPanel(panelId: string, profileName: string | null): boolean {
+    const currentProfile = this.perPanelActiveProfile.has(panelId)
+      ? this.perPanelActiveProfile.get(panelId)!
+      : this.activeProviderProfile;
+    if (profileName === currentProfile) {
+      return false;
+    }
+
+    if (profileName !== null) {
+      const profile = this.providerProfiles.find(p => p.name === profileName);
+      if (!profile) {
+        throw new Error(`Profile "${profileName}" not found`);
+      }
+    }
+
+    this.perPanelActiveProfile.set(panelId, profileName);
+    return true;
+  }
+
+  getActiveProviderEnvForPanel(panelId: string): Record<string, string> | undefined {
+    const profileName = this.perPanelActiveProfile.has(panelId)
+      ? this.perPanelActiveProfile.get(panelId)
+      : this.activeProviderProfile;
+    if (!profileName) {
+      return undefined;
+    }
+    const profile = this.providerProfiles.find(p => p.name === profileName);
+    return profile?.env;
+  }
+
+  sendProviderProfilesForPanel(panel: vscode.WebviewPanel, panelId: string): void {
+    const activeProfile = this.perPanelActiveProfile.has(panelId)
+      ? this.perPanelActiveProfile.get(panelId)!
+      : this.activeProviderProfile;
+    this.postMessage(panel, {
+      type: "providerProfilesUpdate",
+      profiles: this.providerProfiles,
+      activeProfile,
+      defaultProfile: this.activeProviderProfile,
+    });
+  }
+
+  async setDefaultProviderProfile(profileName: string | null): Promise<void> {
+    if (profileName !== null) {
+      const profile = this.providerProfiles.find(p => p.name === profileName);
+      if (!profile) {
+        throw new Error(`Profile "${profileName}" not found`);
+      }
+    }
+
+    this.activeProviderProfile = profileName;
+    await updateConfigAtEffectiveScope("claude-unbound", "activeProviderProfile", profileName);
+    log("[SettingsManager] setDefaultProviderProfile:", profileName);
   }
 }

@@ -19,6 +19,7 @@ export interface SessionOptions {
   onSessionIdChange?: (sessionId: string | null) => void;
   mcpServers?: Record<string, McpServerConfig>;
   plugins?: PluginConfig[];
+  providerEnv?: Record<string, string>;
 }
 
 /** Callbacks for inter-manager communication */

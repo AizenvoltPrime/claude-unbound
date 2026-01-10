@@ -21,5 +21,9 @@
   "configuration.sandbox.autoAllowBashIfSandboxed.description": "Αυτόματη αποδοχή εντολών Bash όταν είναι sandboxed",
   "configuration.sandbox.allowUnsandboxedCommands.description": "Αποδοχή εντολών που δεν μπορούν να είναι sandboxed",
   "configuration.sandbox.networkAllowedDomains.description": "Επιτρεπόμενα network domains στο sandbox",
-  "configuration.sandbox.networkAllowLocalBinding.description": "Αποδοχή binding σε τοπικές θύρες στο sandbox"
+  "configuration.sandbox.networkAllowLocalBinding.description": "Αποδοχή binding σε τοπικές θύρες στο sandbox",
+  "configuration.providerProfiles.description": "Προφίλ παρόχων με μεταβλητές περιβάλλοντος για διαφορετικούς παρόχους API",
+  "configuration.providerProfiles.name.description": "Μοναδικό όνομα για το προφίλ παρόχου",
+  "configuration.providerProfiles.env.description": "Μεταβλητές περιβάλλοντος για αυτόν τον πάροχο (π.χ., ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN)",
+  "configuration.activeProviderProfile.description": "Ενεργό προφίλ παρόχου (null για απενεργοποίηση)"
 }

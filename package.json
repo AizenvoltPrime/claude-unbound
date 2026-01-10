@@ -2,7 +2,7 @@
   "name": "claude-unbound",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "publisher": "Aizenvolt",
   "icon": "resources/icon.png",
   "license": "MIT",
@@ -172,6 +172,35 @@
               "description": "%configuration.sandbox.networkAllowLocalBinding.description%"
             }
           }
+        },
+        "claude-unbound.providerProfiles": {
+          "type": "array",
+          "default": [],
+          "scope": "resource",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "%configuration.providerProfiles.name.description%"
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "%configuration.providerProfiles.env.description%"
+              }
+            },
+            "required": ["name", "env"]
+          },
+          "description": "%configuration.providerProfiles.description%"
+        },
+        "claude-unbound.activeProviderProfile": {
+          "type": ["string", "null"],
+          "default": null,
+          "scope": "resource",
+          "description": "%configuration.activeProviderProfile.description%"
         }
       }
     }

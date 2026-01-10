@@ -332,6 +332,15 @@ export class ClaudeSession {
     this.queryManager.restartForPluginChanges();
   }
 
+  setProviderEnv(env: Record<string, string> | undefined): void {
+    this.queryManager.setProviderEnv(env);
+  }
+
+  restartForProviderChange(): void {
+    this.streamingManager.silentAbort = true;
+    this.queryManager.restartForProviderChange();
+  }
+
   async rewindFiles(userMessageId: string, option: RewindOption = 'code-only', promptContent?: string): Promise<void> {
     const sessionId = this.streamingManager.sessionId;
     const needsFileRewind = option === 'code-and-conversation' || option === 'code-only';

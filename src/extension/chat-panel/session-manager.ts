@@ -12,6 +12,7 @@ export interface SessionManagerConfig {
   getEnabledPlugins: () => PluginConfig[];
   getPluginConfigLoaded: () => boolean;
   loadPluginConfig: () => Promise<void>;
+  getActiveProviderEnvForPanel: (panelId: string) => Record<string, string> | undefined;
   postMessage: (panel: vscode.WebviewPanel, message: ExtensionToWebviewMessage) => void;
   setupSessionWatcher: () => void;
 }
@@ -24,6 +25,7 @@ export class SessionManager {
   private readonly getEnabledPlugins: SessionManagerConfig["getEnabledPlugins"];
   private readonly getPluginConfigLoaded: SessionManagerConfig["getPluginConfigLoaded"];
   private readonly loadPluginConfig: SessionManagerConfig["loadPluginConfig"];
+  private readonly getActiveProviderEnvForPanel: SessionManagerConfig["getActiveProviderEnvForPanel"];
   private readonly postMessage: SessionManagerConfig["postMessage"];
   private readonly setupSessionWatcher: SessionManagerConfig["setupSessionWatcher"];
 
@@ -35,13 +37,15 @@ export class SessionManager {
     this.getEnabledPlugins = config.getEnabledPlugins;
     this.getPluginConfigLoaded = config.getPluginConfigLoaded;
     this.loadPluginConfig = config.loadPluginConfig;
+    this.getActiveProviderEnvForPanel = config.getActiveProviderEnvForPanel;
     this.postMessage = config.postMessage;
     this.setupSessionWatcher = config.setupSessionWatcher;
   }
 
   async createSessionForPanel(
     panel: vscode.WebviewPanel,
-    permissionHandler: PermissionHandler
+    permissionHandler: PermissionHandler,
+    panelId: string
   ): Promise<ClaudeSession> {
     if (!this.getMcpConfigLoaded()) {
       await this.loadMcpConfig();
@@ -62,6 +66,7 @@ export class SessionManager {
       },
       mcpServers: this.getEnabledMcpServers(),
       plugins: this.getEnabledPlugins(),
+      providerEnv: this.getActiveProviderEnvForPanel(panelId),
     });
 
     return session;

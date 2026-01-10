@@ -33,6 +33,7 @@ export class ChatPanelProvider {
 
     this.settingsManager = new SettingsManager({
       postMessage,
+      secrets: context.secrets,
     });
 
     this.storageManager = new StorageManager({
@@ -61,6 +62,7 @@ export class ChatPanelProvider {
       getEnabledPlugins: () => this.settingsManager.getEnabledPlugins(),
       getPluginConfigLoaded: () => this.settingsManager.getPluginConfigLoaded(),
       loadPluginConfig: () => this.settingsManager.loadPluginConfig(this.pluginService),
+      getActiveProviderEnvForPanel: (panelId) => this.settingsManager.getActiveProviderEnvForPanel(panelId),
       postMessage,
       setupSessionWatcher: () => this.storageManager.setupSessionWatcher(),
     });
@@ -78,14 +80,16 @@ export class ChatPanelProvider {
 
     this.panelManager = new PanelManager({
       extensionUri: this.extensionUri,
-      createSessionForPanel: (panel, permissionHandler) =>
-        this.sessionManager.createSessionForPanel(panel, permissionHandler),
+      createSessionForPanel: (panel, permissionHandler, panelId) =>
+        this.sessionManager.createSessionForPanel(panel, permissionHandler, panelId),
       handleWebviewMessage: (message, panelId) =>
         this.messageRouter.handleWebviewMessage(message, panelId),
       sendCurrentSettings: (panel, permissionHandler) =>
         this.settingsManager.sendCurrentSettings(panel, permissionHandler),
       getStoredSessions: () => this.storageManager.getStoredSessions(),
       invalidateSessionsCache: () => this.storageManager.invalidateSessionsCache(),
+      initPanelProfile: (panelId) => this.settingsManager.initPanelProfile(panelId),
+      cleanupPanelProfile: (panelId) => this.settingsManager.cleanupPanelProfile(panelId),
     });
 
     this.storageManager.setupSessionWatcher();
@@ -94,6 +98,9 @@ export class ChatPanelProvider {
     });
     this.settingsManager.loadPluginConfig(this.pluginService).catch((err) => {
       log("[ChatPanelProvider] Error pre-loading plugin config:", err);
+    });
+    this.settingsManager.loadProviderProfiles().catch((err) => {
+      log("[ChatPanelProvider] Error loading provider profiles:", err);
     });
   }
 

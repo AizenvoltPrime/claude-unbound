@@ -282,6 +282,7 @@ export class MessageRouter {
         this.settingsManager.sendAvailableModels(ctx.session, ctx.panel);
         this.settingsManager.sendMcpConfig(ctx.panel);
         this.settingsManager.sendPluginConfig(ctx.panel);
+        this.settingsManager.sendProviderProfilesForPanel(ctx.panel, ctx.panelId);
         this.postMessage(ctx.panel, { type: "languageChange", locale: this.getLanguagePreference() });
 
         try {
@@ -613,7 +614,110 @@ export class MessageRouter {
         if (msg.type !== "setLanguagePreference") return;
         await this.setLanguagePreference(msg.locale);
       },
+
+      // Provider profiles
+      requestProviderProfiles: (msg, ctx) => {
+        this.settingsManager.sendProviderProfilesForPanel(ctx.panel, ctx.panelId);
+      },
+
+      createProviderProfile: async (msg, ctx) => {
+        if (msg.type !== "createProviderProfile") return;
+        try {
+          await this.settingsManager.createProviderProfile(msg.profile);
+          this.broadcastProviderProfilesToAllPanels();
+        } catch (err) {
+          log("[MessageRouter] Error creating provider profile:", err);
+          this.postMessage(ctx.panel, {
+            type: "notification",
+            message: vscode.l10n.t("Failed to create provider profile: {0}", err instanceof Error ? err.message : "Unknown error"),
+            notificationType: "error",
+          });
+        }
+      },
+
+      updateProviderProfile: async (msg, ctx) => {
+        if (msg.type !== "updateProviderProfile") return;
+        try {
+          const needsRestart = await this.settingsManager.updateProviderProfile(msg.originalName, msg.profile);
+          this.broadcastProviderProfilesToAllPanels();
+
+          if (needsRestart) {
+            ctx.session.setProviderEnv(this.settingsManager.getActiveProviderEnvForPanel(ctx.panelId));
+            ctx.session.restartForProviderChange();
+          }
+        } catch (err) {
+          log("[MessageRouter] Error updating provider profile:", err);
+          this.postMessage(ctx.panel, {
+            type: "notification",
+            message: vscode.l10n.t("Failed to update provider profile: {0}", err instanceof Error ? err.message : "Unknown error"),
+            notificationType: "error",
+          });
+        }
+      },
+
+      deleteProviderProfile: async (msg, ctx) => {
+        if (msg.type !== "deleteProviderProfile") return;
+        try {
+          const currentProfile = this.settingsManager.getActiveProviderProfileForPanel(ctx.panelId);
+          const needsRestart = currentProfile === msg.profileName;
+          await this.settingsManager.deleteProviderProfile(msg.profileName);
+          this.broadcastProviderProfilesToAllPanels();
+
+          if (needsRestart) {
+            ctx.session.setProviderEnv(undefined);
+            ctx.session.restartForProviderChange();
+          }
+        } catch (err) {
+          log("[MessageRouter] Error deleting provider profile:", err);
+          this.postMessage(ctx.panel, {
+            type: "notification",
+            message: vscode.l10n.t("Failed to delete provider profile: {0}", err instanceof Error ? err.message : "Unknown error"),
+            notificationType: "error",
+          });
+        }
+      },
+
+      setActiveProviderProfile: async (msg, ctx) => {
+        if (msg.type !== "setActiveProviderProfile") return;
+        try {
+          const needsRestart = this.settingsManager.setActiveProviderProfileForPanel(ctx.panelId, msg.profileName);
+          this.settingsManager.sendProviderProfilesForPanel(ctx.panel, ctx.panelId);
+
+          if (needsRestart) {
+            ctx.session.setProviderEnv(this.settingsManager.getActiveProviderEnvForPanel(ctx.panelId));
+            ctx.session.restartForProviderChange();
+          }
+        } catch (err) {
+          log("[MessageRouter] Error setting active provider profile:", err);
+          this.postMessage(ctx.panel, {
+            type: "notification",
+            message: vscode.l10n.t("Failed to set active provider profile: {0}", err instanceof Error ? err.message : "Unknown error"),
+            notificationType: "error",
+          });
+        }
+      },
+
+      setDefaultProviderProfile: async (msg, ctx) => {
+        if (msg.type !== "setDefaultProviderProfile") return;
+        try {
+          await this.settingsManager.setDefaultProviderProfile(msg.profileName);
+          this.broadcastProviderProfilesToAllPanels();
+        } catch (err) {
+          log("[MessageRouter] Error setting default provider profile:", err);
+          this.postMessage(ctx.panel, {
+            type: "notification",
+            message: vscode.l10n.t("Failed to set default provider profile: {0}", err instanceof Error ? err.message : "Unknown error"),
+            notificationType: "error",
+          });
+        }
+      },
     };
+  }
+
+  private broadcastProviderProfilesToAllPanels(): void {
+    for (const [panelId, instance] of this.getPanels()) {
+      this.settingsManager.sendProviderProfilesForPanel(instance.panel, panelId);
+    }
   }
 
 }

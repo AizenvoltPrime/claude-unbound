@@ -21,5 +21,9 @@
   "configuration.sandbox.autoAllowBashIfSandboxed.description": "Auto-allow Bash commands when sandboxed",
   "configuration.sandbox.allowUnsandboxedCommands.description": "Allow commands that cannot be sandboxed",
   "configuration.sandbox.networkAllowedDomains.description": "Allowed network domains in sandbox",
-  "configuration.sandbox.networkAllowLocalBinding.description": "Allow binding to local ports in sandbox"
+  "configuration.sandbox.networkAllowLocalBinding.description": "Allow binding to local ports in sandbox",
+  "configuration.providerProfiles.description": "Provider profiles with environment variables for different API providers",
+  "configuration.providerProfiles.name.description": "Unique name for the provider profile",
+  "configuration.providerProfiles.env.description": "Environment variables for this provider (e.g., ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN)",
+  "configuration.activeProviderProfile.description": "Currently active provider profile name (null to disable)"
 }

@@ -63,6 +63,7 @@ import type {
   RewindOption,
   RewindHistoryItem,
   UserContentBlock,
+  ProviderProfile,
 } from '@shared/types';
 
 const { postMessage, setState, getState } = useVSCode();
@@ -99,6 +100,9 @@ const {
   mcpServers,
   plugins,
   budgetWarning,
+  providerProfiles,
+  activeProviderProfile,
+  defaultProviderProfile,
 } = storeToRefs(settingsStore);
 
 const sessionStore = useSessionStore();
@@ -375,6 +379,26 @@ function handleSetDefaultPermissionMode(mode: PermissionMode) {
 
 function handleOpenVSCodeSettings() {
   postMessage({ type: 'openSettings' });
+}
+
+function handleCreateProfile(profile: ProviderProfile) {
+  postMessage({ type: 'createProviderProfile', profile });
+}
+
+function handleUpdateProfile(originalName: string, profile: ProviderProfile) {
+  postMessage({ type: 'updateProviderProfile', originalName, profile });
+}
+
+function handleDeleteProfile(profileName: string) {
+  postMessage({ type: 'deleteProviderProfile', profileName });
+}
+
+function handleSetActiveProfile(profileName: string | null) {
+  postMessage({ type: 'setActiveProviderProfile', profileName });
+}
+
+function handleSetDefaultProfile(profileName: string | null) {
+  postMessage({ type: 'setDefaultProviderProfile', profileName });
 }
 
 function handleOpenSessionLog() {
@@ -851,6 +875,9 @@ const rewindMessagePreview = computed(() => {
       :visible="showSettingsPanel"
       :settings="currentSettings"
       :available-models="availableModels"
+      :provider-profiles="providerProfiles"
+      :active-provider-profile="activeProviderProfile"
+      :default-provider-profile="defaultProviderProfile"
       @close="uiStore.closeSettingsPanel()"
       @set-model="handleSetModel"
       @set-max-thinking-tokens="handleSetMaxThinkingTokens"
@@ -858,6 +885,11 @@ const rewindMessagePreview = computed(() => {
       @toggle-beta="handleToggleBeta"
       @set-default-permission-mode="handleSetDefaultPermissionMode"
       @open-v-s-code-settings="handleOpenVSCodeSettings"
+      @create-profile="handleCreateProfile"
+      @update-profile="handleUpdateProfile"
+      @delete-profile="handleDeleteProfile"
+      @set-active-profile="handleSetActiveProfile"
+      @set-default-profile="handleSetDefaultProfile"
     />
 
     <!-- MCP Status Panel (modal) -->

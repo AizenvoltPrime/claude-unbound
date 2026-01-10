@@ -361,12 +361,16 @@ export class StreamingManager {
     }
 
     const nonTextContent = serializedContent.filter(b => b.type !== 'text');
+    const textContent = serializedContent.filter(b => b.type === 'text') as { type: 'text'; text: string }[];
+    const hasStreamingText = this.streamingContent.text.length > 0;
 
     if (!this.pendingAssistant) {
       const initialContent: typeof serializedContent = [];
       if (hasAccumulatedText) {
         initialContent.push({ type: 'text' as const, text: this.streamingContent.text });
         this.streamingContent.text = '';
+      } else if (!hasStreamingText && textContent.length > 0) {
+        initialContent.push(...textContent);
       }
       initialContent.push(...nonTextContent);
       this.pendingAssistant = {
@@ -380,6 +384,8 @@ export class StreamingManager {
     } else {
       if (hasAccumulatedText) {
         this.commitStreamingText();
+      } else if (!hasStreamingText && textContent.length > 0) {
+        this.pendingAssistant.content.push(...textContent);
       }
       this.pendingAssistant.content.push(...nonTextContent);
       this.pendingAssistant.stopReason = msg.message.stop_reason;

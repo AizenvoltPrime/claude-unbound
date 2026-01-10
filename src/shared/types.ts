@@ -164,6 +164,12 @@ export interface SandboxConfig {
   networkAllowLocalBinding?: boolean;
 }
 
+// Provider profile for API provider switching
+export interface ProviderProfile {
+  name: string;
+  env: Record<string, string>;
+}
+
 // Permission modes from SDK
 export type PermissionMode = "default" | "acceptEdits" | "bypassPermissions" | "plan";
 
@@ -541,7 +547,14 @@ export type WebviewToExtensionMessage =
       customMessage?: string;
     }
   // i18n - save user's language preference to extension global state
-  | { type: "setLanguagePreference"; locale: string };
+  | { type: "setLanguagePreference"; locale: string }
+  // Provider profiles
+  | { type: "createProviderProfile"; profile: ProviderProfile }
+  | { type: "updateProviderProfile"; originalName: string; profile: ProviderProfile }
+  | { type: "deleteProviderProfile"; profileName: string }
+  | { type: "setActiveProviderProfile"; profileName: string | null }
+  | { type: "setDefaultProviderProfile"; profileName: string | null }
+  | { type: "requestProviderProfiles" };
 
 // Messages from Extension → Webview
 export type ExtensionToWebviewMessage =
@@ -677,7 +690,9 @@ export type ExtensionToWebviewMessage =
   // i18n
   | { type: "languageChange"; locale: string }
   // Plan viewer
-  | { type: "showPlanContent"; content: string; filePath: string };
+  | { type: "showPlanContent"; content: string; filePath: string }
+  // Provider profiles
+  | { type: "providerProfilesUpdate"; profiles: ProviderProfile[]; activeProfile: string | null; defaultProfile: string | null };
 
 // Chat message for UI rendering
 export interface ChatMessage {

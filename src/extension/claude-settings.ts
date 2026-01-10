@@ -42,7 +42,7 @@ export async function readClaudeSettings(): Promise<Record<string, unknown>> {
   }
 }
 
-export async function readThinkingTokensFromClaudeSettings(): Promise<number> {
+export async function readThinkingTokensFromClaudeSettings(): Promise<number | null> {
   try {
     const settings = await readClaudeSettings();
     const env = settings.env as Record<string, string> | undefined;
@@ -51,9 +51,9 @@ export async function readThinkingTokensFromClaudeSettings(): Promise<number> {
       const parsed = parseInt(value, 10);
       return isNaN(parsed) ? DEFAULT_THINKING_TOKENS : parsed;
     }
-    return DEFAULT_THINKING_TOKENS;
+    return null;
   } catch {
-    return DEFAULT_THINKING_TOKENS;
+    return null;
   }
 }
 

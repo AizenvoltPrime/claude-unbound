@@ -2,6 +2,28 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.8] - 2026-01-10
+
+### Added
+
+- Provider Profiles: Define multiple API provider configurations with custom environment variables
+- Switch between providers (Anthropic, Z.AI, OpenRouter, etc.) from the settings panel
+- Provider-specific model mapping via ANTHROPIC_DEFAULT_*_MODEL environment variables
+- Secure credential storage: API keys encrypted via OS keychain (VS Code SecretStorage API), masked input fields in profile editor
+- Per-panel provider profiles: Each open panel can have its own provider profile independent of other panels
+- Global default profile setting: Configure which profile new panels inherit (separate from per-panel selection)
+
+### Fixed
+
+- Fix streaming text not being captured when assistant message contains non-streamed text content
+- Fix concurrent streaming with different provider profiles causing race conditions
+- Fix loose model tier matching to use explicit Claude model prefixes
+- Add environment variable key validation in profile editor
+
+### Changed
+
+- Extended thinking now inherits SDK default when not explicitly configured (instead of forcing a value)
+
 ## [1.0.7] - 2026-01-10
 
 ### Fixed
@@ -97,6 +119,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.8]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.4...v1.0.5

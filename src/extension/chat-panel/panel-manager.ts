@@ -9,12 +9,15 @@ export interface PanelManagerConfig {
   extensionUri: vscode.Uri;
   createSessionForPanel: (
     panel: vscode.WebviewPanel,
-    permissionHandler: PermissionHandler
+    permissionHandler: PermissionHandler,
+    panelId: string
   ) => Promise<ClaudeSession>;
   handleWebviewMessage: (message: WebviewToExtensionMessage, panelId: string) => Promise<void>;
   sendCurrentSettings: (panel: vscode.WebviewPanel, permissionHandler: PermissionHandler) => Promise<void>;
   getStoredSessions: () => Promise<{ sessions: StoredSession[]; hasMore: boolean; nextOffset: number }>;
   invalidateSessionsCache: () => void;
+  initPanelProfile: (panelId: string) => void;
+  cleanupPanelProfile: (panelId: string) => void;
 }
 
 export class PanelManager {
@@ -26,6 +29,8 @@ export class PanelManager {
   private readonly sendCurrentSettings: PanelManagerConfig["sendCurrentSettings"];
   private readonly getStoredSessions: PanelManagerConfig["getStoredSessions"];
   private readonly invalidateSessionsCache: PanelManagerConfig["invalidateSessionsCache"];
+  private readonly initPanelProfile: PanelManagerConfig["initPanelProfile"];
+  private readonly cleanupPanelProfile: PanelManagerConfig["cleanupPanelProfile"];
 
   constructor(config: PanelManagerConfig) {
     this.extensionUri = config.extensionUri;
@@ -34,6 +39,8 @@ export class PanelManager {
     this.sendCurrentSettings = config.sendCurrentSettings;
     this.getStoredSessions = config.getStoredSessions;
     this.invalidateSessionsCache = config.invalidateSessionsCache;
+    this.initPanelProfile = config.initPanelProfile;
+    this.cleanupPanelProfile = config.cleanupPanelProfile;
   }
 
   getPanels(): Map<string, PanelInstance> {
@@ -92,7 +99,9 @@ export class PanelManager {
       this.postMessageToPanel(panel, { type: "ideContextUpdate", context });
     });
 
-    const session = await this.createSessionForPanel(panel, permissionHandler);
+    this.initPanelProfile(panelId);
+
+    const session = await this.createSessionForPanel(panel, permissionHandler, panelId);
 
     this.panels.set(panelId, { panel, session, permissionHandler, ideContextManager, disposables: panelDisposables });
 
@@ -137,6 +146,7 @@ export class PanelManager {
         void instance.permissionHandler.dispose();
         instance.ideContextManager.dispose();
         instance.disposables.forEach((d) => d.dispose());
+        this.cleanupPanelProfile(panelId);
         this.panels.delete(panelId);
       }
     });
