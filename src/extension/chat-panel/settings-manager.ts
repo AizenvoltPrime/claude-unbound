@@ -392,8 +392,6 @@ export class SettingsManager {
         return { name: profile.name, env };
       })
     );
-
-    log("[SettingsManager] loadProviderProfiles: loaded", this.providerProfiles.length, "profiles, active:", this.activeProviderProfile);
   }
 
   async createProviderProfile(profile: ProviderProfile): Promise<void> {
