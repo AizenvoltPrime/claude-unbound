@@ -187,28 +187,6 @@ export class QueryManager {
     const enableFileCheckpointing = config.get<boolean>("enableFileCheckpointing", true);
     const sandboxConfig = config.get<SandboxConfig>("sandbox", { enabled: false });
 
-    // Fetch agent definitions from filesystem (bypasses SDK's broken discovery on Remote SSH)
-    let agents: Record<string, { description: string; prompt: string; tools?: string[]; model?: "sonnet" | "opus" | "haiku" | "inherit" }> | undefined;
-    if (this.options.getAgentDefinitions) {
-      try {
-        const agentDefs = await this.options.getAgentDefinitions();
-        if (agentDefs.length > 0) {
-          agents = {};
-          for (const def of agentDefs) {
-            agents[def.name] = {
-              description: def.description,
-              prompt: def.prompt,
-              ...(def.tools && { tools: def.tools }),
-              ...(def.model && { model: def.model }),
-            };
-          }
-          log("[QueryManager] Loaded %d custom agents from filesystem", agentDefs.length);
-        }
-      } catch (err) {
-        log("[QueryManager] Failed to load agent definitions:", err);
-      }
-    }
-
     const queryOptions: Record<string, unknown> = {
       cwd: this.options.cwd,
       abortController: new AbortController(),
@@ -250,8 +228,6 @@ export class QueryManager {
         this.options.plugins.length > 0 && {
           plugins: this.options.plugins,
         }),
-      // Pass agents explicitly - bypasses SDK's filesystem discovery which fails on Remote SSH
-      ...(agents && { agents }),
       canUseTool: async (toolName: string, input: Record<string, unknown>, context: { signal: AbortSignal }) => {
         return this.toolManager.handleCanUseTool(toolName, input, context, () => this.streamingManager.flushPendingAssistant());
       },

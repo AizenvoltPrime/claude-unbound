@@ -1,5 +1,4 @@
 import type { PermissionHandler } from '../PermissionHandler';
-import type { AgentDefinitionWithSource } from '../CustomAgentService';
 import type {
   ExtensionToWebviewMessage,
   McpServerConfig,
@@ -21,8 +20,6 @@ export interface SessionOptions {
   mcpServers?: Record<string, McpServerConfig>;
   plugins?: PluginConfig[];
   providerEnv?: Record<string, string>;
-  /** Callback to get agent definitions from filesystem (bypasses SDK discovery issues on Remote SSH) */
-  getAgentDefinitions?: (enabledPluginIds?: Set<string>) => Promise<AgentDefinitionWithSource[]>;
 }
 
 /** Callbacks for inter-manager communication */

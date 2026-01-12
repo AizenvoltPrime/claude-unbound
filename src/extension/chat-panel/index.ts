@@ -65,10 +65,6 @@ export class ChatPanelProvider {
       getActiveProviderEnvForPanel: (panelId) => this.settingsManager.getActiveProviderEnvForPanel(panelId),
       postMessage,
       setupSessionWatcher: () => this.storageManager.setupSessionWatcher(),
-      getAgentDefinitions: async () => {
-        const enabledPluginIds = this.settingsManager.getEnabledPluginIds();
-        return this.workspaceManager.getAgentDefinitions(enabledPluginIds);
-      },
     });
 
     this.messageRouter = new MessageRouter({

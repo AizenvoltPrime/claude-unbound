@@ -2,11 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
-## [1.0.11] - 2026-01-12
+## [1.0.12] - 2026-01-12
 
 ### Fixed
 
-- Fix custom agents from `.claude/agents/` not loading on Remote SSH (bypass SDK filesystem discovery)
+- Fix SDK tools and agent discovery failing on Remote SSH due to ripgrep binary lacking execute permissions
+- Revert workaround from 1.0.11 (SDK discovery now works with ripgrep fix)
 
 ## [1.0.10] - 2026-01-10
 
@@ -137,6 +138,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.12]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.11...v1.0.12
 [1.0.11]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.8...v1.0.9
