@@ -2,7 +2,7 @@
   "name": "claude-unbound",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "publisher": "Aizenvolt",
   "icon": "resources/icon.png",
   "license": "MIT",

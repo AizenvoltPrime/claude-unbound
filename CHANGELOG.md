@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.11] - 2026-01-12
+
+### Fixed
+
+- Fix custom agents from `.claude/agents/` not loading on Remote SSH (bypass SDK filesystem discovery)
+
 ## [1.0.10] - 2026-01-10
 
 ### Fixed
@@ -20,7 +26,7 @@ All notable changes to Claude Unbound will be documented in this file.
 
 - Provider Profiles: Define multiple API provider configurations with custom environment variables
 - Switch between providers (Anthropic, Z.AI, OpenRouter, etc.) from the settings panel
-- Provider-specific model mapping via ANTHROPIC_DEFAULT_*_MODEL environment variables
+- Provider-specific model mapping via ANTHROPIC*DEFAULT*\*\_MODEL environment variables
 - Secure credential storage: API keys encrypted via OS keychain (VS Code SecretStorage API), masked input fields in profile editor
 - Per-panel provider profiles: Each open panel can have its own provider profile independent of other panels
 - Global default profile setting: Configure which profile new panels inherit (separate from per-panel selection)
@@ -131,6 +137,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.11]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.8...v1.0.9
 [1.0.8]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.7...v1.0.8

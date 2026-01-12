@@ -14,6 +14,17 @@ interface ParsedAgentFile {
   description: string;
   model?: string;
   tools?: string[];
+  prompt?: string;
+}
+
+/** Agent definition format compatible with SDK's agents option */
+export interface AgentDefinitionWithSource {
+  name: string;
+  description: string;
+  prompt: string;
+  tools?: string[];
+  model?: "sonnet" | "opus" | "haiku" | "inherit";
+  source: "project" | "user" | "plugin";
 }
 
 interface InstalledPluginEntry {
@@ -30,6 +41,7 @@ interface InstalledPluginsRegistry {
 
 export class CustomAgentService {
   private cache: CustomAgentInfo[] | null = null;
+  private definitionsCache: AgentDefinitionWithSource[] | null = null;
   private pluginCache: PluginAgentInfo[] | null = null;
   private projectWatcher: vscode.FileSystemWatcher | null = null;
   private userWatcher: vscode.FileSystemWatcher | null = null;
@@ -47,6 +59,7 @@ export class CustomAgentService {
       }
       this.debounceTimer = setTimeout(() => {
         this.cache = null;
+        this.definitionsCache = null;
         log("Custom agent cache invalidated due to file change");
       }, 300);
     };
@@ -57,6 +70,7 @@ export class CustomAgentService {
       }
       this.debounceTimer = setTimeout(() => {
         this.pluginCache = null;
+        this.definitionsCache = null;
         log("Plugin agent cache invalidated due to file change");
       }, 300);
     };
@@ -109,6 +123,222 @@ export class CustomAgentService {
 
     this.cache = agents;
     return agents;
+  }
+
+  /**
+   * Get full agent definitions including prompt content for SDK's agents option.
+   * This bypasses the SDK's filesystem discovery which has issues on Remote SSH.
+   * Includes project, user, and plugin agents with caching.
+   */
+  async getAgentDefinitions(enabledPluginIds?: Set<string>): Promise<AgentDefinitionWithSource[]> {
+    if (this.definitionsCache) {
+      return enabledPluginIds
+        ? this.definitionsCache.filter(d => d.source !== "plugin" || this.isPluginEnabled(d.name, enabledPluginIds))
+        : this.definitionsCache;
+    }
+
+    const definitions: AgentDefinitionWithSource[] = [];
+
+    // Scan project agents
+    const projectAgentsDir = path.join(this.workspacePath, AGENTS_FOLDER);
+    const projectDefs = await this.scanDirectoryForDefinitions(projectAgentsDir, "project");
+    definitions.push(...projectDefs);
+
+    // Scan user agents (skip if name already exists from project)
+    const userAgentsDir = path.join(os.homedir(), AGENTS_FOLDER);
+    const userDefs = await this.scanDirectoryForDefinitions(userAgentsDir, "user");
+    for (const userDef of userDefs) {
+      if (!definitions.some((d) => d.name === userDef.name)) {
+        definitions.push(userDef);
+      }
+    }
+
+    // Scan plugin agents
+    const pluginDefs = await this.scanPluginAgentsForDefinitions();
+    definitions.push(...pluginDefs);
+
+    // Sort alphabetically
+    definitions.sort((a, b) => a.name.localeCompare(b.name));
+
+    this.definitionsCache = definitions;
+
+    return enabledPluginIds
+      ? definitions.filter(d => d.source !== "plugin" || this.isPluginEnabled(d.name, enabledPluginIds))
+      : definitions;
+  }
+
+  private isPluginEnabled(agentName: string, enabledPluginIds: Set<string>): boolean {
+    // Plugin agent names are formatted as "agent-pluginName:agentName"
+    // Extract plugin ID and check if enabled
+    const match = agentName.match(/^agent-([^:]+):/);
+    if (!match) return true; // Not a plugin agent
+    const pluginName = match[1];
+    // Check if any enabled plugin starts with this plugin name
+    return Array.from(enabledPluginIds).some(id => id.startsWith(pluginName + "@") || id === pluginName);
+  }
+
+  private async scanPluginAgentsForDefinitions(): Promise<AgentDefinitionWithSource[]> {
+    const definitions: AgentDefinitionWithSource[] = [];
+    const registryPath = path.join(os.homedir(), PLUGINS_FOLDER, INSTALLED_PLUGINS_FILE);
+
+    try {
+      const content = await fs.promises.readFile(registryPath, "utf-8");
+      const registry = JSON.parse(content) as InstalledPluginsRegistry;
+
+      for (const [fullName, entries] of Object.entries(registry.plugins)) {
+        for (const entry of entries) {
+          if (entry.scope === "project" && entry.projectPath !== this.workspacePath) {
+            continue;
+          }
+
+          const pluginDefs = await this.scanPluginAgentsDirForDefinitions(entry.installPath, fullName);
+          definitions.push(...pluginDefs);
+        }
+      }
+    } catch (err) {
+      const isFileNotFound = (err as NodeJS.ErrnoException).code === "ENOENT";
+      if (!isFileNotFound) {
+        log(`Error reading plugins registry for agent definitions: ${err}`);
+      }
+    }
+
+    return definitions;
+  }
+
+  private async scanPluginAgentsDirForDefinitions(pluginPath: string, pluginFullId: string): Promise<AgentDefinitionWithSource[]> {
+    const definitions: AgentDefinitionWithSource[] = [];
+    const pluginShortName = pluginFullId.split("@")[0];
+    const agentsDir = path.join(pluginPath, "agents");
+
+    try {
+      await fs.promises.access(agentsDir, fs.constants.R_OK);
+    } catch {
+      return definitions;
+    }
+
+    try {
+      const files = await fs.promises.readdir(agentsDir);
+
+      for (const file of files) {
+        if (!file.endsWith(".md")) continue;
+
+        const agentName = file.replace(/\.md$/, "");
+        if (!VALID_AGENT_NAME.test(agentName)) {
+          continue;
+        }
+
+        const filePath = path.join(agentsDir, file);
+
+        try {
+          const content = await fs.promises.readFile(filePath, "utf-8");
+          const parsed = this.parseAgentFile(content);
+
+          if (parsed.prompt) {
+            const modelValue = parsed.model?.toLowerCase();
+            const validModel = modelValue === "sonnet" || modelValue === "opus" || modelValue === "haiku" || modelValue === "inherit"
+              ? modelValue as "sonnet" | "opus" | "haiku" | "inherit"
+              : undefined;
+
+            definitions.push({
+              name: `agent-${pluginShortName}:${agentName}`,
+              description: parsed.description,
+              prompt: parsed.prompt,
+              tools: parsed.tools,
+              model: validModel,
+              source: "plugin",
+            });
+          }
+        } catch (err) {
+          log(`Error reading plugin agent file for definition ${filePath}: ${err}`);
+        }
+      }
+    } catch (err) {
+      log(`Error scanning plugin agents directory for definitions ${agentsDir}: ${err}`);
+    }
+
+    return definitions;
+  }
+
+  private async scanDirectoryForDefinitions(
+    dir: string,
+    source: "project" | "user"
+  ): Promise<AgentDefinitionWithSource[]> {
+    const definitions: AgentDefinitionWithSource[] = [];
+
+    try {
+      await fs.promises.access(dir, fs.constants.R_OK);
+    } catch {
+      return definitions;
+    }
+
+    // Scan root directory
+    const rootDefs = await this.scanFilesForDefinitions(dir, source);
+    definitions.push(...rootDefs);
+
+    // Scan subdirectories (one level deep)
+    try {
+      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const subdir = path.join(dir, entry.name);
+          const subdirDefs = await this.scanFilesForDefinitions(subdir, source);
+          definitions.push(...subdirDefs);
+        }
+      }
+    } catch (err) {
+      log(`Error scanning subdirectories for definitions in ${dir}: ${err}`);
+    }
+
+    return definitions;
+  }
+
+  private async scanFilesForDefinitions(
+    dir: string,
+    source: "project" | "user" | "plugin"
+  ): Promise<AgentDefinitionWithSource[]> {
+    const definitions: AgentDefinitionWithSource[] = [];
+
+    try {
+      const files = await fs.promises.readdir(dir);
+
+      for (const file of files) {
+        if (!file.endsWith(".md")) continue;
+
+        const agentName = file.replace(/\.md$/, "");
+        if (!VALID_AGENT_NAME.test(agentName)) {
+          continue;
+        }
+
+        const filePath = path.join(dir, file);
+
+        try {
+          const content = await fs.promises.readFile(filePath, "utf-8");
+          const parsed = this.parseAgentFile(content);
+
+          if (parsed.prompt) {
+            const modelValue = parsed.model?.toLowerCase();
+            const validModel = modelValue === "sonnet" || modelValue === "opus" || modelValue === "haiku" || modelValue === "inherit"
+              ? modelValue as "sonnet" | "opus" | "haiku" | "inherit"
+              : undefined;
+
+            definitions.push({
+              name: agentName,
+              description: parsed.description,
+              prompt: parsed.prompt,
+              tools: parsed.tools,
+              model: validModel,
+              source,
+            });
+          }
+        } catch (err) {
+          log(`Error reading agent file for definition ${filePath}: ${err}`);
+        }
+      }
+    } catch (err) {
+      log(`Error scanning directory for definitions ${dir}: ${err}`);
+    }
+
+    return definitions;
   }
 
   private async scanDirectory(
@@ -205,9 +435,16 @@ export class CustomAgentService {
         model = modelMatch[1].trim().replace(/^["']|["']$/g, "");
       }
 
-      const toolsMatch = frontmatter.match(/^tools:\s*\[([^\]]*)\]$/m);
-      if (toolsMatch) {
-        tools = toolsMatch[1]
+      // Support both array format [tool1, tool2] and comma-separated format
+      const toolsArrayMatch = frontmatter.match(/^tools:\s*\[([^\]]*)\]$/m);
+      const toolsCommaMatch = frontmatter.match(/^tools:\s*([^[\n]+)$/m);
+      if (toolsArrayMatch) {
+        tools = toolsArrayMatch[1]
+          .split(",")
+          .map((t) => t.trim().replace(/^["']|["']$/g, ""))
+          .filter(Boolean);
+      } else if (toolsCommaMatch) {
+        tools = toolsCommaMatch[1]
           .split(",")
           .map((t) => t.trim().replace(/^["']|["']$/g, ""))
           .filter(Boolean);
@@ -217,12 +454,12 @@ export class CustomAgentService {
         description = this.extractFirstLine(body);
       }
 
-      return { description, model, tools };
+      return { description, model, tools, prompt: body };
     }
 
     const body = content.trim();
     const description = this.extractFirstLine(body);
-    return { description };
+    return { description, prompt: body };
   }
 
   private extractFirstLine(content: string): string {

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { ClaudeSession } from "../claude-session";
 import { PermissionHandler } from "../PermissionHandler";
 import { ensureSessionDir } from "../session";
+import type { AgentDefinitionWithSource } from "../CustomAgentService";
 import type { ExtensionToWebviewMessage, McpServerConfig, PluginConfig } from "../../shared/types";
 
 export interface SessionManagerConfig {
@@ -15,6 +16,7 @@ export interface SessionManagerConfig {
   getActiveProviderEnvForPanel: (panelId: string) => Record<string, string> | undefined;
   postMessage: (panel: vscode.WebviewPanel, message: ExtensionToWebviewMessage) => void;
   setupSessionWatcher: () => void;
+  getAgentDefinitions: (enabledPluginIds?: Set<string>) => Promise<AgentDefinitionWithSource[]>;
 }
 
 export class SessionManager {
@@ -28,6 +30,7 @@ export class SessionManager {
   private readonly getActiveProviderEnvForPanel: SessionManagerConfig["getActiveProviderEnvForPanel"];
   private readonly postMessage: SessionManagerConfig["postMessage"];
   private readonly setupSessionWatcher: SessionManagerConfig["setupSessionWatcher"];
+  private readonly getAgentDefinitions: SessionManagerConfig["getAgentDefinitions"];
 
   constructor(config: SessionManagerConfig) {
     this.workspacePath = config.workspacePath;
@@ -40,6 +43,7 @@ export class SessionManager {
     this.getActiveProviderEnvForPanel = config.getActiveProviderEnvForPanel;
     this.postMessage = config.postMessage;
     this.setupSessionWatcher = config.setupSessionWatcher;
+    this.getAgentDefinitions = config.getAgentDefinitions;
   }
 
   async createSessionForPanel(
@@ -67,6 +71,7 @@ export class SessionManager {
       mcpServers: this.getEnabledMcpServers(),
       plugins: this.getEnabledPlugins(),
       providerEnv: this.getActiveProviderEnvForPanel(panelId),
+      getAgentDefinitions: this.getAgentDefinitions,
     });
 
     return session;

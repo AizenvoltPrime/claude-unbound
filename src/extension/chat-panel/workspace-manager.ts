@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { SlashCommandService } from "../SlashCommandService";
-import { CustomAgentService } from "../CustomAgentService";
+import { CustomAgentService, type AgentDefinitionWithSource } from "../CustomAgentService";
 import { BUILTIN_SLASH_COMMANDS } from "../../shared/slashCommands";
 import { listWorkspaceFiles, type FileResult } from "../ripgrep";
 import type { ExtensionToWebviewMessage, SlashCommandItem, WorkspaceFileInfo, CustomAgentInfo } from "../../shared/types";
@@ -56,6 +56,10 @@ export class WorkspaceManager {
 
   async getCustomAgents(): Promise<CustomAgentInfo[]> {
     return this.customAgentService.getCustomAgents();
+  }
+
+  async getAgentDefinitions(enabledPluginIds?: Set<string>): Promise<AgentDefinitionWithSource[]> {
+    return this.customAgentService.getAgentDefinitions(enabledPluginIds);
   }
 
   async sendCustomAgents(panel: vscode.WebviewPanel, enabledPluginIds?: Set<string>): Promise<void> {
