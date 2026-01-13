@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { SubagentState } from '@shared/types';
+import type { SubagentState, ContentBlock, ToolCall, ChatMessage } from '@shared/types';
 import { formatModelDisplayName } from '@shared/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -145,9 +145,22 @@ const formattedTokens = computed(() => {
 });
 
 const formattedToolCount = computed(() => {
-  const count = props.subagent.result?.totalToolUseCount;
-  if (!count) return null;
-  return t('subagentDisplay.tools', { n: count }, count);
+  // Use final result count if available
+  if (props.subagent.result?.totalToolUseCount) {
+    const count = props.subagent.result.totalToolUseCount;
+    return t('subagentDisplay.tools', { n: count }, count);
+  }
+
+  // Fall back to live count: toolCalls + tool_use blocks in messages
+  let liveCount = props.subagent.toolCalls.length;
+  for (const message of props.subagent.messages) {
+    if (message.toolCalls) {
+      liveCount += message.toolCalls.length;
+    }
+  }
+
+  if (liveCount === 0) return null;
+  return t('subagentDisplay.tools', { n: liveCount }, liveCount);
 });
 
 const displayModel = computed(() => formatModelDisplayName(props.subagent.model));
@@ -161,6 +174,27 @@ const metadataItems = computed(() => [
 ].filter(Boolean));
 
 const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
+
+function isTextBlock(block: ContentBlock): block is { type: 'text'; text: string } {
+  return block.type === 'text';
+}
+
+function isToolUseBlock(block: ContentBlock): block is { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> } {
+  return block.type === 'tool_use';
+}
+
+function isThinkingBlock(block: ContentBlock): block is { type: 'thinking'; thinking: string } {
+  return block.type === 'thinking';
+}
+
+function getToolCallById(message: ChatMessage, toolId: string): ToolCall | undefined {
+  return message.toolCalls?.find(t => t.id === toolId);
+}
+
+function getBlockKey(block: ContentBlock, index: number): string {
+  if (isToolUseBlock(block)) return `tool-${block.id}`;
+  return `block-${index}`;
+}
 </script>
 
 <template>
@@ -225,8 +259,8 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div class="mt-2 py-2 px-3 border-l-2 border-border bg-muted/30 rounded-r-md overflow-hidden max-h-48 overflow-y-auto">
-            <pre class="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">{{ subagent.prompt }}</pre>
+          <div class="mt-2 py-2 px-3 border-l-2 border-border bg-muted/70 rounded-r-md overflow-hidden max-h-48 overflow-y-auto">
+            <MarkdownRenderer :content="subagent.prompt" class="text-sm text-muted-foreground" />
           </div>
         </CollapsibleContent>
       </Collapsible>
@@ -238,6 +272,31 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
         :duration="streaming?.thinkingDuration"
       />
 
+      <!-- Interleaved message rendering -->
+      <template v-for="message in subagent.messages" :key="message.id">
+        <template v-if="message.contentBlocks?.length">
+          <template v-for="(block, blockIndex) in message.contentBlocks" :key="getBlockKey(block, blockIndex)">
+            <ThinkingIndicator
+              v-if="isThinkingBlock(block)"
+              :thinking="block.thinking"
+            />
+
+            <div v-else-if="isTextBlock(block)" class="pl-2">
+              <MarkdownRenderer :content="block.text" />
+            </div>
+
+            <template v-else-if="isToolUseBlock(block)">
+              <ToolCallCard
+                v-for="tc in [getToolCallById(message, block.id)].filter(Boolean)"
+                :key="tc.id"
+                :tool-call="tc"
+              />
+            </template>
+          </template>
+        </template>
+      </template>
+
+      <!-- Live streaming tool calls (after finalized messages, before streaming text) -->
       <div v-if="subagent.toolCalls.length > 0" class="space-y-2">
         <ToolCallCard
           v-for="tool in subagent.toolCalls"
@@ -245,18 +304,6 @@ const hasLogFile = computed(() => Boolean(props.subagent.sdkAgentId));
           :tool-call="tool"
         />
       </div>
-
-      <template v-for="message in subagent.messages" :key="message.id">
-        <ThinkingIndicator
-          v-if="message.thinking || message.thinkingDuration"
-          :thinking="message.thinking"
-          :duration="message.thinkingDuration"
-        />
-
-        <div v-if="message.content" class="pl-2">
-          <MarkdownRenderer :content="message.content" />
-        </div>
-      </template>
 
       <div v-if="hasStreamingContent && streaming?.content" class="pl-2">
         <MarkdownRenderer :content="streaming.content" class="opacity-80" />

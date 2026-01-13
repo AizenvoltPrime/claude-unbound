@@ -79,7 +79,27 @@ export async function getSessionFilePath(workspacePath: string, sessionId: strin
 
 export async function getAgentFilePath(workspacePath: string, agentId: string): Promise<string> {
   const sessionDir = await getSessionDir(workspacePath);
-  return path.join(sessionDir, `agent-${agentId}.jsonl`);
+  const flatPath = path.join(sessionDir, `agent-${agentId}.jsonl`);
+
+  try {
+    await fs.promises.access(flatPath, fs.constants.R_OK);
+    return flatPath;
+  } catch {
+  }
+
+  const entries = await fs.promises.readdir(sessionDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isDirectory() && UUID_PATTERN.test(entry.name)) {
+      const nestedPath = path.join(sessionDir, entry.name, 'subagents', `agent-${agentId}.jsonl`);
+      try {
+        await fs.promises.access(nestedPath, fs.constants.R_OK);
+        return nestedPath;
+      } catch {
+      }
+    }
+  }
+
+  return flatPath;
 }
 
 export function buildSessionFilePath(sessionDir: string, sessionId: string): string {

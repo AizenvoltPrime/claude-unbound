@@ -84,8 +84,9 @@ export class HistoryManager {
     this.postMessage(panel, { type: "sessionCleared" });
 
     log(`[HistoryManager] loadSessionHistory: sessionId=${sessionId}`);
+
     const result = await readSessionEntriesPaginated(this.workspacePath, sessionId, 0, HISTORY_PAGE_SIZE);
-    log(`[HistoryManager] readSessionEntriesPaginated result: entries=${result.entries.length}, hasCompactInfo=${!!result.compactInfo}`);
+    log(`[HistoryManager] readSessionEntriesPaginated result: entries=${result.entries.length}, hasCompactInfo=${!!result.compactInfo}, correlations=${result.subagentCorrelations?.size ?? 0}`);
 
     if (result.compactInfo) {
       log(`[HistoryManager] sending compactBoundary: trigger=${result.compactInfo.trigger}, hasSummary=${!!result.compactInfo.summary}, summaryLength=${result.compactInfo.summary?.length ?? 0}`);
@@ -101,7 +102,7 @@ export class HistoryManager {
       log(`[HistoryManager] no compactInfo found`);
     }
 
-    const messages = await this.convertEntriesToMessages(result.entries, result.injectedUuids);
+    const messages = await this.convertEntriesToMessages(result.entries, result.injectedUuids, result.subagentCorrelations);
 
     for (const msg of messages) {
       if (msg.type === "user") {
@@ -165,7 +166,7 @@ export class HistoryManager {
 
   async loadMoreHistory(sessionId: string, offset: number, panel: vscode.WebviewPanel): Promise<void> {
     const result = await readSessionEntriesPaginated(this.workspacePath, sessionId, offset, HISTORY_PAGE_SIZE);
-    const messages = await this.convertEntriesToMessages(result.entries, result.injectedUuids);
+    const messages = await this.convertEntriesToMessages(result.entries, result.injectedUuids, result.subagentCorrelations);
 
     this.postMessage(panel, {
       type: "historyChunk",
@@ -257,9 +258,14 @@ export class HistoryManager {
     return normalizedPath.split("/").pop() || filePath;
   }
 
-  async convertEntriesToMessages(entries: ClaudeSessionEntry[], injectedUuids?: Set<string>): Promise<HistoryMessage[]> {
+  async convertEntriesToMessages(
+    entries: ClaudeSessionEntry[],
+    injectedUuids?: Set<string>,
+    subagentCorrelations?: Map<string, string>
+  ): Promise<HistoryMessage[]> {
     const toolResults = this.collectToolResults(entries);
-    const taskToolAgents = this.collectTaskToolAgents(entries);
+    // Use pre-extracted correlations from readSessionEntriesPaginated (single file read)
+    const taskToolAgents = subagentCorrelations ?? new Map<string, string>();
     const skillToolNames = this.collectSkillToolNames(entries);
     const agentDataMap = await this.loadAgentDataForTools(taskToolAgents);
     const skillDescriptions = await this.loadSkillDescriptions(skillToolNames);
@@ -311,22 +317,6 @@ export class HistoryManager {
       toolUseResult.totalDurationMs !== undefined ||
       toolUseResult.answers !== undefined
     );
-  }
-
-  private collectTaskToolAgents(entries: ClaudeSessionEntry[]): Map<string, string> {
-    const taskToolAgents = new Map<string, string>();
-
-    for (const entry of entries) {
-      if (entry.type === "user" && entry.message && Array.isArray(entry.message.content)) {
-        for (const block of entry.message.content as JsonlContentBlock[]) {
-          if (block.type === "tool_result" && entry.toolUseResult?.agentId) {
-            taskToolAgents.set(block.tool_use_id, entry.toolUseResult.agentId);
-          }
-        }
-      }
-    }
-
-    return taskToolAgents;
   }
 
   private async loadAgentDataForTools(taskToolAgents: Map<string, string>): Promise<Map<string, AgentData>> {
@@ -429,6 +419,16 @@ export class HistoryManager {
               if (agentData.model) {
                 tool.agentModel = agentData.model;
               }
+              if (agentData.messages.length > 0) {
+                tool.agentMessages = agentData.messages;
+              }
+              if (agentData.startTimestamp) {
+                tool.agentStartTimestamp = agentData.startTimestamp;
+              }
+              if (agentData.endTimestamp) {
+                tool.agentEndTimestamp = agentData.endTimestamp;
+              }
+              tool.agentToolCount = agentData.totalToolUseCount;
             }
           }
 

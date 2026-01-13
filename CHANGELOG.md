@@ -2,6 +2,17 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.15] - 2026-01-13
+
+### Added
+
+- Subagent overlay now displays full conversation history (previously only showed tool calls and final result)
+- Markdown rendering for subagent prompt display (previously rendered as plain text)
+
+### Fixed
+
+- Tool count and duration now display correctly for interrupted subagents
+
 ## [1.0.14] - 2026-01-13
 
 ### Fixed
@@ -156,6 +167,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.15]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.14...v1.0.15
 [1.0.14]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.13...v1.0.14
 [1.0.13]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.12...v1.0.13
 [1.0.12]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.11...v1.0.12

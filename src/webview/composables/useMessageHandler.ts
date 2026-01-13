@@ -94,10 +94,6 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           const textContent = streamingStore.extractTextFromContent(assistantMsg.message.content);
           const toolCalls = streamingStore.extractToolCalls(assistantMsg.message.content);
           const thinkingContent = streamingStore.extractThinkingContent(assistantMsg.message.content);
-          const contentBlocks = assistantMsg.message.content.filter(
-            (block): block is { type: 'text'; text: string } | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> } =>
-              block.type === 'text' || block.type === 'tool_use'
-          );
           const hasSubagent = parentToolUseId ? subagentStore.hasSubagent(parentToolUseId) : false;
 
           for (const tool of toolCalls) {
@@ -105,24 +101,33 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           }
 
           if (parentToolUseId && hasSubagent) {
+            const subagentContentBlocks = assistantMsg.message.content.filter(
+              (block): block is
+                | { type: 'text'; text: string }
+                | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
+                | { type: 'thinking'; thinking: string } =>
+                block.type === 'text' || block.type === 'tool_use' || block.type === 'thinking'
+            );
+            const subagentToolCalls = subagentStore.buildToolCallsWithStatus(parentToolUseId, subagentContentBlocks);
             const subagentMsg: ChatMessage = {
               id: streamingStore.generateId(),
               sdkMessageId: msgId,
               role: "assistant",
               content: textContent,
-              contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
-              thinking: thinkingContent,
-              toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+              contentBlocks: subagentContentBlocks.length > 0 ? subagentContentBlocks : undefined,
+              toolCalls: subagentToolCalls.length > 0 ? subagentToolCalls : undefined,
               timestamp: Date.now(),
               parentToolUseId,
             };
             subagentStore.addMessageToSubagent(parentToolUseId, subagentMsg);
-            for (const tool of toolCalls) {
-              subagentStore.addToolCallToSubagent(parentToolUseId, tool);
-            }
             sessionStore.setCurrentSession(assistantMsg.session_id);
             break;
           }
+
+          const contentBlocks = assistantMsg.message.content.filter(
+            (block): block is { type: 'text'; text: string } | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> } =>
+              block.type === 'text' || block.type === 'tool_use'
+          );
 
           streamingStore.checkAndFinalizeForNewMessageId(msgId);
           const currentMsg = streamingStore.ensureStreamingMessage(msgId);
@@ -515,7 +520,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
         }
 
         case "subagentStart":
-          subagentStore.startSubagent(message.agentId, message.agentType);
+          subagentStore.startSubagent(message.agentId, message.agentType, message.toolUseId);
           break;
 
         case "subagentStop":
@@ -524,6 +529,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
         case "subagentModelUpdate":
           subagentStore.updateSubagentModel(message.taskToolId, message.model);
+          break;
+
+        case "subagentMessagesUpdate":
+          subagentStore.replaceSubagentMessages(message.taskToolId, message.messages);
           break;
 
         case "sessionCancelled":
@@ -631,7 +640,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           if (message.tools) {
             for (const tool of message.tools) {
               if (tool.name === "Task") {
-                subagentStore.restoreSubagentFromHistory(tool.id, tool.input, tool.result, tool.agentToolCalls, tool.agentModel, tool.sdkAgentId);
+                subagentStore.restoreSubagentFromHistory(tool);
               }
               if (tool.name === "TodoWrite") {
                 const todos = parseTodosFromInput(tool.input);
@@ -673,14 +682,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               if (msg.tools) {
                 for (const tool of msg.tools) {
                   if (tool.name === "Task") {
-                    subagentStore.restoreSubagentFromHistory(
-                      tool.id,
-                      tool.input,
-                      tool.result,
-                      tool.agentToolCalls,
-                      tool.agentModel,
-                      tool.sdkAgentId
-                    );
+                    subagentStore.restoreSubagentFromHistory(tool);
                   }
                 }
               }

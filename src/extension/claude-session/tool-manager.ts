@@ -17,6 +17,11 @@ export class ToolManager {
   private streamedToolIds: Map<string, StreamedToolInfo> = new Map();
   private pendingToolQueue: Map<string, Array<{ toolUseId: string; parentToolUseId: string | null }>> = new Map();
   private toolsUsedThisTurn = false;
+  private pendingTaskToolIds: string[] = [];
+  /** Map of taskToolId -> agentId for active subagents */
+  private activeSubagents: Map<string, string> = new Map();
+  /** Set of taskToolIds that have already received model updates */
+  private subagentsWithModel: Set<string> = new Set();
 
   constructor(
     private permissionHandler: PermissionHandler,
@@ -157,7 +162,27 @@ export class ToolManager {
         input,
         parentToolUseId,
       });
+
+      if (toolName === 'Task') {
+        this.pendingTaskToolIds.push(toolUseId);
+      }
+
+      // Event-driven model discovery: trigger on first tool_use for a subagent
+      if (parentToolUseId && this.activeSubagents.has(parentToolUseId) && !this.subagentsWithModel.has(parentToolUseId)) {
+        this.subagentsWithModel.add(parentToolUseId);
+        const agentId = this.activeSubagents.get(parentToolUseId)!;
+        this.sendSubagentModelUpdate(parentToolUseId, agentId);
+      }
     }
+  }
+
+  /** Correlate a subagent with its parent Task tool - returns tool_use_id or null */
+  correlateSubagentStart(agentId: string): string | null {
+    const toolUseId = this.pendingTaskToolIds.shift() ?? null;
+    if (toolUseId && agentId) {
+      this.activeSubagents.set(toolUseId, agentId);
+    }
+    return toolUseId;
   }
 
   /** Handle PostToolUse hook - notify UI of tool completion */
@@ -175,17 +200,36 @@ export class ToolManager {
       });
 
       if (toolName === 'Task') {
-        this.sendSubagentModelUpdate(toolUseId, response);
+        this.sendSubagentDataUpdate(toolUseId, response);
       }
     }
   }
 
-  /** Read agent JSONL file and send model update to webview */
-  private sendSubagentModelUpdate(taskToolId: string, response: unknown): void {
+  /** Read agent JSONL and send full conversation messages to webview (on Task completion) */
+  private sendSubagentDataUpdate(taskToolId: string, response: unknown): void {
     if (typeof response !== 'object' || response === null) return;
     const agentId = (response as Record<string, unknown>).agentId;
     if (typeof agentId !== 'string' || !agentId) return;
 
+    readAgentData(this.cwd, agentId)
+      .then(agentData => {
+        // Model is sent earlier via sendSubagentModelUpdate (on first tool_use)
+        // Here we only send the full messages for conversation history
+        if (agentData.messages.length > 0) {
+          this.callbacks.onMessage({
+            type: 'subagentMessagesUpdate',
+            taskToolId,
+            messages: agentData.messages,
+          });
+        }
+      })
+      .catch(err => {
+        log('[ToolManager] Failed to read agent data:', err);
+      });
+  }
+
+  /** Read agent JSONL and send model update (event-driven, on first tool_use) */
+  private sendSubagentModelUpdate(taskToolId: string, agentId: string): void {
     readAgentData(this.cwd, agentId)
       .then(agentData => {
         if (agentData.model) {
@@ -197,7 +241,7 @@ export class ToolManager {
         }
       })
       .catch(err => {
-        log('[ToolManager] Failed to read agent data for model update:', err);
+        log('[ToolManager] Failed to read agent model:', err);
       });
   }
 
@@ -238,5 +282,8 @@ export class ToolManager {
     this.toolsUsedThisTurn = false;
     this.streamedToolIds.clear();
     this.pendingToolQueue.clear();
+    this.pendingTaskToolIds = [];
+    this.activeSubagents.clear();
+    this.subagentsWithModel.clear();
   }
 }

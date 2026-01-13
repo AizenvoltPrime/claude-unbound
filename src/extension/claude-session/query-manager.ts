@@ -4,7 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { log } from "../logger";
 import { readThinkingTokensFromClaudeSettings } from "../claude-settings";
-import { persistInjectedMessage, findLastMessageInCurrentTurn } from "../session";
+import { persistInjectedMessage, findLastMessageInCurrentTurn, persistSubagentCorrelation } from "../session";
 import { extractTextFromContent, hasImageContent } from "../../shared/utils";
 import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, ContentInput } from "./types";
 import type { ToolManager } from "./tool-manager";
@@ -520,10 +520,21 @@ export class QueryManager {
             async (params: unknown): Promise<Record<string, unknown>> => {
               const p = params as SubagentStartHookInput;
               if (p.agent_id) {
+                // Pass agentId to correlate - enables event-driven model discovery in ToolManager
+                const toolUseId = this.toolManager.correlateSubagentStart(p.agent_id);
+                const sessionId = this.streamingManager.sessionId;
+
+                if (toolUseId && sessionId) {
+                  persistSubagentCorrelation(this.options.cwd, sessionId, toolUseId, p.agent_id).catch(err => {
+                    log("[QueryManager] Failed to persist subagent correlation: %O", err);
+                  });
+                }
+
                 this.callbacks.onMessage({
                   type: "subagentStart",
                   agentId: p.agent_id,
                   agentType: p.agent_type || "unknown",
+                  toolUseId: toolUseId ?? undefined,
                 });
               }
               return {};

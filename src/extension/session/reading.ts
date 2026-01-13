@@ -7,11 +7,13 @@ import type {
   StoredSession,
   AgentData,
   AgentToolCall,
+  AgentContentBlock,
+  AgentMessage,
   ExtractedSessionStats,
   CompactInfo,
   PaginatedSessionResult,
 } from './types';
-import { TOOL_RESULT_PREVIEW_LENGTH, COMPACT_SUMMARY_SEARCH_DEPTH, isContentBlockArray } from './types';
+import { TOOL_RESULT_PREVIEW_LENGTH, COMPACT_SUMMARY_SEARCH_DEPTH, isContentBlockArray, isSubagentCorrelationEntry } from './types';
 import { getSessionDir, getSessionFilePath, getAgentFilePath, buildSessionFilePath, isValidSessionId } from './paths';
 import {
   readSessionFileLines,
@@ -203,13 +205,24 @@ export async function readAgentData(workspacePath: string, agentId: string): Pro
   try {
     const lines = await readSessionFileLines(filePath);
 
-    const toolCalls: AgentToolCall[] = [];
+    const allToolCalls: AgentToolCall[] = [];
     const toolResults = new Map<string, string>();
+    const messages: AgentMessage[] = [];
+    const assistantMessagesByMsgId = new Map<string, AgentMessage>();
+    const messageOrder: string[] = [];
     let model: string | undefined;
+    let startTimestamp: number | undefined;
+    let endTimestamp: number | undefined;
 
     for (const line of lines) {
       try {
         const entry = parseSessionEntry(line);
+
+        if (entry.timestamp) {
+          const ts = new Date(entry.timestamp).getTime();
+          if (!startTimestamp || ts < startTimestamp) startTimestamp = ts;
+          if (!endTimestamp || ts > endTimestamp) endTimestamp = ts;
+        }
 
         if (entry.type === 'user' && entry.message && isContentBlockArray(entry.message.content)) {
           for (const block of entry.message.content) {
@@ -226,14 +239,30 @@ export async function readAgentData(workspacePath: string, agentId: string): Pro
           if (!model && entry.message.model) {
             model = entry.message.model as string;
           }
-          if (isContentBlockArray(entry.message.content)) {
+
+          const msgId = entry.message.id;
+          if (msgId && isContentBlockArray(entry.message.content)) {
+            let existingMsg = assistantMessagesByMsgId.get(msgId);
+            if (!existingMsg) {
+              existingMsg = { role: 'assistant', contentBlocks: [] };
+              assistantMessagesByMsgId.set(msgId, existingMsg);
+              messageOrder.push(msgId);
+            }
+
             for (const block of entry.message.content) {
               if (block.type === 'tool_use') {
-                toolCalls.push({
+                const toolBlock: AgentContentBlock = {
+                  type: 'tool_use',
                   id: block.id,
                   name: block.name,
                   input: block.input,
-                });
+                };
+                existingMsg.contentBlocks.push(toolBlock);
+                allToolCalls.push({ id: block.id, name: block.name, input: block.input });
+              } else if (block.type === 'text' && block.text) {
+                existingMsg.contentBlocks.push({ type: 'text', text: block.text });
+              } else if (block.type === 'thinking' && block.thinking) {
+                existingMsg.contentBlocks.push({ type: 'thinking', thinking: block.thinking });
               }
             }
           }
@@ -243,16 +272,38 @@ export async function readAgentData(workspacePath: string, agentId: string): Pro
       }
     }
 
-    for (const tool of toolCalls) {
+    for (const msgId of messageOrder) {
+      const msg = assistantMessagesByMsgId.get(msgId);
+      if (msg && msg.contentBlocks.length > 0) {
+        for (const block of msg.contentBlocks) {
+          if (block.type === 'tool_use') {
+            const result = toolResults.get(block.id);
+            if (result) {
+              block.result = result;
+            }
+          }
+        }
+        messages.push(msg);
+      }
+    }
+
+    for (const tool of allToolCalls) {
       const result = toolResults.get(tool.id);
       if (result) {
         tool.result = result;
       }
     }
 
-    return { toolCalls, model };
+    return {
+      toolCalls: allToolCalls,
+      model,
+      messages,
+      startTimestamp,
+      endTimestamp,
+      totalToolUseCount: allToolCalls.length,
+    };
   } catch {
-    return { toolCalls: [] };
+    return { toolCalls: [], messages: [], totalToolUseCount: 0 };
   }
 }
 
@@ -370,12 +421,35 @@ function filterDisplayableEntries(
   });
 }
 
+/** Extract subagent correlations from all entries (toolUseId -> agentId) */
+function extractSubagentCorrelations(allEntries: ClaudeSessionEntry[]): Map<string, string> {
+  const correlations = new Map<string, string>();
+
+  for (const entry of allEntries) {
+    if (isSubagentCorrelationEntry(entry)) {
+      correlations.set(entry.toolUseId, entry.agentId);
+    }
+
+    // Check toolUseResult (written when Task completes - may override correlation)
+    if (entry.type === 'user' && entry.message && Array.isArray(entry.message.content)) {
+      for (const block of entry.message.content as JsonlContentBlock[]) {
+        if (block.type === 'tool_result' && entry.toolUseResult?.agentId) {
+          correlations.set(block.tool_use_id, entry.toolUseResult.agentId);
+        }
+      }
+    }
+  }
+
+  return correlations;
+}
+
 function paginateEntries(
   entries: ClaudeSessionEntry[],
   offset: number,
   limit: number,
   compactInfo?: CompactInfo,
-  injectedUuids?: Set<string>
+  injectedUuids?: Set<string>,
+  subagentCorrelations?: Map<string, string>
 ): PaginatedSessionResult {
   const totalCount = entries.length;
   const endIndex = totalCount - offset;
@@ -384,7 +458,7 @@ function paginateEntries(
   const hasMore = startIndex > 0;
   const nextOffset = offset + paginatedEntries.length;
 
-  return { entries: paginatedEntries, totalCount, hasMore, nextOffset, compactInfo, injectedUuids };
+  return { entries: paginatedEntries, totalCount, hasMore, nextOffset, compactInfo, injectedUuids, subagentCorrelations };
 }
 
 export async function readSessionEntriesPaginated(
@@ -422,7 +496,10 @@ export async function readSessionEntriesPaginated(
     );
     log(`[SessionStorage] postCompactEntries=${displayableEntries.length}`);
 
-    return paginateEntries(displayableEntries, offset, limit, compactInfo, injectedUuids);
+    // Extract subagent correlations from ALL entries (before filtering)
+    const subagentCorrelations = extractSubagentCorrelations(allEntries);
+
+    return paginateEntries(displayableEntries, offset, limit, compactInfo, injectedUuids, subagentCorrelations);
   } catch {
     return { entries: [], totalCount: 0, hasMore: false, nextOffset: 0 };
   }

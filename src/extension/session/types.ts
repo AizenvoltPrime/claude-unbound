@@ -11,6 +11,19 @@ export const SDK_GENERATED_PREFIXES = [
 
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export interface SubagentCorrelationEntry {
+  type: 'subagent-correlation';
+  toolUseId: string;
+  agentId: string;
+  timestamp?: string;
+}
+
+export function isSubagentCorrelationEntry(entry: ClaudeSessionEntry): entry is ClaudeSessionEntry & SubagentCorrelationEntry {
+  return entry.type === 'subagent-correlation' &&
+    typeof (entry as SubagentCorrelationEntry).toolUseId === 'string' &&
+    typeof (entry as SubagentCorrelationEntry).agentId === 'string';
+}
+
 export const TOOL_RESULT_PREVIEW_LENGTH = 500;
 export const COMPACT_SUMMARY_SEARCH_DEPTH = 20;
 export const COMMAND_HISTORY_PAGE_SIZE = 50;
@@ -92,9 +105,23 @@ export interface AgentToolCall {
   result?: string;
 }
 
+export type AgentContentBlock =
+  | { type: 'thinking'; thinking: string }
+  | { type: 'text'; text: string }
+  | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown>; result?: string };
+
+export interface AgentMessage {
+  role: 'user' | 'assistant';
+  contentBlocks: AgentContentBlock[];
+}
+
 export interface AgentData {
   toolCalls: AgentToolCall[];
   model?: string;
+  messages: AgentMessage[];
+  startTimestamp?: number;
+  endTimestamp?: number;
+  totalToolUseCount: number;
 }
 
 export interface ExtractedSessionStats {
@@ -121,6 +148,8 @@ export interface PaginatedSessionResult {
   nextOffset: number;
   compactInfo?: CompactInfo;
   injectedUuids?: Set<string>;
+  /** Subagent correlations: toolUseId -> agentId (extracted from subagent-correlation entries) */
+  subagentCorrelations?: Map<string, string>;
 }
 
 export interface PersistUserMessageOptions {

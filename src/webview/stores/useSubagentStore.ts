@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
-import type { ChatMessage, ToolCall, SubagentState, SubagentResult } from '@shared/types';
+import type { ChatMessage, ToolCall, SubagentState, SubagentResult, HistoryAgentMessage, HistoryToolCall, ContentBlock, ToolUseBlock, TextBlock, ThinkingBlock } from '@shared/types';
 
 export interface StreamingSubagentMessage {
   sdkMessageId: string;
@@ -8,6 +8,48 @@ export interface StreamingSubagentMessage {
   thinking?: string;
   thinkingDuration?: number;
   isThinkingPhase: boolean;
+}
+
+type ToolStatus = { status: ToolCall['status']; result?: string; errorMessage?: string };
+
+function buildChatMessagesFromHistory(
+  agentMessages: HistoryAgentMessage[],
+  idPrefix: string,
+  startTime: number,
+  existingToolStatuses?: Map<string, ToolStatus>
+): ChatMessage[] {
+  return agentMessages.map((msg, idx) => {
+    const contentBlocks: ContentBlock[] = [];
+    const toolCalls: ToolCall[] = [];
+
+    for (const block of msg.contentBlocks) {
+      if (block.type === 'thinking') {
+        contentBlocks.push({ type: 'thinking', thinking: block.thinking } as ThinkingBlock);
+      } else if (block.type === 'text') {
+        contentBlocks.push({ type: 'text', text: block.text } as TextBlock);
+      } else if (block.type === 'tool_use') {
+        contentBlocks.push({ type: 'tool_use', id: block.id, name: block.name, input: block.input } as ToolUseBlock);
+        const existing = existingToolStatuses?.get(block.id);
+        toolCalls.push({
+          id: block.id,
+          name: block.name,
+          input: block.input,
+          status: existing?.status ?? 'completed',
+          result: existing?.result ?? block.result,
+          errorMessage: existing?.errorMessage,
+        });
+      }
+    }
+
+    return {
+      id: `${idPrefix}-msg-${idx}`,
+      role: msg.role,
+      content: '',
+      contentBlocks,
+      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+      timestamp: startTime + idx,
+    };
+  });
 }
 
 export const useSubagentStore = defineStore('subagent', () => {
@@ -44,8 +86,19 @@ export const useSubagentStore = defineStore('subagent', () => {
     };
   }
 
-  function startSubagent(_agentId: string, _agentType: string): void {
-    // No-op - state is created in registerTaskTool
+  function startSubagent(sdkAgentId: string, _agentType: string, toolUseId?: string): void {
+    if (!toolUseId) return;
+
+    const subagent = subagents.value[toolUseId];
+    if (subagent && !subagent.sdkAgentId) {
+      subagents.value = {
+        ...subagents.value,
+        [toolUseId]: {
+          ...subagent,
+          sdkAgentId,
+        },
+      };
+    }
   }
 
   function stopSubagent(_agentId: string): void {
@@ -127,11 +180,21 @@ export const useSubagentStore = defineStore('subagent', () => {
       const { [parentToolUseId]: _, ...restStreaming } = streamingMessages.value;
       streamingMessages.value = restStreaming;
 
+      const finalizedToolIds = new Set(
+        (message.contentBlocks || [])
+          .filter((b): b is ToolUseBlock => b.type === 'tool_use')
+          .map(b => b.id)
+      );
+      const remainingToolCalls = finalizedToolIds.size > 0
+        ? subagent.toolCalls.filter(t => !finalizedToolIds.has(t.id))
+        : subagent.toolCalls;
+
       subagents.value = {
         ...subagents.value,
         [parentToolUseId]: {
           ...subagent,
           messages: [...subagent.messages, message],
+          toolCalls: remainingToolCalls,
         },
       };
     }
@@ -220,6 +283,32 @@ export const useSubagentStore = defineStore('subagent', () => {
         };
         return true;
       }
+
+      for (let msgIdx = 0; msgIdx < subagent.messages.length; msgIdx++) {
+        const msg = subagent.messages[msgIdx];
+        if (msg.toolCalls) {
+          const msgToolIndex = msg.toolCalls.findIndex(t => t.id === toolUseId);
+          if (msgToolIndex !== -1) {
+            const updatedMsgToolCalls = [...msg.toolCalls];
+            updatedMsgToolCalls[msgToolIndex] = {
+              ...updatedMsgToolCalls[msgToolIndex],
+              status,
+              ...(result !== undefined && { result }),
+              ...(errorMessage !== undefined && { errorMessage }),
+            };
+            const updatedMessages = [...subagent.messages];
+            updatedMessages[msgIdx] = { ...msg, toolCalls: updatedMsgToolCalls };
+            subagents.value = {
+              ...subagents.value,
+              [subagentId]: {
+                ...subagent,
+                messages: updatedMessages,
+              },
+            };
+            return true;
+          }
+        }
+      }
     }
     return false;
   }
@@ -236,6 +325,29 @@ export const useSubagentStore = defineStore('subagent', () => {
     return subagents.value[id]?.description;
   }
 
+  function getToolCallWithStatus(parentToolUseId: string, toolId: string): ToolCall | undefined {
+    return subagents.value[parentToolUseId]?.toolCalls.find(t => t.id === toolId);
+  }
+
+  function buildToolCallsWithStatus(parentToolUseId: string, contentBlocks: ContentBlock[]): ToolCall[] {
+    const subagent = subagents.value[parentToolUseId];
+    if (!subagent) return [];
+
+    return contentBlocks
+      .filter((b): b is ToolUseBlock => b.type === 'tool_use')
+      .map(block => {
+        const existing = subagent.toolCalls.find(t => t.id === block.id);
+        return {
+          id: block.id,
+          name: block.name,
+          input: block.input,
+          status: existing?.status ?? 'completed',
+          result: existing?.result,
+          errorMessage: existing?.errorMessage,
+        };
+      });
+  }
+
   function expandSubagent(id: string): void {
     expandedSubagentId.value = id;
   }
@@ -244,26 +356,19 @@ export const useSubagentStore = defineStore('subagent', () => {
     expandedSubagentId.value = null;
   }
 
-  function restoreSubagentFromHistory(
-    toolId: string,
-    input: Record<string, unknown>,
-    resultJson?: string,
-    agentToolCalls?: Array<{ id: string; name: string; input: Record<string, unknown>; result?: string }>,
-    agentModel?: string,
-    sdkAgentId?: string
-  ): void {
-    if (toolId in subagents.value) return;
+  function restoreSubagentFromHistory(tool: HistoryToolCall): void {
+    if (tool.id in subagents.value) return;
 
-    const description = (input.description as string) || '';
-    const prompt = (input.prompt as string) || '';
-    const subagentType = (input.subagent_type as string) || 'general-purpose';
+    const description = (tool.input.description as string) || '';
+    const prompt = (tool.input.prompt as string) || '';
+    const subagentType = (tool.input.subagent_type as string) || 'general-purpose';
 
     let result: SubagentResult | undefined;
-    let durationMs: number | undefined;
+    const hasCompleted = Boolean(tool.result);
 
-    if (resultJson) {
+    if (tool.result) {
       try {
-        const parsed = JSON.parse(resultJson);
+        const parsed = JSON.parse(tool.result);
         const contentItems = parsed.content as Array<{ type: string; text?: string }> | undefined;
         const contentText = contentItems
           ?.filter(item => item.type === 'text' && item.text)
@@ -273,39 +378,33 @@ export const useSubagentStore = defineStore('subagent', () => {
           content: contentText,
           totalDurationMs: parsed.totalDurationMs,
           totalTokens: parsed.totalTokens,
-          totalToolUseCount: parsed.totalToolUseCount,
-          sdkAgentId: sdkAgentId || parsed.agentId,
+          totalToolUseCount: parsed.totalToolUseCount ?? tool.agentToolCount,
+          sdkAgentId: tool.sdkAgentId || parsed.agentId,
         };
-        durationMs = parsed.totalDurationMs;
       } catch {
         console.warn('[useSubagentStore] Failed to parse Task tool result from history');
       }
     }
 
-    const toolCalls: ToolCall[] = (agentToolCalls || []).map(t => ({
-      id: t.id,
-      name: t.name,
-      input: t.input,
-      status: 'completed' as const,
-      result: t.result,
-    }));
+    const startTime = tool.agentStartTimestamp ?? Date.now();
+    const endTime = tool.agentEndTimestamp ?? Date.now();
+    const messages = buildChatMessagesFromHistory(tool.agentMessages || [], tool.id, startTime);
 
-    const now = Date.now();
     subagents.value = {
       ...subagents.value,
-      [toolId]: {
-        id: toolId,
+      [tool.id]: {
+        id: tool.id,
         agentType: subagentType,
         description: description || subagentType,
         prompt,
-        status: 'completed',
-        startTime: durationMs ? now - durationMs : now,
-        endTime: now,
-        messages: [],
-        toolCalls,
+        status: hasCompleted ? 'completed' : 'cancelled',
+        startTime,
+        endTime,
+        messages,
+        toolCalls: [],
         result,
-        model: agentModel,
-        sdkAgentId: sdkAgentId || result?.sdkAgentId,
+        model: tool.agentModel,
+        sdkAgentId: tool.sdkAgentId || result?.sdkAgentId,
       },
     };
   }
@@ -321,6 +420,37 @@ export const useSubagentStore = defineStore('subagent', () => {
         },
       };
     }
+  }
+
+  function replaceSubagentMessages(taskToolId: string, agentMessages: HistoryAgentMessage[]): void {
+    const subagent = subagents.value[taskToolId];
+    if (!subagent) return;
+
+    const existingToolStatuses = new Map<string, ToolStatus>();
+    for (const tc of subagent.toolCalls) {
+      existingToolStatuses.set(tc.id, { status: tc.status, result: tc.result, errorMessage: tc.errorMessage });
+    }
+    for (const msg of subagent.messages) {
+      if (msg.toolCalls) {
+        for (const tc of msg.toolCalls) {
+          existingToolStatuses.set(tc.id, { status: tc.status, result: tc.result, errorMessage: tc.errorMessage });
+        }
+      }
+    }
+
+    const messages = buildChatMessagesFromHistory(agentMessages, taskToolId, subagent.startTime, existingToolStatuses);
+
+    const { [taskToolId]: _, ...restStreaming } = streamingMessages.value;
+    streamingMessages.value = restStreaming;
+
+    subagents.value = {
+      ...subagents.value,
+      [taskToolId]: {
+        ...subagent,
+        messages,
+        toolCalls: [],
+      },
+    };
   }
 
   function $reset() {
@@ -350,10 +480,13 @@ export const useSubagentStore = defineStore('subagent', () => {
     getSubagent,
     hasSubagent,
     getSubagentDescription,
+    getToolCallWithStatus,
+    buildToolCallsWithStatus,
     expandSubagent,
     collapseSubagent,
     restoreSubagentFromHistory,
     updateSubagentModel,
+    replaceSubagentMessages,
     $reset,
   };
 });

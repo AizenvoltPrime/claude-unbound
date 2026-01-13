@@ -69,7 +69,18 @@ const agentIcon = computed((): Component => {
   return icons[props.subagent.agentType] || IconClipboard;
 });
 
-const toolCount = computed(() => props.subagent.toolCalls.length);
+const toolCount = computed(() => {
+  if (props.subagent.result?.totalToolUseCount) {
+    return props.subagent.result.totalToolUseCount;
+  }
+  let count = props.subagent.toolCalls.length;
+  for (const message of props.subagent.messages) {
+    if (message.toolCalls) {
+      count += message.toolCalls.length;
+    }
+  }
+  return count;
+});
 
 const cardClass = computed(() => {
   switch (props.subagent.status) {

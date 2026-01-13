@@ -49,6 +49,7 @@ export {
   persistInterruptMarker,
   persistQueuedMessage,
   persistInjectedMessage,
+  persistSubagentCorrelation,
   renameSession,
   deleteSession,
 } from './writing';

@@ -10,7 +10,7 @@ import type {
 import { createEmptyStreamingContent } from './types';
 import { serializeContent, isLocalCommandOutput, isLocalCommandText, isToolResultMessage, extractErrorToolResults, SDK_USER_ABORT_MESSAGE } from './utils';
 import type { ToolManager } from './tool-manager';
-import type { SystemInitData, AccountInfo, PluginInfo } from '../../shared/types';
+import type { SystemInitData, AccountInfo, PluginInfo, ToolUseBlock } from '../../shared/types';
 
 /** Callback interface for checkpoint tracking */
 export interface CheckpointTracker {
@@ -306,6 +306,10 @@ export class StreamingManager {
 
     for (const block of serializedContent) {
       if (block.type === 'tool_use') {
+        if (this.toolManager.getStreamedToolInfo(block.id)) {
+          continue;
+        }
+
         const duration = this.calculateThinkingDurationIfNeeded();
         if (duration !== null) {
           this.callbacks.onMessage({
@@ -387,7 +391,15 @@ export class StreamingManager {
       } else if (!hasStreamingText && textContent.length > 0) {
         this.pendingAssistant.content.push(...textContent);
       }
-      this.pendingAssistant.content.push(...nonTextContent);
+      const existingToolIds = new Set(
+        this.pendingAssistant.content
+          .filter((b): b is ToolUseBlock => b.type === 'tool_use')
+          .map(b => b.id)
+      );
+      const newNonTextContent = nonTextContent.filter(b =>
+        b.type !== 'tool_use' || !existingToolIds.has((b as { id: string }).id)
+      );
+      this.pendingAssistant.content.push(...newNonTextContent);
       this.pendingAssistant.stopReason = msg.message.stop_reason;
     }
   }

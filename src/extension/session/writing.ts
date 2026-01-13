@@ -213,6 +213,26 @@ export async function persistInterruptMarker(options: PersistInterruptOptions): 
   return messageUuid;
 }
 
+export async function persistSubagentCorrelation(
+  workspacePath: string,
+  sessionId: string,
+  toolUseId: string,
+  agentId: string
+): Promise<void> {
+  const sessionDir = await getSessionDir(workspacePath);
+  const filePath = buildSessionFilePath(sessionDir, sessionId);
+
+  const correlationEntry = {
+    type: 'subagent-correlation',
+    toolUseId,
+    agentId,
+    sessionId,
+    timestamp: new Date().toISOString(),
+  };
+
+  await fs.promises.appendFile(filePath, JSON.stringify(correlationEntry) + '\n');
+}
+
 export async function renameSession(workspacePath: string, sessionId: string, newName: string): Promise<void> {
   const filePath = await getSessionFilePath(workspacePath, sessionId);
 
@@ -261,6 +281,8 @@ export async function renameSession(workspacePath: string, sessionId: string, ne
 }
 
 async function findAgentFilesForSession(sessionDir: string, sessionId: string): Promise<string[]> {
+  const agentFiles: string[] = [];
+
   try {
     const files = await fs.promises.readdir(sessionDir);
     const agentFileNames = files.filter(file => file.startsWith('agent-') && file.endsWith('.jsonl'));
@@ -285,10 +307,21 @@ async function findAgentFilesForSession(sessionDir: string, sessionId: string): 
       })
     );
 
-    return results.filter((f): f is string => f !== null);
+    agentFiles.push(...results.filter((f): f is string => f !== null));
   } catch {
-    return [];
   }
+
+  const nestedSubagentsDir = path.join(sessionDir, sessionId, 'subagents');
+  try {
+    const nestedFiles = await fs.promises.readdir(nestedSubagentsDir);
+    const nestedAgentFiles = nestedFiles
+      .filter(file => file.startsWith('agent-') && file.endsWith('.jsonl'))
+      .map(file => path.join(nestedSubagentsDir, file));
+    agentFiles.push(...nestedAgentFiles);
+  } catch {
+  }
+
+  return agentFiles;
 }
 
 export async function deleteSession(workspacePath: string, sessionId: string): Promise<void> {
@@ -308,6 +341,14 @@ export async function deleteSession(workspacePath: string, sessionId: string): P
     if (result.status === 'rejected' && (result.reason as NodeJS.ErrnoException).code !== 'ENOENT') {
       log(`Warning: Failed to delete agent file ${agentFiles[i]}: ${result.reason}`);
     }
+  }
+
+  const nestedSubagentsDir = path.join(sessionDir, sessionId, 'subagents');
+  const nestedSessionDir = path.join(sessionDir, sessionId);
+  try {
+    await fs.promises.rmdir(nestedSubagentsDir);
+    await fs.promises.rmdir(nestedSessionDir);
+  } catch {
   }
 
   const filePath = buildSessionFilePath(sessionDir, sessionId);

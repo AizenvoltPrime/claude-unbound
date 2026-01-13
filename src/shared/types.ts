@@ -398,6 +398,16 @@ export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | Thinking
 
 export type UserContentBlock = TextBlock | ImageBlock;
 
+export type HistoryAgentContentBlock =
+  | { type: 'thinking'; thinking: string }
+  | { type: 'text'; text: string }
+  | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown>; result?: string };
+
+export interface HistoryAgentMessage {
+  role: 'user' | 'assistant';
+  contentBlocks: HistoryAgentContentBlock[];
+}
+
 /**
  * Tool call info for session history (simplified from live ToolCall).
  * Used when loading past sessions from JSONL.
@@ -412,6 +422,10 @@ export interface HistoryToolCall {
   agentToolCalls?: HistoryToolCall[]; // For Task tools: nested tool calls from agent JSONL
   agentModel?: string; // For Task tools: the model used by the subagent
   sdkAgentId?: string; // For Task tools: SDK's agent ID for JSONL file access
+  agentMessages?: HistoryAgentMessage[]; // For Task tools: full conversation from agent JSONL
+  agentStartTimestamp?: number; // For Task tools: subagent start time from JSONL
+  agentEndTimestamp?: number; // For Task tools: subagent end time from JSONL
+  agentToolCount?: number; // For Task tools: total tool_use count from JSONL
   metadata?: Record<string, unknown>; // For Skill tools: skill description, etc.
 }
 
@@ -594,9 +608,10 @@ export type ExtensionToWebviewMessage =
   | { type: "toolFailed"; toolUseId: string; toolName: string; error: string; isInterrupt?: boolean; parentToolUseId?: string | null }
   | { type: "toolAbandoned"; toolUseId: string; toolName: string; parentToolUseId?: string | null }
   // New: Subagent lifecycle
-  | { type: "subagentStart"; agentId: string; agentType: string }
+  | { type: "subagentStart"; agentId: string; agentType: string; toolUseId?: string }
   | { type: "subagentStop"; agentId: string }
   | { type: "subagentModelUpdate"; taskToolId: string; model: string }
+  | { type: "subagentMessagesUpdate"; taskToolId: string; messages: HistoryAgentMessage[] }
   | { type: "sessionCancelled" }
   // New: Session lifecycle
   | { type: "sessionStart"; source: "startup" | "resume" | "clear" | "compact" }
