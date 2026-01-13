@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.14] - 2026-01-13
+
+### Fixed
+
+- Fix Shift+Enter not inserting newlines in prompt textareas (AskUserQuestion, permission prompts, skill approvals, plan mode)
+
 ## [1.0.13] - 2026-01-13
 
 ### Fixed

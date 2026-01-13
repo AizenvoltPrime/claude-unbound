@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { IconArrowLeft, IconSparkles, IconCheck, IconPencil, IconPaperPlane } from '@/components/icons';
 import MarkdownRenderer from './MarkdownRenderer.vue';
 import { useOverlayEscape } from '@/composables/useOverlayEscape';
@@ -58,13 +59,11 @@ function handleSendFeedback() {
 
     <!-- Sticky footer -->
     <footer class="shrink-0 border-t border-border/30 bg-muted p-4 space-y-3">
-      <textarea
+      <Textarea
         v-model="feedbackText"
         :placeholder="t('planApproval.feedbackPlaceholder')"
-        class="w-full min-h-20 p-3 rounded-md bg-background border border-border
-               text-foreground placeholder:text-muted-foreground text-sm
-               focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"
-        @keydown.ctrl.enter="handleSendFeedback"
+        class="resize-none"
+        @keydown.enter.ctrl="handleSendFeedback"
       />
       <div class="flex justify-end gap-2">
         <Button variant="outline" :disabled="!canSubmitFeedback" @click="handleSendFeedback">
