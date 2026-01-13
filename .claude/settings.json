@@ -1,7 +1,4 @@
 {
-  "env": {
-    "MAX_THINKING_TOKENS": "63999"
-  },
   "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
