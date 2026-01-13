@@ -9,8 +9,6 @@ import { log } from "../logger";
 import {
   getClaudeSettingsPath,
   readClaudeSettings,
-  readThinkingTokensFromClaudeSettings,
-  syncThinkingTokensToClaudeSettings,
 } from "../claude-settings";
 
 async function syncDisabledServersToClaudeSettings(serverName: string, disabled: boolean): Promise<void> {
@@ -204,7 +202,7 @@ export class SettingsManager {
       model,
       maxTurns: config.get<number>("maxTurns", 100),
       maxBudgetUsd: config.get<number | null>("maxBudgetUsd", null),
-      maxThinkingTokens: await readThinkingTokensFromClaudeSettings(),
+      maxThinkingTokens: config.get<number | null>("maxThinkingTokens", null),
       betasEnabled: effectiveBetas,
       permissionMode: permissionHandler.getPermissionMode(),
       defaultPermissionMode: config.get<PermissionMode>("permissionMode", "default"),
@@ -340,7 +338,7 @@ export class SettingsManager {
   }
 
   async handleSetMaxThinkingTokens(session: ClaudeSession, tokens: number | null): Promise<void> {
-    await syncThinkingTokensToClaudeSettings(tokens);
+    await updateConfigAtEffectiveScope("claude-unbound", "maxThinkingTokens", tokens);
     await session.setMaxThinkingTokens(tokens);
   }
 

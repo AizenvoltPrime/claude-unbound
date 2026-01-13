@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.16] - 2026-01-13
+
+### Changed
+
+- Extended thinking tokens setting now stored in VS Code settings instead of `.claude/settings.local.json`
+
 ## [1.0.15] - 2026-01-13
 
 ### Added
@@ -167,6 +173,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.16]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.15...v1.0.16
 [1.0.15]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.14...v1.0.15
 [1.0.14]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.13...v1.0.14
 [1.0.13]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.12...v1.0.13

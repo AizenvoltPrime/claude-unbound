@@ -3,7 +3,6 @@ import * as os from "os";
 import * as fs from "fs";
 import * as path from "path";
 import { log } from "../logger";
-import { readThinkingTokensFromClaudeSettings } from "../claude-settings";
 import { persistInjectedMessage, findLastMessageInCurrentTurn, persistSubagentCorrelation } from "../session";
 import { extractTextFromContent, hasImageContent } from "../../shared/utils";
 import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, ContentInput } from "./types";
@@ -230,7 +229,7 @@ export class QueryManager {
     // This allows providers like Z.AI and OpenRouter to control model mapping
     const model = this.resolveModelForProvider(configuredModel || "claude-opus-4-5-20251101");
     this.maxBudgetUsd = config.get<number | null>("maxBudgetUsd", null);
-    const maxThinkingTokens = await readThinkingTokensFromClaudeSettings();
+    const maxThinkingTokens = config.get<number | null>("maxThinkingTokens", null);
     const betasEnabledRaw = config.get<string[]>("betasEnabled", []);
     const betasEnabled = betasEnabledRaw.filter((b): b is "context-1m-2025-08-07" => b === "context-1m-2025-08-07");
     const enableFileCheckpointing = config.get<boolean>("enableFileCheckpointing", true);
