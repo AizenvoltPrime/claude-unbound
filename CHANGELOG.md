@@ -6,7 +6,7 @@ All notable changes to Claude Unbound will be documented in this file.
 
 ### Fixed
 
-- Fix session history not loading for workspaces with spaces in the path (e.g., `C:\GameDev\test folder`)
+- Fix session history not loading for workspaces with spaces in the path (e.g., `C:\Projects\My Project`)
 
 ## [1.0.18] - 2026-01-14
 
