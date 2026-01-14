@@ -23,7 +23,7 @@ export function encodeProjectPath(workspacePath: string): string {
     normalized = normalized[0].toUpperCase() + normalized.slice(1);
   }
 
-  normalized = normalized.replace(/:/g, '-').replace(/\//g, '-');
+  normalized = normalized.replace(/:/g, '-').replace(/\//g, '-').replace(/ /g, '-');
 
   return normalized;
 }

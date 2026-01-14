@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.19] - 2026-01-14
+
+### Fixed
+
+- Fix session history not loading for workspaces with spaces in the path (e.g., `C:\GameDev\test folder`)
+
 ## [1.0.18] - 2026-01-14
 
 ### Added
@@ -187,6 +193,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.19]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.18...v1.0.19
 [1.0.18]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.17...v1.0.18
 [1.0.17]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.16...v1.0.17
 [1.0.16]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.15...v1.0.16
