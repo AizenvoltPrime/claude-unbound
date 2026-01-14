@@ -487,7 +487,7 @@ function cancelDeleteProfile() {
   />
 
   <!-- Delete Profile Confirmation -->
-  <AlertDialog :open="profileToDelete !== null" @update:open="(open: boolean) => !open && cancelDeleteProfile()">
+  <AlertDialog :open="profileToDelete !== null">
     <AlertDialogContent class="bg-card border-border">
       <AlertDialogHeader>
         <AlertDialogTitle class="text-foreground">{{ t('settings.deleteProfileConfirmTitle') }}</AlertDialogTitle>

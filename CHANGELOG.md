@@ -2,6 +2,13 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.17] - 2026-01-14
+
+### Fixed
+
+- Extend Node path detection for MCP servers to include alternative FNM location (`~/.fnm/`) and `/usr/local/bin`
+- Fix provider profile deletion not working due to race condition in AlertDialog event handling
+
 ## [1.0.16] - 2026-01-13
 
 ### Changed
@@ -173,6 +180,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.17]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.16...v1.0.17
 [1.0.16]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.15...v1.0.16
 [1.0.15]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.14...v1.0.15
 [1.0.14]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.13...v1.0.14

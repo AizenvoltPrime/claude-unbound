@@ -70,9 +70,11 @@ async function detectNodeManagerPaths(): Promise<string[]> {
   await Promise.all([
     addVersionedPaths(path.join(home, ".nvm", "versions", "node"), "bin"),
     addVersionedPaths(path.join(home, ".local", "share", "fnm", "node-versions"), "installation/bin"),
+    addVersionedPaths(path.join(home, ".fnm", "node-versions"), "installation/bin"),
     addVersionedPaths("/usr/local/n/versions/node", "bin"),
     addSinglePath(path.join(home, ".volta", "bin")),
     addSinglePath(path.join(home, ".asdf", "shims")),
+    addSinglePath("/usr/local/bin"),
   ]);
 
   return additionalPaths;
