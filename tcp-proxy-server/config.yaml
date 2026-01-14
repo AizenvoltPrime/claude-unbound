@@ -1,0 +1,17 @@
+model_list:
+  - model_name: claude-opus-4-5-20251101
+    litellm_params:
+      model: lm_studio/google/gemma-3-4b
+      api_key: 
+  - model_name: claude-sonnet-4-5-20250929
+    litellm_params:
+      model: lm_studio/google/gemma-3-4b
+      api_key: 
+  - model_name: claude-haiku-4-5-20251001
+    litellm_params:
+      model: lm_studio/google/gemma-3-4b
+      api_key: 
+litellm_settings:
+    drop_params: true
+
+# You can start with: LM_STUDIO_API_BASE=${LMSTUDIO_BASE_URL} uv run litellm --config tcp-proxy-server/config.yaml

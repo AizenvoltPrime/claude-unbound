@@ -8,3 +8,5 @@ logs/
 Thumbs.db
 .env
 .claude/settings.local.json
+__pycache__/
+*.egg-info/

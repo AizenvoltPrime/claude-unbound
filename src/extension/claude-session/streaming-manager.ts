@@ -1,16 +1,28 @@
-import { log } from '../logger';
-import { stripControlChars } from '../../shared/utils';
-import { readLatestCompactSummary } from '../session';
+import { log } from "../logger";
+import { stripControlChars } from "../../shared/utils";
+import { readLatestCompactSummary } from "../session";
 import type {
   MessageCallbacks,
   PendingAssistantMessage,
   StreamingContent,
   Query,
-} from './types';
-import { createEmptyStreamingContent } from './types';
-import { serializeContent, isLocalCommandOutput, isLocalCommandText, isToolResultMessage, extractErrorToolResults, SDK_USER_ABORT_MESSAGE } from './utils';
-import type { ToolManager } from './tool-manager';
-import type { SystemInitData, AccountInfo, PluginInfo, ToolUseBlock } from '../../shared/types';
+} from "./types";
+import { createEmptyStreamingContent } from "./types";
+import {
+  serializeContent,
+  isLocalCommandOutput,
+  isLocalCommandText,
+  isToolResultMessage,
+  extractErrorToolResults,
+  SDK_USER_ABORT_MESSAGE,
+} from "./utils";
+import type { ToolManager } from "./tool-manager";
+import type {
+  SystemInitData,
+  AccountInfo,
+  PluginInfo,
+  ToolUseBlock,
+} from "../../shared/types";
 
 /** Callback interface for checkpoint tracking */
 export interface CheckpointTracker {
@@ -81,7 +93,7 @@ export class StreamingManager {
 
   set processing(value: boolean) {
     this._isProcessing = value;
-    this.callbacks.onMessage({ type: 'processing', isProcessing: value });
+    this.callbacks.onMessage({ type: "processing", isProcessing: value });
   }
 
   get streamingText(): string {
@@ -109,10 +121,10 @@ export class StreamingManager {
     if (!this.streamingContent.text || !this.pendingAssistant) return;
 
     this.pendingAssistant.content.push({
-      type: 'text',
+      type: "text",
       text: this.streamingContent.text,
     });
-    this.streamingContent.text = '';
+    this.streamingContent.text = "";
   }
 
   /** Flush accumulated assistant content to webview */
@@ -123,29 +135,40 @@ export class StreamingManager {
     this.pendingAssistant = null;
 
     if (this._lastUserMessageId) {
-      this.checkpointTracker.trackCheckpoint(pending.id, this._lastUserMessageId);
+      this.checkpointTracker.trackCheckpoint(
+        pending.id,
+        this._lastUserMessageId
+      );
     }
 
     this.toolManager.sendAbandonedTools(pending.id);
 
     if (this.streamingContent.messageId === pending.id) {
-      const hasThinkingInPending = pending.content.some(b => b.type === 'thinking');
-      const hasTextInPending = pending.content.some(b => b.type === 'text');
+      const hasThinkingInPending = pending.content.some(
+        (b) => b.type === "thinking"
+      );
+      const hasTextInPending = pending.content.some((b) => b.type === "text");
 
       if (!hasThinkingInPending && this.streamingContent.thinking) {
-        pending.content.unshift({ type: 'thinking', thinking: this.streamingContent.thinking });
+        pending.content.unshift({
+          type: "thinking",
+          thinking: this.streamingContent.thinking,
+        });
       }
       if (!hasTextInPending && this.streamingContent.text) {
-        pending.content.push({ type: 'text', text: this.streamingContent.text });
+        pending.content.push({
+          type: "text",
+          text: this.streamingContent.text,
+        });
       }
     }
     this.callbacks.onMessage({
-      type: 'assistant',
+      type: "assistant",
       data: {
-        type: 'assistant',
+        type: "assistant",
         message: {
           id: pending.id,
-          role: 'assistant',
+          role: "assistant",
           content: pending.content,
           model: pending.model,
           stop_reason: pending.stopReason,
@@ -158,11 +181,17 @@ export class StreamingManager {
 
   /** Calculate thinking duration when transitioning out of thinking phase */
   private calculateThinkingDurationIfNeeded(): number | null {
-    if (this.streamingContent.isThinking &&
-        this.streamingContent.thinkingStartTime &&
-        !this.streamingContent.thinkingDuration) {
-      this.streamingContent.thinkingDuration = Math.max(1,
-        Math.round((Date.now() - this.streamingContent.thinkingStartTime) / 1000));
+    if (
+      this.streamingContent.isThinking &&
+      this.streamingContent.thinkingStartTime &&
+      !this.streamingContent.thinkingDuration
+    ) {
+      this.streamingContent.thinkingDuration = Math.max(
+        1,
+        Math.round(
+          (Date.now() - this.streamingContent.thinkingStartTime) / 1000
+        )
+      );
       this.streamingContent.isThinking = false;
       return this.streamingContent.thinkingDuration;
     }
@@ -184,22 +213,28 @@ export class StreamingManager {
           break;
         }
         const msg = message as { type: string };
-        if (msg.type === 'result') {
+        if (msg.type === "result") {
           receivedResult = true;
         }
         this.processSDKMessage(message, budgetLimit);
       }
     } catch (err) {
-      const isUserInitiatedAbort = err instanceof Error &&
-        err.message === SDK_USER_ABORT_MESSAGE;
-      const shouldReport = err instanceof Error &&
-        err.name !== 'AbortError' &&
+      const isUserInitiatedAbort =
+        err instanceof Error && err.message === SDK_USER_ABORT_MESSAGE;
+      const shouldReport =
+        err instanceof Error &&
+        err.name !== "AbortError" &&
         !isUserInitiatedAbort &&
         !this._silentAbort;
       if (shouldReport) {
-        log('[StreamingManager] Query consumption error: %s\n%s', err.message, err.stack);
+        log(
+          "[StreamingManager] Query consumption error",
+          err.message,
+          err.stack,
+          { budgetLimit }
+        );
         this.callbacks.onMessage({
-          type: 'error',
+          type: "error",
           message: err.message,
         });
       }
@@ -211,7 +246,7 @@ export class StreamingManager {
         this.toolManager.sendAllAbandonedTools();
 
         this._isProcessing = false;
-        this.callbacks.onMessage({ type: 'processing', isProcessing: false });
+        this.callbacks.onMessage({ type: "processing", isProcessing: false });
         if (this._onTurnComplete) {
           this._onTurnComplete();
           this._onTurnComplete = null;
@@ -225,19 +260,19 @@ export class StreamingManager {
     const msg = message as { type: string; [key: string]: unknown };
 
     switch (msg.type) {
-      case 'assistant':
+      case "assistant":
         this.handleAssistantMessage(msg);
         break;
-      case 'stream_event':
+      case "stream_event":
         this.handleStreamEvent(msg);
         break;
-      case 'system':
+      case "system":
         this.handleSystemMessage(msg);
         break;
-      case 'user':
+      case "user":
         this.handleUserMessage(msg);
         break;
-      case 'result':
+      case "result":
         this.handleResultMessage(msg, budgetLimit);
         break;
     }
@@ -268,13 +303,15 @@ export class StreamingManager {
       this.lastAssistantUsage = {
         input_tokens: msg.message.usage.input_tokens ?? 0,
         output_tokens: msg.message.usage.output_tokens ?? 0,
-        cache_creation_input_tokens: msg.message.usage.cache_creation_input_tokens ?? 0,
+        cache_creation_input_tokens:
+          msg.message.usage.cache_creation_input_tokens ?? 0,
         cache_read_input_tokens: msg.message.usage.cache_read_input_tokens ?? 0,
       };
       this.callbacks.onMessage({
-        type: 'tokenUsageUpdate',
+        type: "tokenUsageUpdate",
         inputTokens: this.lastAssistantUsage.input_tokens,
-        cacheCreationTokens: this.lastAssistantUsage.cache_creation_input_tokens,
+        cacheCreationTokens:
+          this.lastAssistantUsage.cache_creation_input_tokens,
         cacheReadTokens: this.lastAssistantUsage.cache_read_input_tokens,
       });
     }
@@ -284,7 +321,7 @@ export class StreamingManager {
     }
 
     if (isLocalCommandOutput(msg.message.content)) {
-      log('[StreamingManager] Filtering out local command output');
+      log("[StreamingManager] Filtering out local command output");
       return;
     }
 
@@ -301,11 +338,11 @@ export class StreamingManager {
     }
 
     const serializedContent = serializeContent(msg.message.content);
-    const hasToolBlocks = serializedContent.some(b => b.type === 'tool_use');
+    const hasToolBlocks = serializedContent.some((b) => b.type === "tool_use");
     const hasAccumulatedText = hasToolBlocks && this.streamingContent.text;
 
     for (const block of serializedContent) {
-      if (block.type === 'tool_use') {
+      if (block.type === "tool_use") {
         if (this.toolManager.getStreamedToolInfo(block.id)) {
           continue;
         }
@@ -313,11 +350,11 @@ export class StreamingManager {
         const duration = this.calculateThinkingDurationIfNeeded();
         if (duration !== null) {
           this.callbacks.onMessage({
-            type: 'partial',
+            type: "partial",
             data: {
-              type: 'partial',
+              type: "partial",
               content: [],
-              session_id: this._sessionId || '',
+              session_id: this._sessionId || "",
               messageId: this.streamingContent.messageId,
               streamingThinking: this.streamingContent.thinking,
               isThinking: false,
@@ -332,26 +369,34 @@ export class StreamingManager {
           messageId: msg.message.id,
           parentToolUseId,
         });
-        this.toolManager.queueToolInfo(block.name, { toolUseId: block.id, parentToolUseId });
+        this.toolManager.queueToolInfo(block.name, {
+          toolUseId: block.id,
+          parentToolUseId,
+        });
 
         const currentText = this.streamingContent.text;
         if (currentText.length > this.streamingContent.committedTextLength) {
-          const uncommittedText = currentText.slice(this.streamingContent.committedTextLength);
+          const uncommittedText = currentText.slice(
+            this.streamingContent.committedTextLength
+          );
           if (uncommittedText.trim()) {
-            this.streamingContent.contentBlocks.push({ type: 'text', text: uncommittedText });
+            this.streamingContent.contentBlocks.push({
+              type: "text",
+              text: uncommittedText,
+            });
           }
           this.streamingContent.committedTextLength = currentText.length;
         }
 
         this.streamingContent.contentBlocks.push({
-          type: 'tool_use',
+          type: "tool_use",
           id: block.id,
           name: block.name,
           input: block.input,
         });
 
         this.callbacks.onMessage({
-          type: 'toolStreaming',
+          type: "toolStreaming",
           messageId: msg.message.id,
           tool: {
             id: block.id,
@@ -364,15 +409,21 @@ export class StreamingManager {
       }
     }
 
-    const nonTextContent = serializedContent.filter(b => b.type !== 'text');
-    const textContent = serializedContent.filter(b => b.type === 'text') as { type: 'text'; text: string }[];
+    const nonTextContent = serializedContent.filter((b) => b.type !== "text");
+    const textContent = serializedContent.filter((b) => b.type === "text") as {
+      type: "text";
+      text: string;
+    }[];
     const hasStreamingText = this.streamingContent.text.length > 0;
 
     if (!this.pendingAssistant) {
       const initialContent: typeof serializedContent = [];
       if (hasAccumulatedText) {
-        initialContent.push({ type: 'text' as const, text: this.streamingContent.text });
-        this.streamingContent.text = '';
+        initialContent.push({
+          type: "text" as const,
+          text: this.streamingContent.text,
+        });
+        this.streamingContent.text = "";
       } else if (!hasStreamingText && textContent.length > 0) {
         initialContent.push(...textContent);
       }
@@ -393,11 +444,13 @@ export class StreamingManager {
       }
       const existingToolIds = new Set(
         this.pendingAssistant.content
-          .filter((b): b is ToolUseBlock => b.type === 'tool_use')
-          .map(b => b.id)
+          .filter((b): b is ToolUseBlock => b.type === "tool_use")
+          .map((b) => b.id)
       );
-      const newNonTextContent = nonTextContent.filter(b =>
-        b.type !== 'tool_use' || !existingToolIds.has((b as { id: string }).id)
+      const newNonTextContent = nonTextContent.filter(
+        (b) =>
+          b.type !== "tool_use" ||
+          !existingToolIds.has((b as { id: string }).id)
       );
       this.pendingAssistant.content.push(...newNonTextContent);
       this.pendingAssistant.stopReason = msg.message.stop_reason;
@@ -406,15 +459,19 @@ export class StreamingManager {
 
   /** Handle stream_event from SDK */
   private handleStreamEvent(message: Record<string, unknown>): void {
-    const streamParentToolUseId = (message.parent_tool_use_id as string | null) ?? null;
+    const streamParentToolUseId =
+      (message.parent_tool_use_id as string | null) ?? null;
     const event = message.event as {
       type: string;
       message?: { id: string };
       delta?: { type: string; text?: string; thinking?: string };
     };
 
-    if (event.type === 'message_start' && event.message?.id) {
-      if (this.streamingContent.messageId && this.streamingContent.messageId !== event.message.id) {
+    if (event.type === "message_start" && event.message?.id) {
+      if (
+        this.streamingContent.messageId &&
+        this.streamingContent.messageId !== event.message.id
+      ) {
         this.flushPendingAssistant();
       }
       this.streamingContent = createEmptyStreamingContent();
@@ -422,8 +479,8 @@ export class StreamingManager {
       this.streamingContent.parentToolUseId = streamParentToolUseId;
     }
 
-    if (event.type === 'content_block_delta') {
-      if (event.delta?.type === 'thinking_delta' && event.delta.thinking) {
+    if (event.type === "content_block_delta") {
+      if (event.delta?.type === "thinking_delta" && event.delta.thinking) {
         if (!this.streamingContent.thinkingStartTime) {
           this.streamingContent.thinkingStartTime = Date.now();
         }
@@ -431,11 +488,11 @@ export class StreamingManager {
         this.streamingContent.isThinking = true;
         if (!this.streamingContent.hasStreamedTools) {
           this.callbacks.onMessage({
-            type: 'partial',
+            type: "partial",
             data: {
-              type: 'partial',
+              type: "partial",
               content: [],
-              session_id: this._sessionId || '',
+              session_id: this._sessionId || "",
               messageId: this.streamingContent.messageId,
               streamingThinking: this.streamingContent.thinking,
               isThinking: true,
@@ -443,24 +500,25 @@ export class StreamingManager {
             parentToolUseId: this.streamingContent.parentToolUseId,
           });
         }
-      } else if (event.delta?.type === 'text_delta' && event.delta.text) {
+      } else if (event.delta?.type === "text_delta" && event.delta.text) {
         this.calculateThinkingDurationIfNeeded();
         this.streamingContent.text += event.delta.text;
         if (isLocalCommandText(this.streamingContent.text)) {
-          log('[StreamingManager] Filtering local command text from streaming');
+          log("[StreamingManager] Filtering local command text from streaming");
           return;
         }
         this.callbacks.onMessage({
-          type: 'partial',
+          type: "partial",
           data: {
-            type: 'partial',
+            type: "partial",
             content: [],
-            session_id: this._sessionId || '',
+            session_id: this._sessionId || "",
             messageId: this.streamingContent.messageId,
             streamingThinking: this.streamingContent.thinking,
             streamingText: this.streamingContent.text,
             isThinking: false,
-            thinkingDuration: this.streamingContent.thinkingDuration ?? undefined,
+            thinkingDuration:
+              this.streamingContent.thinkingDuration ?? undefined,
           },
           parentToolUseId: this.streamingContent.parentToolUseId,
         });
@@ -471,53 +529,68 @@ export class StreamingManager {
   /** Handle system message from SDK */
   private handleSystemMessage(message: Record<string, unknown>): void {
     const sysMsg = message as { subtype?: string; [key: string]: unknown };
-    if (sysMsg.subtype === 'init') {
-      const mcpServers = (sysMsg.mcp_servers as { name: string; status: string }[]) || [];
+    if (sysMsg.subtype === "init") {
+      const mcpServers =
+        (sysMsg.mcp_servers as { name: string; status: string }[]) || [];
       const plugins = (sysMsg.plugins as PluginInfo[]) || [];
       const initData: SystemInitData = {
-        model: (sysMsg.model as string) || '',
+        model: (sysMsg.model as string) || "",
         tools: (sysMsg.tools as string[]) || [],
         mcpServers,
         plugins,
-        permissionMode: (sysMsg.permissionMode as string) || 'default',
+        permissionMode: (sysMsg.permissionMode as string) || "default",
         slashCommands: (sysMsg.slash_commands as string[]) || [],
-        apiKeySource: (sysMsg.apiKeySource as string) || '',
-        cwd: (sysMsg.cwd as string) || '',
+        apiKeySource: (sysMsg.apiKeySource as string) || "",
+        cwd: (sysMsg.cwd as string) || "",
         outputStyle: sysMsg.output_style as string | undefined,
       };
-      this.callbacks.onMessage({ type: 'systemInit', data: initData });
+      this.callbacks.onMessage({ type: "systemInit", data: initData });
       this.callbacks.onMessage({
-        type: 'accountInfo',
-        data: { model: initData.model, apiKeySource: initData.apiKeySource } as AccountInfo,
+        type: "accountInfo",
+        data: {
+          model: initData.model,
+          apiKeySource: initData.apiKeySource,
+        } as AccountInfo,
       });
-    } else if (sysMsg.subtype === 'compact_boundary') {
-      log('[StreamingManager] Received compact_boundary system message');
+    } else if (sysMsg.subtype === "compact_boundary") {
+      log("[StreamingManager] Received compact_boundary system message");
       const metadata = (sysMsg.compactMetadata ?? sysMsg.compact_metadata) as
-        | { trigger: 'manual' | 'auto'; preTokens?: number; pre_tokens?: number }
+        | {
+            trigger: "manual" | "auto";
+            preTokens?: number;
+            pre_tokens?: number;
+          }
         | undefined;
       if (metadata) {
-        log('[StreamingManager] Sending compactBoundary to webview: trigger=%s, preTokens=%d', metadata.trigger, metadata.preTokens ?? metadata.pre_tokens ?? 0);
+        log(
+          "[StreamingManager] Sending compactBoundary to webview: trigger=%s, preTokens=%d",
+          metadata.trigger,
+          metadata.preTokens ?? metadata.pre_tokens ?? 0
+        );
         this.callbacks.onMessage({
-          type: 'compactBoundary',
+          type: "compactBoundary",
           preTokens: metadata.preTokens ?? metadata.pre_tokens ?? 0,
           trigger: metadata.trigger,
         });
 
         if (this._sessionId) {
           readLatestCompactSummary(this.cwd, this._sessionId)
-            .then(summary => {
+            .then((summary) => {
               if (summary) {
-                log('[StreamingManager] Read compact summary from JSONL, length=%d', summary.length);
+                log(
+                  "[StreamingManager] Read compact summary from JSONL, length=%d",
+                  summary.length
+                );
                 this.callbacks.onMessage({
-                  type: 'compactSummary',
+                  type: "compactSummary",
                   summary,
                 });
               } else {
-                log('[StreamingManager] No compact summary found in JSONL');
+                log("[StreamingManager] No compact summary found in JSONL");
               }
             })
-            .catch(err => {
-              log('[StreamingManager] Error reading compact summary: %s', err);
+            .catch((err) => {
+              log("[StreamingManager] Error reading compact summary: %s", err);
             });
         }
       }
@@ -542,23 +615,32 @@ export class StreamingManager {
     for (const { toolUseId, error } of errorResults) {
       const toolInfo = this.toolManager.getStreamedToolInfo(toolUseId);
       if (toolInfo) {
-        this.toolManager.handlePostToolUseFailure(toolInfo.toolName, toolUseId, error, false);
+        this.toolManager.handlePostToolUseFailure(
+          toolInfo.toolName,
+          toolUseId,
+          error,
+          false
+        );
       } else {
-        log('[StreamingManager] Error tool_result for unknown tool: %s', toolUseId);
+        log(
+          "[StreamingManager] Error tool_result for unknown tool: %s",
+          toolUseId
+        );
       }
     }
 
     if (userMsg.isCompactSummary && userMsg.message?.content) {
-      log('[StreamingManager] Received isCompactSummary message');
-      const rawContent = typeof userMsg.message.content === 'string'
-        ? userMsg.message.content
-        : '';
+      log("[StreamingManager] Received isCompactSummary message");
+      const rawContent =
+        typeof userMsg.message.content === "string"
+          ? userMsg.message.content
+          : "";
       const summary = stripControlChars(rawContent);
-      log('[StreamingManager] Compact summary length: %d', summary.length);
+      log("[StreamingManager] Compact summary length: %d", summary.length);
       if (summary) {
-        log('[StreamingManager] Sending compactSummary to webview');
+        log("[StreamingManager] Sending compactSummary to webview");
         this.callbacks.onMessage({
-          type: 'compactSummary',
+          type: "compactSummary",
           summary,
         });
       }
@@ -568,23 +650,31 @@ export class StreamingManager {
     if (userMsg.isReplay && userMsg.message?.content) {
       const rawContent = Array.isArray(userMsg.message.content)
         ? userMsg.message.content
-            .filter((c): c is { type: 'text'; text: string } =>
-              typeof c === 'object' && c !== null && 'type' in c && c.type === 'text')
-            .map(c => c.text)
-            .join('')
-        : typeof userMsg.message.content === 'string'
-          ? userMsg.message.content
-          : '';
+            .filter(
+              (c): c is { type: "text"; text: string } =>
+                typeof c === "object" &&
+                c !== null &&
+                "type" in c &&
+                c.type === "text"
+            )
+            .map((c) => c.text)
+            .join("")
+        : typeof userMsg.message.content === "string"
+        ? userMsg.message.content
+        : "";
       const content = stripControlChars(rawContent);
 
-      if (content.startsWith('<local-command-')) {
-        log('[StreamingManager] Skipping local command wrapper in userReplay: %s', content.substring(0, 50));
+      if (content.startsWith("<local-command-")) {
+        log(
+          "[StreamingManager] Skipping local command wrapper in userReplay: %s",
+          content.substring(0, 50)
+        );
         return;
       }
 
       if (content) {
         this.callbacks.onMessage({
-          type: 'userReplay',
+          type: "userReplay",
           content,
           isSynthetic: userMsg.isSynthetic,
           sdkMessageId: userMsg.uuid,
@@ -594,7 +684,10 @@ export class StreamingManager {
   }
 
   /** Handle result message from SDK */
-  private handleResultMessage(message: Record<string, unknown>, budgetLimit: number | null): void {
+  private handleResultMessage(
+    message: Record<string, unknown>,
+    budgetLimit: number | null
+  ): void {
     const resultMsg = message as {
       subtype?: string;
       session_id: string;
@@ -614,9 +707,9 @@ export class StreamingManager {
       this.checkpointTracker.updateCost(resultMsg.total_cost_usd);
     }
 
-    if (resultMsg.subtype === 'error_max_budget_usd' && budgetLimit) {
+    if (resultMsg.subtype === "error_max_budget_usd" && budgetLimit) {
       this.callbacks.onMessage({
-        type: 'budgetExceeded',
+        type: "budgetExceeded",
         finalSpend: resultMsg.total_cost_usd || 0,
         limit: budgetLimit,
       });
@@ -626,7 +719,7 @@ export class StreamingManager {
       const percentUsed = (resultMsg.total_cost_usd / budgetLimit) * 100;
       if (percentUsed >= 80 && percentUsed < 100) {
         this.callbacks.onMessage({
-          type: 'budgetWarning',
+          type: "budgetWarning",
           currentSpend: resultMsg.total_cost_usd,
           limit: budgetLimit,
           percentUsed,
@@ -641,9 +734,9 @@ export class StreamingManager {
       : 200000;
 
     this.callbacks.onMessage({
-      type: 'done',
+      type: "done",
       data: {
-        type: 'result',
+        type: "result",
         session_id: resultMsg.session_id,
         is_done: !resultMsg.is_error,
         total_cost_usd: resultMsg.total_cost_usd,
@@ -656,7 +749,7 @@ export class StreamingManager {
     this.toolManager.resetTurn();
     this.streamingContent = createEmptyStreamingContent();
     this._isProcessing = false;
-    this.callbacks.onMessage({ type: 'processing', isProcessing: false });
+    this.callbacks.onMessage({ type: "processing", isProcessing: false });
 
     if (this._onTurnComplete) {
       this._onTurnComplete();

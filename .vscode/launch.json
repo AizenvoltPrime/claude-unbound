@@ -23,6 +23,39 @@
       "outFiles": [
         "${workspaceFolder}/dist/**/*.js"
       ]
+    },
+    {
+      "name": "LM Studio Proxy",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/tcp-proxy-server"
+      },
+      "args": [
+        "main:app",
+        "--reload",
+        "--reload-dir",
+        "${workspaceFolder}/tcp-proxy-server",
+        "--port",
+        "3456",
+        "--host",
+        "0.0.0.0"
+      ],
+      "justMyCode": true,
+      "jinja": true
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug Full Extension + Webview",
+      "configurations": [
+        "LM Studio Proxy",
+        "Run Extension"
+      ]
     }
   ]
 }
