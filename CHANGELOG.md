@@ -2,6 +2,13 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.18] - 2026-01-14
+
+### Added
+
+- Clickable file paths in Edit/Write tool cards now open the file and scroll to the exact line where the edit occurred
+- Works with both live edits and historical sessions loaded from session history
+
 ## [1.0.17] - 2026-01-14
 
 ### Fixed
@@ -180,6 +187,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.18]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.17...v1.0.18
 [1.0.17]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.16...v1.0.17
 [1.0.16]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.15...v1.0.16
 [1.0.15]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.14...v1.0.15

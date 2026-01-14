@@ -2,7 +2,7 @@
   "name": "claude-unbound",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "publisher": "Aizenvolt",
   "icon": "resources/icon.png",
   "license": "MIT",
@@ -202,12 +202,18 @@
                 "description": "%configuration.providerProfiles.env.description%"
               }
             },
-            "required": ["name", "env"]
+            "required": [
+              "name",
+              "env"
+            ]
           },
           "description": "%configuration.providerProfiles.description%"
         },
         "claude-unbound.activeProviderProfile": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "default": null,
           "scope": "window",
           "description": "%configuration.activeProviderProfile.description%"

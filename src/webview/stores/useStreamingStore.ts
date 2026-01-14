@@ -173,11 +173,15 @@ export const useStreamingStore = defineStore("streaming", () => {
     }
   }
 
-  function addToolCall(tool: { id: string; name: string; input: Record<string, unknown> }, contentBlocks?: ContentBlock[]): void {
+  function addToolCall(tool: { id: string; name: string; input: Record<string, unknown>; metadata?: Record<string, unknown> }, contentBlocks?: ContentBlock[]): void {
     const msg = ensureStreamingMessage();
     const existingToolCalls = msg.toolCalls || [];
 
-    if (existingToolCalls.find((t) => t.id === tool.id)) {
+    const existingTool = existingToolCalls.find((t) => t.id === tool.id);
+    if (existingTool) {
+      if (tool.metadata) {
+        updateToolMetadata(tool.id, tool.metadata);
+      }
       return;
     }
 
@@ -190,6 +194,7 @@ export const useStreamingStore = defineStore("streaming", () => {
       result: cached?.result,
       errorMessage: cached?.errorMessage,
       feedback: cached?.feedback,
+      metadata: tool.metadata,
     };
 
     if (cached) {
@@ -226,7 +231,10 @@ export const useStreamingStore = defineStore("streaming", () => {
       if (!exists) {
         merged.set(tool.id, tool);
       } else if (statusPriority[tool.status] >= statusPriority[exists.status]) {
-        merged.set(tool.id, { ...exists, ...tool });
+        const mergedMetadata = exists.metadata || tool.metadata
+          ? { ...exists.metadata, ...tool.metadata }
+          : undefined;
+        merged.set(tool.id, { ...exists, ...tool, metadata: mergedMetadata });
       }
     }
 

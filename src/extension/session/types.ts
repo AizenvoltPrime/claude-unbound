@@ -93,6 +93,7 @@ export interface ClaudeSessionEntry {
       multiSelect?: boolean;
     }>;
     answers?: Record<string, string>;
+    structuredPatch?: Array<{ oldStart?: number; newStart?: number; oldLines?: number; newLines?: number }>;
   };
 }
 

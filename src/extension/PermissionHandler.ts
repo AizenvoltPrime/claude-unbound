@@ -335,6 +335,7 @@ export class PermissionHandler {
         originalContent,
         proposedContent,
         parentToolUseId: context.parentToolUseId,
+        editLineNumber: diffResult?.editLineNumber,
       });
     });
   }

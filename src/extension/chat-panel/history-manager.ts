@@ -34,6 +34,7 @@ interface ToolResultData {
   agentId?: string;
   isError?: boolean;
   feedback?: string;
+  editLineNumber?: number;
 }
 
 interface ExtractedContent {
@@ -281,11 +282,14 @@ export class HistoryManager {
         for (const block of entry.message.content as JsonlContentBlock[]) {
           if (block.type === "tool_result") {
             const isError = block.is_error === true;
+            const editLineNumber = this.extractEditLineNumber(entry.toolUseResult);
+
             if (this.shouldUseToolUseResultAsDisplay(entry.toolUseResult)) {
               toolResults.set(block.tool_use_id, {
                 result: JSON.stringify(entry.toolUseResult),
                 agentId: entry.toolUseResult?.agentId,
                 isError,
+                editLineNumber,
               });
             } else {
               const rawResult = typeof block.content === "string" ? block.content : JSON.stringify(block.content);
@@ -299,7 +303,7 @@ export class HistoryManager {
                 feedback = rawResult.slice(markerIndex + FEEDBACK_MARKER.length).trim();
               }
 
-              toolResults.set(block.tool_use_id, { result, isError, feedback });
+              toolResults.set(block.tool_use_id, { result, isError, feedback, editLineNumber });
             }
           }
         }
@@ -307,6 +311,11 @@ export class HistoryManager {
     }
 
     return toolResults;
+  }
+
+  private extractEditLineNumber(toolUseResult: ClaudeSessionEntry["toolUseResult"]): number | undefined {
+    if (!toolUseResult?.structuredPatch?.length) return undefined;
+    return toolUseResult.structuredPatch[0].oldStart;
   }
 
   private shouldUseToolUseResultAsDisplay(
@@ -406,6 +415,10 @@ export class HistoryManager {
             tool.result = resultData.result;
             tool.isError = resultData.isError;
             tool.feedback = resultData.feedback;
+
+            if (resultData.editLineNumber && (block.name === "Edit" || block.name === "Write")) {
+              tool.metadata = { ...tool.metadata, editLineNumber: resultData.editLineNumber };
+            }
           }
 
           const agentId = taskToolAgents.get(block.id);

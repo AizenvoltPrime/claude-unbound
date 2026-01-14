@@ -655,6 +655,7 @@ export type ExtensionToWebviewMessage =
       proposedContent?: string;
       command?: string;
       parentToolUseId?: string | null;
+      editLineNumber?: number;
     }
   // Custom slash commands from .claude/commands/
   | { type: "customSlashCommands"; commands: SlashCommandItem[] }

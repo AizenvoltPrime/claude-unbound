@@ -331,6 +331,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             name: message.toolName,
             input: message.toolInput,
             status: "awaiting_approval",
+            metadata: message.editLineNumber ? { editLineNumber: message.editLineNumber } : undefined,
           };
 
           if (message.toolName === "Edit" || message.toolName === "Write") {
@@ -340,13 +341,12 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           if (parentToolUseId && subagentStore.hasSubagent(parentToolUseId)) {
             subagentStore.addToolCallToSubagent(parentToolUseId, toolCall);
           } else {
-            // Add tool call to streaming message or create a new one
             streamingStore.addToolCall({
               id: toolCall.id,
               name: toolCall.name,
               input: toolCall.input,
+              metadata: toolCall.metadata,
             });
-            // Update the tool status to awaiting_approval
             streamingStore.updateToolStatus(toolCall.id, "awaiting_approval");
           }
 

@@ -4,6 +4,7 @@ import * as path from 'path';
 export interface DiffInfo {
   originalContent: string;
   proposedContent: string;
+  editLineNumber?: number;
 }
 
 interface ActiveDiff {
@@ -63,8 +64,11 @@ export class DiffManager {
     }
 
     let proposedContent: string;
+    let editLineNumber: number | undefined;
+
     if (toolName === 'Write') {
       proposedContent = input.content || '';
+      editLineNumber = 1;
     } else {
       if (!originalContent) {
         return null;
@@ -76,6 +80,12 @@ export class DiffManager {
       const normalizedOldString = normalizeToLF(input.old_string || '');
       const normalizedNewString = normalizeToLF(input.new_string || '');
 
+      const matchIndex = normalizedOriginal.indexOf(normalizedOldString);
+      if (matchIndex !== -1) {
+        const textBeforeMatch = normalizedOriginal.substring(0, matchIndex);
+        editLineNumber = textBeforeMatch.split('\n').length;
+      }
+
       const normalizedProposed = normalizedOriginal.replace(normalizedOldString, normalizedNewString);
       if (normalizedProposed === normalizedOriginal) {
         return null;
@@ -85,7 +95,7 @@ export class DiffManager {
       proposedContent = useCRLF ? normalizedProposed.replace(/\n/g, '\r\n') : normalizedProposed;
     }
 
-    return { originalContent, proposedContent };
+    return { originalContent, proposedContent, editLineNumber };
   }
 
   async showDiffView(diffId: string, filePath: string, originalContent: string, proposedContent: string): Promise<void> {
