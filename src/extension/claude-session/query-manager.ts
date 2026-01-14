@@ -1,7 +1,4 @@
 import * as vscode from "vscode";
-import * as os from "os";
-import * as fs from "fs";
-import * as path from "path";
 import { log } from "../logger";
 import { persistInjectedMessage, findLastMessageInCurrentTurn, persistSubagentCorrelation } from "../session";
 import { extractTextFromContent, hasImageContent } from "../../shared/utils";
@@ -30,54 +27,6 @@ async function loadSDK() {
     queryFn = sdk.query;
   }
   return queryFn;
-}
-
-/**
- * Detect Node version manager bin paths that may not be in the default PATH.
- * On Remote SSH, VS Code Server runs as a non-interactive process which doesn't
- * source shell config files (.bashrc, .profile, etc.) where NVM/FNM add their paths.
- */
-async function detectNodeManagerPaths(): Promise<string[]> {
-  if (process.platform === "win32") return [];
-
-  const home = os.homedir();
-  const additionalPaths: string[] = [];
-
-  async function addVersionedPaths(baseDir: string, binSubpath: string): Promise<void> {
-    try {
-      const versions = await fs.promises.readdir(baseDir);
-      for (const version of versions) {
-        const binPath = path.join(baseDir, version, binSubpath);
-        try {
-          await fs.promises.access(binPath);
-          additionalPaths.push(binPath);
-        } catch {}
-      }
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-        log("[QueryManager] Failed to scan %s: %O", baseDir, err);
-      }
-    }
-  }
-
-  async function addSinglePath(binPath: string): Promise<void> {
-    try {
-      await fs.promises.access(binPath);
-      additionalPaths.push(binPath);
-    } catch {}
-  }
-
-  await Promise.all([
-    addVersionedPaths(path.join(home, ".nvm", "versions", "node"), "bin"),
-    addVersionedPaths(path.join(home, ".local", "share", "fnm", "node-versions"), "installation/bin"),
-    addVersionedPaths(path.join(home, ".fnm", "node-versions"), "installation/bin"),
-    addVersionedPaths("/usr/local/n/versions/node", "bin"),
-    addSinglePath(path.join(home, ".volta", "bin")),
-    addSinglePath(path.join(home, ".asdf", "shims")),
-    addSinglePath("/usr/local/bin"),
-  ]);
-
-  return additionalPaths;
 }
 
 /** Callbacks for SDK hooks */
@@ -237,28 +186,18 @@ export class QueryManager {
     const enableFileCheckpointing = config.get<boolean>("enableFileCheckpointing", true);
     const sandboxConfig = config.get<SandboxConfig>("sandbox", { enabled: false });
 
-    // Detect Node version manager paths (NVM, FNM, Volta, etc.) that may not be in PATH
-    // On Remote SSH, VS Code Server doesn't source shell configs where NVM adds its path
-    const nodeManagerPaths = await detectNodeManagerPaths();
-    const pathSeparator = process.platform === "win32" ? ";" : ":";
-    const originalPath = process.env.PATH || "";
-    const enhancedPath = nodeManagerPaths.length > 0
-      ? [...nodeManagerPaths, originalPath].join(pathSeparator)
-      : originalPath;
-
     const queryOptions: Record<string, unknown> = {
       cwd: this.options.cwd,
       abortController: new AbortController(),
       includePartialMessages: true,
       maxTurns,
       model,
-      // Always pass process.env with enhanced PATH to ensure MCP servers can find npx/node
-      // On Remote SSH, VS Code Server doesn't source shell configs where NVM adds its path
-      env: {
-        ...process.env,
-        PATH: enhancedPath,
-        ...(this.options.providerEnv || {}),
-      },
+      ...(this.options.providerEnv && Object.keys(this.options.providerEnv).length > 0 && {
+        env: {
+          ...process.env,
+          ...this.options.providerEnv,
+        },
+      }),
       ...(this.maxBudgetUsd && { maxBudgetUsd: this.maxBudgetUsd }),
       ...(maxThinkingTokens && { maxThinkingTokens }),
       ...(betasEnabled.length > 0 && { betas: betasEnabled }),

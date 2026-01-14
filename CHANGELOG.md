@@ -2,6 +2,13 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.20] - 2026-01-15
+
+### Changed
+
+- **Revert v1.0.13 PATH detection** - Remove automatic Node version manager PATH detection (NVM, FNM, Volta, n, asdf) that was causing issues for some users by adding ALL installed versions to PATH
+- Users who need custom PATH for MCP servers on Remote SSH should configure it via `.mcp.json` `env` field (per-server) or configure their shell for non-interactive use (see [Claude Code troubleshooting](https://code.claude.com/docs/en/troubleshooting))
+
 ## [1.0.19] - 2026-01-14
 
 ### Fixed
@@ -193,6 +200,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.20]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.19...v1.0.20
 [1.0.19]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.18...v1.0.19
 [1.0.18]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.17...v1.0.18
 [1.0.17]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.16...v1.0.17
