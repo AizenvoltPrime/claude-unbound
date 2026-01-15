@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { Button } from '@/components/ui/button';
-import { IconCheck, IconCopy } from '@/components/icons';
-import { useCopyToClipboard } from '@/composables/useCopyToClipboard';
-import { getHighlighter, getShikiTheme, normalizeLanguage, isLanguageLoaded } from '@/composables/useShikiHighlighter';
+import { ref, watch, onMounted, onUnmounted, computed } from "vue";
+import { useI18n } from "vue-i18n";
+import { Button } from "@/components/ui/button";
+import { IconCheck, IconCopy } from "@/components/icons";
+import { useCopyToClipboard } from "@/composables/useCopyToClipboard";
+import { getHighlighter, getShikiTheme, normalizeLanguage, isLanguageLoaded } from "@/composables/useShikiHighlighter";
 
 const { t } = useI18n();
 
@@ -14,7 +14,7 @@ const props = defineProps<{
 }>();
 
 const { hasCopied, copyToClipboard } = useCopyToClipboard();
-const highlightedHtml = ref<string>('');
+const highlightedHtml = ref<string>("");
 const isHovering = ref(false);
 const isMounted = ref(true);
 
@@ -22,7 +22,7 @@ const normalizedLang = computed(() => normalizeLanguage(props.language));
 
 const displayLanguage = computed(() => {
   const lang = props.language?.toLowerCase();
-  if (!lang || lang === 'txt' || lang === 'text' || lang === 'plaintext') return null;
+  if (!lang || lang === "txt" || lang === "text" || lang === "plaintext") return null;
   return lang;
 });
 
@@ -46,11 +46,16 @@ async function highlight() {
       transformers: [
         {
           pre(node) {
-            node.properties.style = 'padding:0;margin:0;background:transparent;color:inherit;';
+            node.properties.style = "padding:0;margin:0;background:transparent;color:inherit;";
             return node;
           },
           code(node) {
             node.properties.class = `hljs language-${normalizedLang.value}`;
+            node.properties.style = "white-space:normal;";
+            return node;
+          },
+          line(node) {
+            node.properties.style = "display:block;white-space:pre;line-height:1.5;min-height:1.5em;";
             return node;
           },
         },
@@ -61,7 +66,7 @@ async function highlight() {
       highlightedHtml.value = html;
     }
   } catch (e) {
-    console.error('[CodeBlock] Highlighting failed:', e);
+    console.error("[CodeBlock] Highlighting failed:", e);
     if (isMounted.value) {
       highlightedHtml.value = fallbackHtml;
     }
@@ -69,11 +74,7 @@ async function highlight() {
 }
 
 function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function handleCopy() {
@@ -98,10 +99,7 @@ onUnmounted(() => {
     @mouseleave="isHovering = false"
   >
     <div class="flex items-center justify-between px-3 py-1.5 bg-muted border-b border-border">
-      <span
-        v-if="displayLanguage"
-        class="text-xs font-mono text-muted-foreground select-none"
-      >
+      <span v-if="displayLanguage" class="text-xs font-mono text-muted-foreground select-none">
         {{ displayLanguage }}
       </span>
       <span v-else></span>
@@ -142,7 +140,7 @@ onUnmounted(() => {
 
 .code-block-content :deep(code) {
   font-size: 0.85em;
-  font-family: var(--vscode-editor-font-family, 'Consolas', 'Monaco', monospace);
+  font-family: var(--vscode-editor-font-family, "Consolas", "Monaco", monospace);
   white-space: pre;
   background: transparent !important;
 }

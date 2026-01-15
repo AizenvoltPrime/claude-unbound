@@ -2,6 +2,13 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.23] - 2026-01-16
+
+### Fixed
+
+- Fix excessive vertical spacing between lines in code blocks (double line breaks caused by `white-space: pre` preserving newlines between Shiki-generated `.line` elements)
+- Fix empty lines in code blocks collapsing to zero height (added `min-height` to preserve blank line spacing)
+
 ## [1.0.22] - 2026-01-15
 
 ### Added
@@ -218,6 +225,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.23]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.22...v1.0.23
 [1.0.22]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.21...v1.0.22
 [1.0.21]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.20...v1.0.21
 [1.0.20]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.19...v1.0.20
