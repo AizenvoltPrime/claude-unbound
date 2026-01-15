@@ -197,7 +197,7 @@ export class StreamingManager {
         !isUserInitiatedAbort &&
         !this._silentAbort;
       if (shouldReport) {
-        log('[StreamingManager] Query consumption error: %s\n%s', err.message, err.stack);
+        log('[StreamingManager] Query consumption error', err.message, err.stack, { budgetLimit });
         this.callbacks.onMessage({
           type: 'error',
           message: err.message,

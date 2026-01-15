@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.21] - 2026-01-15
+
+### Added
+
+- Add Screenshots section to README showcasing chat interface, plan view, and subagent visualization
+
 ## [1.0.20] - 2026-01-15
 
 ### Changed
@@ -200,6 +206,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.21]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.20...v1.0.21
 [1.0.20]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.19...v1.0.20
 [1.0.19]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.18...v1.0.19
 [1.0.18]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.17...v1.0.18

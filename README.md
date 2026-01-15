@@ -4,6 +4,23 @@
   <p>Unleash the full power of Claude AI as your VS Code coding assistant.</p>
 </div>
 
+## Screenshots
+
+<div align="center">
+  <img src="docs/images/chat-interface.png" alt="Chat interface with inline diff previews" width="800">
+  <p><em>Chat interface with Edit tool cards showing syntax-highlighted inline diffs</em></p>
+</div>
+
+<div align="center">
+  <img src="docs/images/plan-view.png" alt="Plan mode with implementation plan" width="800">
+  <p><em>Plan View displaying implementation plans for review</em></p>
+</div>
+
+<div align="center">
+  <img src="docs/images/subagent-view.png" alt="Subagent visualization with tool actions" width="800">
+  <p><em>Subagent View showing nested agent actions with real-time tool visualization</em></p>
+</div>
+
 ## Features
 
 - **Chat Interface**: Integrated sidebar chat panel for conversing with Claude
@@ -171,13 +188,13 @@ Provider profiles allow you to define and switch between different API providers
 
 **Common environment variables:**
 
-| Variable                       | Purpose                                     |
-| ------------------------------ | ------------------------------------------- |
-| `ANTHROPIC_BASE_URL`           | Custom API endpoint URL                     |
-| `ANTHROPIC_AUTH_TOKEN`         | API key or auth token for the provider      |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Model name to use when Opus is selected     |
+| Variable                         | Purpose                                   |
+| -------------------------------- | ----------------------------------------- |
+| `ANTHROPIC_BASE_URL`             | Custom API endpoint URL                   |
+| `ANTHROPIC_AUTH_TOKEN`           | API key or auth token for the provider    |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL`   | Model name to use when Opus is selected   |
 | `ANTHROPIC_DEFAULT_SONNET_MODEL` | Model name to use when Sonnet is selected |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Model name to use when Haiku is selected   |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL`  | Model name to use when Haiku is selected  |
 
 **Example: Z.AI Profile**
 
@@ -201,13 +218,13 @@ When you activate a profile, the session automatically restarts with the new pro
 
 ## Configuration
 
-| Setting                              | Description                                                                            | Default   |
-| ------------------------------------ | -------------------------------------------------------------------------------------- | --------- |
-| `claude-unbound.permissionMode`      | How to handle tool permissions (`default`, `acceptEdits`, `bypassPermissions`, `plan`) | `default` |
-| `claude-unbound.maxTurns`            | Maximum conversation turns per session                                                 | `100`     |
-| `claude-unbound.maxIndexedFiles`     | Maximum files to index for @ mention autocomplete                                      | `5000`    |
-| `claude-unbound.providerProfiles`    | Array of provider profile names (credentials stored securely in OS keychain)           | `[]`      |
-| `claude-unbound.activeProviderProfile` | Currently active provider profile name                                               | `null`    |
+| Setting                                | Description                                                                            | Default   |
+| -------------------------------------- | -------------------------------------------------------------------------------------- | --------- |
+| `claude-unbound.permissionMode`        | How to handle tool permissions (`default`, `acceptEdits`, `bypassPermissions`, `plan`) | `default` |
+| `claude-unbound.maxTurns`              | Maximum conversation turns per session                                                 | `100`     |
+| `claude-unbound.maxIndexedFiles`       | Maximum files to index for @ mention autocomplete                                      | `5000`    |
+| `claude-unbound.providerProfiles`      | Array of provider profile names (credentials stored securely in OS keychain)           | `[]`      |
+| `claude-unbound.activeProviderProfile` | Currently active provider profile name                                                 | `null`    |
 
 ## Localization
 
