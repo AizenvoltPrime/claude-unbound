@@ -24,6 +24,7 @@ import {
   IconGlobe,
   IconWrench,
   IconClipboard,
+  IconMcp,
 } from "@/components/icons";
 import LoadingSpinner from "./LoadingSpinner.vue";
 import DiffView from "./DiffView.vue";
@@ -153,10 +154,14 @@ const isAwaitingApproval = computed(() => props.toolCall.status === "awaiting_ap
 const cardClass = computed(() => {
   if (isFailed.value) return "border-error/50";
   if (isAbandoned.value) return "border-muted/50 opacity-60";
+  if (isMcpTool.value) return "border-primary/30";
   return "border-border";
 });
 
 const toolIconComponent = computed((): Component => {
+  if (isMcpTool.value) {
+    return IconMcp;
+  }
   const icons: Record<string, Component> = {
     Read: IconFile,
     Write: IconPencil,
@@ -199,8 +204,11 @@ function formatInput(input: Record<string, unknown>): string {
     :class="[cardClass, isMcpTool ? 'cursor-pointer hover:border-primary/50 transition-colors' : '']"
     @click="handleCardClick"
   >
-    <CardHeader class="flex flex-row items-center gap-2 px-3 py-1.5 bg-foreground/5 border-b border-border/50 space-y-0">
-      <component :is="toolIconComponent" :size="18" class="text-foreground shrink-0" />
+    <CardHeader
+      class="flex flex-row items-center gap-2 px-3 py-1.5 border-b border-border/50 space-y-0"
+      :class="isMcpTool ? 'bg-gradient-to-r from-primary/10 to-transparent' : 'bg-foreground/5'"
+    >
+      <component :is="toolIconComponent" :size="18" class="shrink-0" :class="isMcpTool ? 'text-primary' : 'text-foreground'" />
       <span class="text-foreground font-medium">{{ toolCall.name }}</span>
       <span
         v-if="isFileOperation && filePath"

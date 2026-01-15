@@ -433,8 +433,9 @@ function extractSubagentCorrelations(allEntries: ClaudeSessionEntry[]): Map<stri
     // Check toolUseResult (written when Task completes - may override correlation)
     if (entry.type === 'user' && entry.message && Array.isArray(entry.message.content)) {
       for (const block of entry.message.content as JsonlContentBlock[]) {
-        if (block.type === 'tool_result' && entry.toolUseResult?.agentId) {
-          correlations.set(block.tool_use_id, entry.toolUseResult.agentId);
+        const toolResult = entry.toolUseResult;
+        if (block.type === 'tool_result' && toolResult && !Array.isArray(toolResult) && toolResult.agentId) {
+          correlations.set(block.tool_use_id, toolResult.agentId);
         }
       }
     }

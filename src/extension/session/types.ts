@@ -73,28 +73,35 @@ export interface ClaudeSessionEntry {
   uuid?: string;
   timestamp?: string;
   isMeta?: boolean;
-  toolUseResult?: {
-    type?: string;
-    filePath?: string;
-    oldString?: string;
-    newString?: string;
-    originalFile?: string;
-    status?: string;
-    prompt?: string;
-    agentId?: string;
-    content?: Array<{ type: string; text?: string }>;
-    totalDurationMs?: number;
-    totalTokens?: number;
-    totalToolUseCount?: number;
-    questions?: Array<{
-      question: string;
-      header?: string;
-      options: Array<{ label: string; description?: string }>;
-      multiSelect?: boolean;
-    }>;
-    answers?: Record<string, string>;
-    structuredPatch?: Array<{ oldStart?: number; newStart?: number; oldLines?: number; newLines?: number }>;
-  };
+  toolUseResult?:
+    | {
+        type?: string;
+        filePath?: string;
+        oldString?: string;
+        newString?: string;
+        originalFile?: string;
+        status?: string;
+        prompt?: string;
+        agentId?: string;
+        content?: Array<{ type: string; text?: string }>;
+        totalDurationMs?: number;
+        totalTokens?: number;
+        totalToolUseCount?: number;
+        questions?: Array<{
+          question: string;
+          header?: string;
+          options: Array<{ label: string; description?: string }>;
+          multiSelect?: boolean;
+        }>;
+        answers?: Record<string, string>;
+        structuredPatch?: Array<{
+          oldStart?: number;
+          newStart?: number;
+          oldLines?: number;
+          newLines?: number;
+        }>;
+      }
+    | Array<{ type: string; text?: string }>;
 }
 
 export type { StoredSession };

@@ -188,7 +188,7 @@ export class HistoryManager {
     const fileChangesByTimestamp: Array<{ timestamp: number; file: string }> = [];
     for (const entry of allEntries) {
       const result = entry.toolUseResult;
-      if (result?.filePath && this.isFileOperation(result.type)) {
+      if (result && !Array.isArray(result) && result.filePath && this.isFileOperation(result.type)) {
         const displayName = this.getFileDisplayName(result.filePath);
         const timestamp = entry.timestamp ? new Date(entry.timestamp).getTime() : 0;
         fileChangesByTimestamp.push({ timestamp, file: displayName });
@@ -285,9 +285,12 @@ export class HistoryManager {
             const editLineNumber = this.extractEditLineNumber(entry.toolUseResult);
 
             if (this.shouldUseToolUseResultAsDisplay(entry.toolUseResult)) {
+              const agentId = entry.toolUseResult && !Array.isArray(entry.toolUseResult)
+                ? entry.toolUseResult.agentId
+                : undefined;
               toolResults.set(block.tool_use_id, {
                 result: JSON.stringify(entry.toolUseResult),
-                agentId: entry.toolUseResult?.agentId,
+                agentId,
                 isError,
                 editLineNumber,
               });
@@ -314,7 +317,8 @@ export class HistoryManager {
   }
 
   private extractEditLineNumber(toolUseResult: ClaudeSessionEntry["toolUseResult"]): number | undefined {
-    if (!toolUseResult?.structuredPatch?.length) return undefined;
+    if (!toolUseResult || Array.isArray(toolUseResult)) return undefined;
+    if (!toolUseResult.structuredPatch?.length) return undefined;
     return toolUseResult.structuredPatch[0].oldStart;
   }
 
@@ -322,10 +326,11 @@ export class HistoryManager {
     toolUseResult: ClaudeSessionEntry["toolUseResult"]
   ): boolean {
     if (!toolUseResult) return false;
-    return (
-      toolUseResult.totalDurationMs !== undefined ||
-      toolUseResult.answers !== undefined
-    );
+    if (Array.isArray(toolUseResult)) {
+      const firstBlock = toolUseResult[0];
+      return Boolean(firstBlock && typeof firstBlock === "object" && "type" in firstBlock);
+    }
+    return toolUseResult.totalDurationMs !== undefined || toolUseResult.answers !== undefined;
   }
 
   private async loadAgentDataForTools(taskToolAgents: Map<string, string>): Promise<Map<string, AgentData>> {

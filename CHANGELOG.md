@@ -2,6 +2,18 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.22] - 2026-01-15
+
+### Added
+
+- Clickable MCP tool cards now open a full-screen overlay displaying the tool's output with markdown rendering
+- Official MCP (Model Context Protocol) icon for MCP tool cards and overlay
+- Visual styling for MCP tool cards: gradient header background, primary color border
+
+### Fixed
+
+- Fix MCP tool output showing raw JSON instead of parsed text when loading sessions from history
+
 ## [1.0.21] - 2026-01-15
 
 ### Added
@@ -206,6 +218,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.22]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.21...v1.0.22
 [1.0.21]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.20...v1.0.21
 [1.0.20]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.19...v1.0.20
 [1.0.19]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.18...v1.0.19

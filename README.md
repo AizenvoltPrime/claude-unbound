@@ -29,6 +29,7 @@
 - **Diff Approval**: Review and approve file changes with syntax-highlighted unified diffs (supports concurrent diffs)
 - **Inline Diff Preview**: Edit/Write tool results show inline diff previews with click-to-expand full-panel view
 - **Tool Visualization**: See what tools Claude is using in real-time with expandable details
+- **MCP Tool Overlays**: Click MCP tool cards to view full output in a markdown-rendered full-screen overlay
 - **Subagent Visualization**: Nested view of Task tool calls showing agent type, model, tool calls, and results
 - **Streaming Responses**: Watch Claude's responses as they're generated
 - **@ Mentions**: Type `@` to reference workspace files or agents (`@agent-Explore`, etc.) with fuzzy search autocomplete

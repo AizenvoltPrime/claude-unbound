@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   IconArrowLeft,
-  IconWrench,
+  IconMcp,
   IconCheck,
   IconXCircle,
   IconWarning,
@@ -112,7 +112,7 @@ const hasResult = computed(() => Boolean(parsedResult.value?.trim()));
         <IconArrowLeft :size="18" />
       </Button>
 
-      <IconWrench :size="20" class="text-primary shrink-0" />
+      <IconMcp :size="20" class="text-primary shrink-0" />
 
       <div class="flex-1 min-w-0">
         <h2 class="text-sm font-medium text-foreground truncate">{{ parsedToolName.toolName }}</h2>
