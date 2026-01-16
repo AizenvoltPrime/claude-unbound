@@ -438,7 +438,11 @@
   "mcpToolOverlay": {
     "response": "Response",
     "running": "MCP tool is running...",
-    "noResponse": "No response available"
+    "noResponse": "No response available",
+    "input": "Input",
+    "showFullResponse": "Show full response",
+    "showLessResponse": "Show less",
+    "noInput": "No input provided"
   },
   "pluginIndicator": {
     "noPlugins": "Plugins: No plugins installed",

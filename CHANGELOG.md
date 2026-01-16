@@ -2,6 +2,19 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.25] - 2026-01-16
+
+### Added
+
+- MCP tool overlay now displays tool inputs in a collapsible "Input" section with JSON syntax highlighting
+- MCP tool overlay responses now use JSON syntax highlighting when content is valid JSON
+- "Show full response" button for large MCP tool responses (>2000 chars) with expand/collapse toggle
+
+### Changed
+
+- MCP tool overlay reorganized with collapsible "Input" and "Response" sections
+- Tool results no longer truncated when loading session history (full data preserved, UI handles display truncation)
+
 ## [1.0.24] - 2026-01-16
 
 ### Fixed
@@ -233,6 +246,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.25]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.24...v1.0.25
 [1.0.24]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.23...v1.0.24
 [1.0.23]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.22...v1.0.23
 [1.0.22]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.21...v1.0.22

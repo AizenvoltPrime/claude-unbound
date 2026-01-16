@@ -21,7 +21,7 @@ import {
   type RewindHistoryItem,
   type ContentBlock,
 } from "../../shared/types";
-import { HISTORY_PAGE_SIZE, TOOL_RESULT_MAX_LENGTH } from "./types";
+import { HISTORY_PAGE_SIZE } from "./types";
 import { log } from "../logger";
 
 export interface HistoryManagerConfig {
@@ -295,15 +295,12 @@ export class HistoryManager {
                 editLineNumber,
               });
             } else {
-              const rawResult = typeof block.content === "string" ? block.content : JSON.stringify(block.content);
-              const result = rawResult.length > TOOL_RESULT_MAX_LENGTH
-                ? rawResult.slice(0, TOOL_RESULT_MAX_LENGTH) + "... (truncated)"
-                : rawResult;
+              const result = typeof block.content === "string" ? block.content : JSON.stringify(block.content);
 
               let feedback: string | undefined;
-              if (isError && rawResult.includes(FEEDBACK_MARKER)) {
-                const markerIndex = rawResult.indexOf(FEEDBACK_MARKER);
-                feedback = rawResult.slice(markerIndex + FEEDBACK_MARKER.length).trim();
+              if (isError && result.includes(FEEDBACK_MARKER)) {
+                const markerIndex = result.indexOf(FEEDBACK_MARKER);
+                feedback = result.slice(markerIndex + FEEDBACK_MARKER.length).trim();
               }
 
               toolResults.set(block.tool_use_id, { result, isError, feedback, editLineNumber });

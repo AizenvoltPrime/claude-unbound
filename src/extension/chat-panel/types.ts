@@ -11,7 +11,6 @@ import type {
 
 export const SESSIONS_PAGE_SIZE = 20;
 export const HISTORY_PAGE_SIZE = 30;
-export const TOOL_RESULT_MAX_LENGTH = 500;
 
 export interface PanelInstance {
   panel: vscode.WebviewPanel;
