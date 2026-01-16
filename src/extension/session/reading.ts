@@ -206,7 +206,7 @@ export async function readAgentData(workspacePath: string, agentId: string): Pro
     const lines = await readSessionFileLines(filePath);
 
     const allToolCalls: AgentToolCall[] = [];
-    const toolResults = new Map<string, string>();
+    const toolResults = new Map<string, { result: string; editLineNumber?: number }>();
     const messages: AgentMessage[] = [];
     const assistantMessagesByMsgId = new Map<string, AgentMessage>();
     const messageOrder: string[] = [];
@@ -230,7 +230,16 @@ export async function readAgentData(workspacePath: string, agentId: string): Pro
               const resultContent = typeof block.content === 'string'
                 ? block.content.slice(0, TOOL_RESULT_PREVIEW_LENGTH)
                 : JSON.stringify(block.content).slice(0, TOOL_RESULT_PREVIEW_LENGTH);
-              toolResults.set(block.tool_use_id, resultContent);
+
+              let editLineNumber: number | undefined;
+              if (entry.toolUseResult && !Array.isArray(entry.toolUseResult)) {
+                const patch = entry.toolUseResult.structuredPatch;
+                if (Array.isArray(patch) && patch.length > 0 && typeof patch[0].oldStart === 'number') {
+                  editLineNumber = patch[0].oldStart;
+                }
+              }
+
+              toolResults.set(block.tool_use_id, { result: resultContent, editLineNumber });
             }
           }
         }
@@ -277,9 +286,12 @@ export async function readAgentData(workspacePath: string, agentId: string): Pro
       if (msg && msg.contentBlocks.length > 0) {
         for (const block of msg.contentBlocks) {
           if (block.type === 'tool_use') {
-            const result = toolResults.get(block.id);
-            if (result) {
-              block.result = result;
+            const resultData = toolResults.get(block.id);
+            if (resultData) {
+              block.result = resultData.result;
+              if (resultData.editLineNumber !== undefined) {
+                block.metadata = { editLineNumber: resultData.editLineNumber };
+              }
             }
           }
         }
@@ -288,9 +300,9 @@ export async function readAgentData(workspacePath: string, agentId: string): Pro
     }
 
     for (const tool of allToolCalls) {
-      const result = toolResults.get(tool.id);
-      if (result) {
-        tool.result = result;
+      const resultData = toolResults.get(tool.id);
+      if (resultData) {
+        tool.result = resultData.result;
       }
     }
 

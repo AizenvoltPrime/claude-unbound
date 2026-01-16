@@ -2,6 +2,14 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.24] - 2026-01-16
+
+### Fixed
+
+- Fix Edit/Write tool cards not scrolling to edit line on fresh sessions when using `acceptEdits` or `bypassPermissions` mode
+- Fix Edit/Write tool cards in subagent views not scrolling to edit line (both live and historical sessions)
+- Extract `editLineNumber` from SDK tool result consistently across all contexts (main session, subagents, history)
+
 ## [1.0.23] - 2026-01-16
 
 ### Fixed
@@ -225,6 +233,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.24]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.23...v1.0.24
 [1.0.23]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.22...v1.0.23
 [1.0.22]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.21...v1.0.22
 [1.0.21]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.20...v1.0.21

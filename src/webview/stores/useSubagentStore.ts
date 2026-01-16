@@ -37,6 +37,7 @@ function buildChatMessagesFromHistory(
           status: existing?.status ?? 'completed',
           result: existing?.result ?? block.result,
           errorMessage: existing?.errorMessage,
+          metadata: block.metadata,
         });
       }
     }
@@ -313,6 +314,55 @@ export const useSubagentStore = defineStore('subagent', () => {
     return false;
   }
 
+  function updateSubagentToolMetadata(
+    toolUseId: string,
+    metadata: Record<string, unknown>
+  ): boolean {
+    for (const [subagentId, subagent] of Object.entries(subagents.value)) {
+      const toolIndex = subagent.toolCalls.findIndex(t => t.id === toolUseId);
+      if (toolIndex !== -1) {
+        const updatedToolCalls = [...subagent.toolCalls];
+        updatedToolCalls[toolIndex] = {
+          ...updatedToolCalls[toolIndex],
+          metadata: { ...updatedToolCalls[toolIndex].metadata, ...metadata },
+        };
+        subagents.value = {
+          ...subagents.value,
+          [subagentId]: {
+            ...subagent,
+            toolCalls: updatedToolCalls,
+          },
+        };
+        return true;
+      }
+
+      for (let msgIdx = 0; msgIdx < subagent.messages.length; msgIdx++) {
+        const msg = subagent.messages[msgIdx];
+        if (msg.toolCalls) {
+          const msgToolIndex = msg.toolCalls.findIndex(t => t.id === toolUseId);
+          if (msgToolIndex !== -1) {
+            const updatedMsgToolCalls = [...msg.toolCalls];
+            updatedMsgToolCalls[msgToolIndex] = {
+              ...updatedMsgToolCalls[msgToolIndex],
+              metadata: { ...updatedMsgToolCalls[msgToolIndex].metadata, ...metadata },
+            };
+            const updatedMessages = [...subagent.messages];
+            updatedMessages[msgIdx] = { ...msg, toolCalls: updatedMsgToolCalls };
+            subagents.value = {
+              ...subagents.value,
+              [subagentId]: {
+                ...subagent,
+                messages: updatedMessages,
+              },
+            };
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   function getSubagent(id: string): SubagentState | undefined {
     return subagents.value[id];
   }
@@ -344,6 +394,7 @@ export const useSubagentStore = defineStore('subagent', () => {
           status: existing?.status ?? 'completed',
           result: existing?.result,
           errorMessage: existing?.errorMessage,
+          metadata: existing?.metadata,
         };
       });
   }
@@ -477,6 +528,7 @@ export const useSubagentStore = defineStore('subagent', () => {
     getSubagentStreaming,
     addToolCallToSubagent,
     updateSubagentToolStatus,
+    updateSubagentToolMetadata,
     getSubagent,
     hasSubagent,
     getSubagentDescription,

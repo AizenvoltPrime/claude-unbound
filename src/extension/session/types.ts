@@ -116,7 +116,7 @@ export interface AgentToolCall {
 export type AgentContentBlock =
   | { type: 'thinking'; thinking: string }
   | { type: 'text'; text: string }
-  | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown>; result?: string };
+  | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown>; result?: string; metadata?: Record<string, unknown> };
 
 export interface AgentMessage {
   role: 'user' | 'assistant';

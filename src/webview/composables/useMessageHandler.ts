@@ -324,6 +324,14 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
+        case "toolMetadata": {
+          const found = subagentStore.updateSubagentToolMetadata(message.toolUseId, message.metadata);
+          if (!found) {
+            streamingStore.updateToolMetadata(message.toolUseId, message.metadata);
+          }
+          break;
+        }
+
         case "requestPermission": {
           const parentToolUseId = message.parentToolUseId;
           const toolCall: ToolCall = {

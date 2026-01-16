@@ -199,6 +199,20 @@ export class ToolManager {
         parentToolUseId,
       });
 
+      if ((toolName === 'Edit' || toolName === 'Write') && response && typeof response === 'object') {
+        const structuredPatch = (response as Record<string, unknown>).structuredPatch;
+        if (Array.isArray(structuredPatch) && structuredPatch.length > 0) {
+          const editLineNumber = (structuredPatch[0] as Record<string, unknown>).oldStart;
+          if (typeof editLineNumber === 'number') {
+            this.callbacks.onMessage({
+              type: 'toolMetadata',
+              toolUseId,
+              metadata: { editLineNumber },
+            });
+          }
+        }
+      }
+
       if (toolName === 'Task') {
         this.sendSubagentDataUpdate(toolUseId, response);
       }

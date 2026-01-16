@@ -13,6 +13,7 @@ export const useStreamingStore = defineStore("streaming", () => {
   const messages = ref<ChatMessage[]>([]);
   const streamingMessageId = ref<string | null>(null);
   const toolStatusCache = ref<Map<string, ToolStatusEntry>>(new Map());
+  const toolMetadataCache = ref<Map<string, Record<string, unknown>>>(new Map());
   const expandedMcpToolId = ref<string | null>(null);
 
   const expandedMcpTool = computed<ToolCall | undefined>(() => {
@@ -171,6 +172,7 @@ export const useStreamingStore = defineStore("streaming", () => {
         }
       }
     }
+    toolMetadataCache.value.set(toolUseId, { ...toolMetadataCache.value.get(toolUseId), ...metadata });
   }
 
   function addToolCall(tool: { id: string; name: string; input: Record<string, unknown>; metadata?: Record<string, unknown> }, contentBlocks?: ContentBlock[]): void {
@@ -185,20 +187,28 @@ export const useStreamingStore = defineStore("streaming", () => {
       return;
     }
 
-    const cached = toolStatusCache.value.get(tool.id);
+    if (tool.metadata) {
+      toolMetadataCache.value.set(tool.id, { ...toolMetadataCache.value.get(tool.id), ...tool.metadata });
+    }
+
+    const cachedStatus = toolStatusCache.value.get(tool.id);
+    const cachedMetadata = toolMetadataCache.value.get(tool.id);
     const newToolCall: ToolCall = {
       id: tool.id,
       name: tool.name,
       input: tool.input,
-      status: cached?.status ?? "pending",
-      result: cached?.result,
-      errorMessage: cached?.errorMessage,
-      feedback: cached?.feedback,
-      metadata: tool.metadata,
+      status: cachedStatus?.status ?? "pending",
+      result: cachedStatus?.result,
+      errorMessage: cachedStatus?.errorMessage,
+      feedback: cachedStatus?.feedback,
+      metadata: cachedMetadata,
     };
 
-    if (cached) {
+    if (cachedStatus) {
       toolStatusCache.value.delete(tool.id);
+    }
+    if (cachedMetadata) {
+      toolMetadataCache.value.delete(tool.id);
     }
 
     updateStreamingMessage({
@@ -513,6 +523,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     messages.value = [];
     streamingMessageId.value = null;
     toolStatusCache.value = new Map();
+    toolMetadataCache.value = new Map();
     expandedMcpToolId.value = null;
   }
 
@@ -521,6 +532,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     streamingMessage,
     streamingMessageId,
     toolStatusCache,
+    toolMetadataCache,
     expandedMcpToolId,
     expandedMcpTool,
     expandMcpTool,

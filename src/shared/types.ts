@@ -401,7 +401,7 @@ export type UserContentBlock = TextBlock | ImageBlock;
 export type HistoryAgentContentBlock =
   | { type: 'thinking'; thinking: string }
   | { type: 'text'; text: string }
-  | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown>; result?: string };
+  | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown>; result?: string; metadata?: Record<string, unknown> };
 
 export interface HistoryAgentMessage {
   role: 'user' | 'assistant';
@@ -607,6 +607,7 @@ export type ExtensionToWebviewMessage =
   | { type: "toolCompleted"; toolUseId: string; toolName: string; result: string; parentToolUseId?: string | null }
   | { type: "toolFailed"; toolUseId: string; toolName: string; error: string; isInterrupt?: boolean; parentToolUseId?: string | null }
   | { type: "toolAbandoned"; toolUseId: string; toolName: string; parentToolUseId?: string | null }
+  | { type: "toolMetadata"; toolUseId: string; metadata: Record<string, unknown> }
   // New: Subagent lifecycle
   | { type: "subagentStart"; agentId: string; agentType: string; toolUseId?: string }
   | { type: "subagentStop"; agentId: string }
