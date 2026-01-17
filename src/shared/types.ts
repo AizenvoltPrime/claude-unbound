@@ -512,6 +512,7 @@ export type WebviewToExtensionMessage =
   | { type: "deleteSession"; sessionId: string }
   | { type: "openSessionLog" }
   | { type: "openSessionPlan" }
+  | { type: "bindPlanToSession" }
   | { type: "openAgentLog"; agentId: string }
   // History pagination
   | { type: "requestMoreHistory"; sessionId: string; offset: number }
@@ -769,7 +770,7 @@ export interface StoredSession {
   timestamp: number;
   preview: string;
   slug?: string;
-  customTitle?: string; // User-set name via /rename
+  customTitle?: string;
   messageCount?: number;
 }
 

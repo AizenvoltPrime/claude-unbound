@@ -298,6 +298,7 @@
     "turns": "{n} turn | {n} turns",
     "cost": "Session cost",
     "openPlan": "View session plan",
+    "bindPlan": "Bind plan file to session",
     "openLog": "Open session log file"
   },
   "planView": {

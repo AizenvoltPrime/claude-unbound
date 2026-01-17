@@ -302,6 +302,10 @@ export class ClaudeSession {
     await this.queryManager.setMaxThinkingTokens(tokens);
   }
 
+  setPendingPlanBind(content: string): void {
+    this.queryManager.setPendingPlanBind(content);
+  }
+
   async getSupportedModels(): Promise<ModelInfo[]> {
     return this.queryManager.getSupportedModels();
   }

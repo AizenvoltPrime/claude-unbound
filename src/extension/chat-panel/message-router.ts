@@ -6,12 +6,7 @@ import type { HistoryManager } from "./history-manager";
 import type { SettingsManager } from "./settings-manager";
 import type { WorkspaceManager } from "./workspace-manager";
 import { createQueuedMessage } from "./queue-manager";
-import type {
-  WebviewToExtensionMessage,
-  ExtensionToWebviewMessage,
-  RewindOption,
-  UserContentBlock,
-} from "../../shared/types";
+import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, RewindOption, UserContentBlock } from "../../shared/types";
 import type { PanelInstance } from "./types";
 import type { IdeContextManager } from "./ide-context-manager";
 import { getSessionFilePath, getAgentFilePath, getSessionMetadata, renameSession, deleteSession, extractCommandHistory } from "../session";
@@ -42,10 +37,7 @@ interface HandlerContext {
   panelId: string;
 }
 
-type MessageHandler = (
-  message: WebviewToExtensionMessage,
-  ctx: HandlerContext
-) => Promise<void> | void;
+type MessageHandler = (message: WebviewToExtensionMessage, ctx: HandlerContext) => Promise<void> | void;
 
 export class MessageRouter {
   private readonly workspacePath: string;
@@ -129,9 +121,7 @@ export class MessageRouter {
             ctx.permissionHandler.preApproveSkill(skillName);
             preApprovedSkillName = skillName;
             // Transform to skill invocation
-            transformedContent = skillArgs
-              ? `Execute skill ${skillName}\nAdditional info: ${skillArgs}`
-              : `Execute skill ${skillName}`;
+            transformedContent = skillArgs ? `Execute skill ${skillName}\nAdditional info: ${skillArgs}` : `Execute skill ${skillName}`;
           }
         }
 
@@ -146,9 +136,7 @@ export class MessageRouter {
         // Use transformed content for skill invocations, original for everything else
         // Apply IDE context to both transformed and original content when requested
         const baseContent = transformedContent ?? msgContent;
-        const finalContent = msg.includeIdeContext
-          ? ctx.ideContextManager.buildContentBlocks(baseContent)
-          : baseContent;
+        const finalContent = msg.includeIdeContext ? ctx.ideContextManager.buildContentBlocks(baseContent) : baseContent;
 
         try {
           await ctx.session.sendMessage(finalContent, msg.agentId, correlationId);
@@ -463,9 +451,7 @@ export class MessageRouter {
           const doc = await vscode.workspace.openTextDocument(fileUri);
           await vscode.window.showTextDocument(doc, { preview: false });
         } catch (err) {
-          vscode.window.showWarningMessage(
-            vscode.l10n.t("Agent log file not found: {0}", err instanceof Error ? err.message : "Unknown error")
-          );
+          vscode.window.showWarningMessage(vscode.l10n.t("Agent log file not found: {0}", err instanceof Error ? err.message : "Unknown error"));
         }
       },
 
@@ -477,6 +463,7 @@ export class MessageRouter {
         }
 
         const metadata = await getSessionMetadata(this.workspacePath, sessionId);
+
         if (!metadata?.slug) {
           vscode.window.showInformationMessage(vscode.l10n.t("No plan exists for this session"));
           return;
@@ -497,6 +484,139 @@ export class MessageRouter {
         } catch (err) {
           log("[MessageRouter] Error reading plan file:", err);
           vscode.window.showInformationMessage(vscode.l10n.t("No plan exists for this session"));
+        }
+      },
+
+      bindPlanToSession: async (msg, ctx) => {
+        const sessionId = ctx.session.currentSessionId;
+        if (!sessionId) {
+          vscode.window.showInformationMessage(vscode.l10n.t("No active session"));
+          return;
+        }
+
+        const fileResult = await vscode.window.showOpenDialog({
+          canSelectFiles: true,
+          canSelectFolders: false,
+          canSelectMany: false,
+          filters: { Markdown: ["md"] },
+          title: vscode.l10n.t("Select Plan File to Inject"),
+          defaultUri: vscode.Uri.file(this.workspacePath),
+        });
+
+        if (!fileResult || fileResult.length === 0) return;
+
+        const selectedPath = fileResult[0].fsPath;
+        const metadata = await getSessionMetadata(this.workspacePath, sessionId);
+        const slug = metadata?.slug;
+
+        try {
+          const content = await fs.readFile(selectedPath, "utf-8");
+
+          if (slug) {
+            // Case 1: Slug exists - write file directly and send message
+            if (slug.includes("..") || slug.includes("/") || slug.includes("\\")) {
+              log("[MessageRouter] Invalid plan slug detected:", slug);
+              vscode.window.showWarningMessage(vscode.l10n.t("Invalid session slug"));
+              return;
+            }
+
+            const slugPath = path.join(os.homedir(), ".claude", "plans", `${slug}.md`);
+
+            let fileExists = false;
+            try {
+              await fs.access(slugPath);
+              fileExists = true;
+            } catch {
+              fileExists = false;
+            }
+
+            if (fileExists) {
+              const confirmation = await vscode.window.showWarningMessage(
+                vscode.l10n.t("A plan file already exists for this session. Overwrite it?"),
+                { modal: true },
+                vscode.l10n.t("Overwrite"),
+              );
+              if (!confirmation) {
+                return;
+              }
+            }
+
+            await fs.mkdir(path.dirname(slugPath), { recursive: true });
+            await fs.writeFile(slugPath, content);
+
+            const config = vscode.workspace.getConfiguration("claude-unbound");
+            const previousThinkingTokens = config.get<number | null>("maxThinkingTokens", null);
+            await ctx.session.setMaxThinkingTokens(null);
+
+            try {
+              const notifyCorrelationId = `plan-notify-${Date.now()}`;
+              this.postMessage(ctx.panel, {
+                type: "userMessage",
+                content: "[System] Updating plan file...",
+                correlationId: notifyCorrelationId,
+              });
+
+              await ctx.session.sendMessage(
+                `[System] The plan file for this session has been updated. Plan file path: ${slugPath}. Respond with "Got it. I'll use this plan as reference." - do not take any other action.`,
+                undefined,
+                notifyCorrelationId,
+              );
+            } finally {
+              await ctx.session.setMaxThinkingTokens(previousThinkingTokens);
+            }
+
+            this.postMessage(ctx.panel, {
+              type: "notification",
+              message: vscode.l10n.t("Plan file updated: {0}", slugPath),
+              notificationType: "info",
+            });
+            log("[MessageRouter] Injected plan from %s to %s", selectedPath, slugPath);
+          } else {
+            // Case 2: No slug - use Stop hook to write file after init message
+            if (ctx.session.processing) {
+              vscode.window.showWarningMessage(vscode.l10n.t("Cannot initialize plan mode while Claude is processing. Please wait and try again."));
+              return;
+            }
+
+            const previousMode = ctx.permissionHandler.getPermissionMode();
+            const config = vscode.workspace.getConfiguration("claude-unbound");
+            const previousThinkingTokens = config.get<number | null>("maxThinkingTokens", null);
+
+            ctx.session.setPendingPlanBind(content);
+
+            await this.settingsManager.handleSetPermissionMode(ctx.session, ctx.permissionHandler, "plan");
+            await ctx.session.setMaxThinkingTokens(null);
+            await this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
+
+            try {
+              const triggerCorrelationId = `plan-init-${Date.now()}`;
+              this.postMessage(ctx.panel, {
+                type: "userMessage",
+                content: "[System] Initializing plan mode for custom plan binding...",
+                correlationId: triggerCorrelationId,
+              });
+
+              await ctx.session.sendMessage(
+                `[System] Plan mode initialization for custom plan binding. Respond with "Got it. I'll use the imported plan as reference." - do not take any other action.`,
+                undefined,
+                triggerCorrelationId,
+              );
+            } finally {
+              await this.settingsManager.handleSetPermissionMode(ctx.session, ctx.permissionHandler, previousMode);
+              await ctx.session.setMaxThinkingTokens(previousThinkingTokens);
+              await this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
+            }
+
+            this.postMessage(ctx.panel, {
+              type: "notification",
+              message: vscode.l10n.t("Plan file bound to session"),
+              notificationType: "info",
+            });
+            log("[MessageRouter] Plan bind initiated via Stop hook from %s", selectedPath);
+          }
+        } catch (err) {
+          log("[MessageRouter] Error injecting plan:", err);
+          vscode.window.showErrorMessage(vscode.l10n.t("Failed to inject plan: {0}", err instanceof Error ? err.message : "Unknown error"));
         }
       },
 
@@ -719,5 +839,4 @@ export class MessageRouter {
       this.settingsManager.sendProviderProfilesForPanel(instance.panel, panelId);
     }
   }
-
 }

@@ -56,6 +56,7 @@ import {
   IconChevronUp,
   IconChevronDown,
   IconFileText,
+  IconLink,
 } from '@/components/icons';
 import type {
   StoredSession,
@@ -409,6 +410,10 @@ function handleOpenPlan() {
   postMessage({ type: 'openSessionPlan' });
 }
 
+function handleBindPlan() {
+  postMessage({ type: 'bindPlanToSession' });
+}
+
 function handleOpenAgentLog(agentId: string) {
   postMessage({ type: 'openAgentLog', agentId });
 }
@@ -602,6 +607,17 @@ const rewindMessagePreview = computed(() => {
       </Popover>
 
       <div class="flex-1"></div>
+
+      <!-- Bind Plan Button -->
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        class="text-muted-foreground hover:bg-muted hover:text-foreground"
+        :title="t('stats.bindPlan')"
+        @click="handleBindPlan"
+      >
+        <IconLink :size="16" />
+      </Button>
 
       <!-- View Plan Button -->
       <Button

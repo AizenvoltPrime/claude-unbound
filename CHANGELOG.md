@@ -2,6 +2,19 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.26] - 2026-01-17
+
+### Added
+
+- **Bind Plan to Session**: New link icon button in chat header to inject a custom plan file into the session
+  - File picker opens to workspace folder by default, filtered to markdown files
+  - If session already has a plan slug: writes file directly, sends a system message informing Claude of the update
+  - If session has no plan slug: temporarily enters plan mode, the Stop hook writes the file and notifies Claude via systemMessage after the acknowledgment
+  - Thinking is disabled during all programmatic messages to minimize response overhead
+  - Confirmation dialog when overwriting an existing plan file (only applies when session already has a plan slug)
+  - Claude is notified of the plan file path so it can reference the plan in subsequent responses
+  - Use case: inject pre-written implementation plans or custom plan templates into Claude's context
+
 ## [1.0.25] - 2026-01-16
 
 ### Added
@@ -246,6 +259,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.26]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.25...v1.0.26
 [1.0.25]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.24...v1.0.25
 [1.0.24]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.23...v1.0.24
 [1.0.23]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.22...v1.0.23

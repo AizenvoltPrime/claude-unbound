@@ -1,6 +1,9 @@
 import * as vscode from "vscode";
 import { log } from "../logger";
-import { persistInjectedMessage, findLastMessageInCurrentTurn, persistSubagentCorrelation } from "../session";
+import { persistInjectedMessage, findLastMessageInCurrentTurn, persistSubagentCorrelation, getSessionMetadata } from "../session";
+import * as fs from "fs/promises";
+import * as path from "path";
+import * as os from "os";
 import { extractTextFromContent, hasImageContent } from "../../shared/utils";
 import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, ContentInput } from "./types";
 import type { ToolManager } from "./tool-manager";
@@ -54,6 +57,7 @@ export class QueryManager {
   private cachedModels: ModelInfo[] | null = null;
   private maxBudgetUsd: number | null = null;
   private _queuedMessages: Array<{ id: string | null; content: ContentInput }> = [];
+  private _pendingPlanBind: string | null = null;
 
   constructor(
     private options: SessionOptions,
@@ -498,6 +502,50 @@ export class QueryManager {
           ],
         },
       ],
+      Stop: [
+        {
+          hooks: [
+            async (): Promise<Record<string, unknown>> => {
+              if (this._pendingPlanBind) {
+                const content = this._pendingPlanBind;
+                this._pendingPlanBind = null;
+
+                const sessionId = this.streamingManager.sessionId;
+                if (!sessionId) {
+                  log("[QueryManager] Stop hook: No session ID for plan bind");
+                  return {};
+                }
+
+                const metadata = await getSessionMetadata(this.options.cwd, sessionId);
+                const slug = metadata?.slug;
+                if (!slug) {
+                  log("[QueryManager] Stop hook: No slug found for plan bind");
+                  return {};
+                }
+
+                if (slug.includes("..") || slug.includes("/") || slug.includes("\\")) {
+                  log("[QueryManager] Stop hook: Invalid slug for plan bind:", slug);
+                  return {};
+                }
+
+                const slugPath = path.join(os.homedir(), ".claude", "plans", `${slug}.md`);
+                try {
+                  await fs.mkdir(path.dirname(slugPath), { recursive: true });
+                  await fs.writeFile(slugPath, content);
+                  log("[QueryManager] Stop hook: Wrote plan file to %s", slugPath);
+
+                  const message = `A plan file has been bound to this session. Plan file path: ${slugPath}`;
+                  return { systemMessage: message };
+                } catch (err) {
+                  log("[QueryManager] Stop hook: Failed to write plan file:", err);
+                  return {};
+                }
+              }
+              return {};
+            },
+          ],
+        },
+      ],
       PreCompact: [
         {
           hooks: [
@@ -584,6 +632,10 @@ export class QueryManager {
     }
 
     this._streamingInputController.sendMessage(combinedContent);
+  }
+
+  setPendingPlanBind(content: string): void {
+    this._pendingPlanBind = content;
   }
 
   private combineQueuedContent(contents: ContentInput[]): ContentInput {
