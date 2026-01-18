@@ -494,9 +494,9 @@ function handleDismissBudgetWarning() {
   settingsStore.dismissBudgetWarning();
 }
 
-function handlePlanApprove(options: { approvalMode: 'acceptEdits' | 'manual' }) {
+function handlePlanApprove(options: { approvalMode: 'acceptEdits' | 'manual'; clearContext?: boolean }) {
   if (!pendingPlanApproval.value) return;
-  const toolUseId = pendingPlanApproval.value.toolUseId;
+  const { toolUseId, planContent } = pendingPlanApproval.value;
   streamingStore.updateToolStatus(toolUseId, 'completed');
   permissionStore.storePlanApproval(toolUseId, options.approvalMode);
   postMessage({
@@ -504,6 +504,8 @@ function handlePlanApprove(options: { approvalMode: 'acceptEdits' | 'manual' }) 
     toolUseId,
     approved: true,
     approvalMode: options.approvalMode,
+    clearContext: options.clearContext,
+    planContent: options.clearContext ? planContent : undefined,
   });
   permissionStore.clearPendingPlanApproval();
 }

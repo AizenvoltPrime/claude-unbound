@@ -38,6 +38,8 @@ export class StreamingManager {
   private _isProcessing = false;
   private _onTurnComplete: TurnCompleteCallback | null = null;
   private _silentAbort = false;
+  private _queryGeneration = 0;
+  private _currentQueryGeneration = 0;
   private _onTurnEndFlush: (() => void) | null = null;
   private cwd: string;
   private lastAssistantUsage: {
@@ -176,6 +178,8 @@ export class StreamingManager {
     abortSignal: AbortSignal,
     onComplete: () => void
   ): Promise<void> {
+    const queryGeneration = ++this._queryGeneration;
+    this._currentQueryGeneration = queryGeneration;
     let receivedResult = false;
 
     try {
@@ -187,7 +191,7 @@ export class StreamingManager {
         if (msg.type === 'result') {
           receivedResult = true;
         }
-        this.processSDKMessage(message, budgetLimit);
+        this.processSDKMessage(message, budgetLimit, queryGeneration);
       }
     } catch (err) {
       const isUserInitiatedAbort = err instanceof Error &&
@@ -204,12 +208,17 @@ export class StreamingManager {
         });
       }
     } finally {
+      const isStaleQuery = queryGeneration !== this._currentQueryGeneration;
+      if (isStaleQuery) {
+        onComplete();
+        return;
+      }
+
       this._silentAbort = false;
       onComplete();
 
       if (!receivedResult) {
         this.toolManager.sendAllAbandonedTools();
-
         this._isProcessing = false;
         this.callbacks.onMessage({ type: 'processing', isProcessing: false });
         if (this._onTurnComplete) {
@@ -221,7 +230,7 @@ export class StreamingManager {
   }
 
   /** Process a single SDK message and route to webview */
-  processSDKMessage(message: unknown, budgetLimit: number | null): void {
+  processSDKMessage(message: unknown, budgetLimit: number | null, queryGeneration?: number): void {
     const msg = message as { type: string; [key: string]: unknown };
 
     switch (msg.type) {
@@ -238,7 +247,7 @@ export class StreamingManager {
         this.handleUserMessage(msg);
         break;
       case 'result':
-        this.handleResultMessage(msg, budgetLimit);
+        this.handleResultMessage(msg, budgetLimit, queryGeneration);
         break;
     }
   }
@@ -594,7 +603,12 @@ export class StreamingManager {
   }
 
   /** Handle result message from SDK */
-  private handleResultMessage(message: Record<string, unknown>, budgetLimit: number | null): void {
+  private handleResultMessage(message: Record<string, unknown>, budgetLimit: number | null, queryGeneration?: number): void {
+    const isStaleQuery = queryGeneration !== undefined && queryGeneration !== this._currentQueryGeneration;
+    if (isStaleQuery) {
+      return;
+    }
+
     const resultMsg = message as {
       subtype?: string;
       session_id: string;
@@ -663,8 +677,6 @@ export class StreamingManager {
       this._onTurnComplete = null;
     }
 
-    // Note: _onTurnEndFlush is NOT nullified here (unlike _onTurnComplete) because it needs
-    // to run at every turn end, not just once. It's cleaned up at query termination instead.
     if (this._onTurnEndFlush) {
       this._onTurnEndFlush();
     }
@@ -672,6 +684,8 @@ export class StreamingManager {
 
   /** Reset streaming state */
   resetStreaming(): void {
+    this._queryGeneration++;
+    this._currentQueryGeneration = 0;
     this.pendingAssistant = null;
     this.streamingContent = createEmptyStreamingContent();
     this._lastUserMessageId = null;

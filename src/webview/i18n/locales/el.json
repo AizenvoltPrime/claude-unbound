@@ -311,6 +311,7 @@
     "reviewPlan": "Ελέγξτε το σχέδιο του Claude πριν συνεχίσετε",
     "feedbackPlaceholder": "Πληκτρολογήστε σχόλια για αναθεώρηση του σχεδίου...",
     "sendFeedback": "Αποστολή Σχολίων",
+    "clearContextAndAccept": "Καθαρισμός context & αυτόματη αποδοχή",
     "manualApprove": "Ναι, χειροκίνητη έγκριση",
     "autoAccept": "Ναι, αυτόματη αποδοχή αλλαγών"
   },

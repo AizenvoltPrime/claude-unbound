@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { IconArrowLeft, IconSparkles, IconCheck, IconPencil, IconPaperPlane } from '@/components/icons';
+import { IconArrowLeft, IconSparkles, IconCheck, IconPencil, IconPaperPlane, IconBolt } from '@/components/icons';
 import MarkdownRenderer from './MarkdownRenderer.vue';
 import { useOverlayEscape } from '@/composables/useOverlayEscape';
 
@@ -14,7 +14,7 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'approve', options: { approvalMode: 'acceptEdits' | 'manual' }): void;
+  (e: 'approve', options: { approvalMode: 'acceptEdits' | 'manual'; clearContext?: boolean }): void;
   (e: 'feedback', text: string): void;
   (e: 'cancel'): void;
 }>();
@@ -74,9 +74,13 @@ function handleSendFeedback() {
           <IconPencil :size="16" class="mr-2" />
           {{ t('planApproval.manualApprove') }}
         </Button>
-        <Button @click="emit('approve', { approvalMode: 'acceptEdits' })">
+        <Button variant="outline" @click="emit('approve', { approvalMode: 'acceptEdits' })">
           <IconCheck :size="16" class="mr-2" />
           {{ t('planApproval.autoAccept') }}
+        </Button>
+        <Button @click="emit('approve', { approvalMode: 'acceptEdits', clearContext: true })">
+          <IconBolt :size="16" class="mr-2" />
+          {{ t('planApproval.clearContextAndAccept') }}
         </Button>
       </div>
     </footer>

@@ -545,6 +545,8 @@ export type WebviewToExtensionMessage =
       approved: boolean;
       approvalMode?: "acceptEdits" | "manual";
       feedback?: string;
+      clearContext?: boolean;
+      planContent?: string;
     }
   // EnterPlanMode approval response
   | {
@@ -583,7 +585,7 @@ export type ExtensionToWebviewMessage =
   | { type: "sessionStarted"; sessionId: string }
   | { type: "processing"; isProcessing: boolean }
   | { type: "storedSessions"; sessions: StoredSession[]; hasMore?: boolean; nextOffset?: number; isFirstPage?: boolean }
-  | { type: "sessionCleared" }
+  | { type: "sessionCleared"; pendingMessage?: { content: string; correlationId: string } }
   | { type: "conversationCleared" }
   | { type: "sessionRenamed"; sessionId: string; newName: string }
   | { type: "sessionDeleted"; sessionId: string }

@@ -323,6 +323,15 @@ export class QueryManager {
               const id = toolUseId ?? p.tool_use_id;
               this.toolManager.handlePostToolUse(p.tool_name, id, p.tool_response);
 
+              if (this._pendingPlanBind) {
+                const sessionId = this.streamingManager.sessionId;
+                if (sessionId) {
+                  const planContent = this._pendingPlanBind;
+                  this._pendingPlanBind = null;
+                  this.bindPlanWhenSlugAvailable(sessionId, planContent);
+                }
+              }
+
               if (this._queuedMessages.length > 0) {
                 const queueHasImages = this._queuedMessages.some((m) => hasImageContent(m.content));
 
@@ -512,19 +521,12 @@ export class QueryManager {
 
                 const sessionId = this.streamingManager.sessionId;
                 if (!sessionId) {
-                  log("[QueryManager] Stop hook: No session ID for plan bind");
                   return {};
                 }
 
                 const metadata = await getSessionMetadata(this.options.cwd, sessionId);
                 const slug = metadata?.slug;
-                if (!slug) {
-                  log("[QueryManager] Stop hook: No slug found for plan bind");
-                  return {};
-                }
-
-                if (slug.includes("..") || slug.includes("/") || slug.includes("\\")) {
-                  log("[QueryManager] Stop hook: Invalid slug for plan bind:", slug);
+                if (!slug || slug.includes("..") || slug.includes("/") || slug.includes("\\")) {
                   return {};
                 }
 
@@ -533,11 +535,8 @@ export class QueryManager {
                   await fs.mkdir(path.dirname(slugPath), { recursive: true });
                   await fs.writeFile(slugPath, content);
                   log("[QueryManager] Stop hook: Wrote plan file to %s", slugPath);
-
-                  const message = `A plan file has been bound to this session. Plan file path: ${slugPath}`;
-                  return { systemMessage: message };
-                } catch (err) {
-                  log("[QueryManager] Stop hook: Failed to write plan file:", err);
+                  return { systemMessage: `A plan file has been bound to this session. Plan file path: ${slugPath}` };
+                } catch {
                   return {};
                 }
               }
@@ -636,6 +635,28 @@ export class QueryManager {
 
   setPendingPlanBind(content: string): void {
     this._pendingPlanBind = content;
+  }
+
+  private bindPlanWhenSlugAvailable(sessionId: string, planContent: string): void {
+    (async () => {
+      for (let attempt = 0; attempt < 30; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const metadata = await getSessionMetadata(this.options.cwd, sessionId);
+        const slug = metadata?.slug;
+        if (slug && !slug.includes("..") && !slug.includes("/") && !slug.includes("\\")) {
+          const slugPath = path.join(os.homedir(), ".claude", "plans", `${slug}.md`);
+          try {
+            await fs.mkdir(path.dirname(slugPath), { recursive: true });
+            await fs.writeFile(slugPath, planContent);
+            log("[QueryManager] Bound plan to session slug: %s", slug);
+          } catch (err) {
+            log("[QueryManager] Failed to write plan file:", err);
+          }
+          return;
+        }
+      }
+      log("[QueryManager] No valid slug found for plan binding after 30 retries");
+    })();
   }
 
   private combineQueuedContent(contents: ContentInput[]): ContentInput {

@@ -258,6 +258,11 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           sessionStore.setSelectedSession(null);
           sessionStore.setResumedSession(null);
           uiStore.setTodosPanelCollapsed(true);
+          if (message.pendingMessage) {
+            streamingStore.addUserMessage(message.pendingMessage.content, false, undefined, undefined, message.pendingMessage.correlationId);
+            uiStore.setProcessing(true);
+            forceScrollToBottom = true;
+          }
           break;
 
         case "conversationCleared":

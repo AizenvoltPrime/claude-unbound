@@ -311,6 +311,7 @@
     "reviewPlan": "Review Claude's plan before proceeding",
     "feedbackPlaceholder": "Type feedback to revise the plan...",
     "sendFeedback": "Send Feedback",
+    "clearContextAndAccept": "Clear context & auto-accept",
     "manualApprove": "Yes, manually approve",
     "autoAccept": "Yes, auto-accept edits"
   },

@@ -141,6 +141,7 @@ export class ClaudeSession {
       ? prompt.filter((block): block is { type: 'text'; text: string } => block.type === 'text').map(block => block.text).join('\n')
       : prompt;
 
+    this.streamingManager.silentAbort = false;
     this.streamingManager.processing = true;
     this.streamingManager.resetTurn();
     this.checkpointManager.currentPrompt = plainPrompt;

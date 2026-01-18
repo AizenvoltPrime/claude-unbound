@@ -219,6 +219,37 @@ export class MessageRouter {
 
       approvePlan: async (msg, ctx) => {
         if (msg.type !== "approvePlan") return;
+
+        if (msg.clearContext && msg.approved && msg.planContent) {
+          const currentSessionId = ctx.session.currentSessionId;
+
+          ctx.permissionHandler.resolvePlanApproval(msg.toolUseId, false, {
+            feedback: "User chose to clear context and start fresh",
+          });
+
+          const transcriptPath = currentSessionId
+            ? await getSessionFilePath(this.workspacePath, currentSessionId)
+            : null;
+
+          const newMessage = buildPlanImplementationMessage(msg.planContent, transcriptPath);
+          const correlationId = `plan-impl-${Date.now()}`;
+
+          this.postMessage(ctx.panel, {
+            type: "sessionCleared",
+            pendingMessage: { content: newMessage, correlationId },
+          });
+
+          await this.settingsManager.handleSetPermissionMode(ctx.session, ctx.permissionHandler, "acceptEdits");
+          await this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
+
+          ctx.session.setPendingPlanBind(msg.planContent);
+          ctx.session.reset();
+          await ctx.session.sendMessage(newMessage, undefined, correlationId);
+
+          return;
+        }
+
+        // Existing approval logic
         ctx.permissionHandler.resolvePlanApproval(msg.toolUseId, msg.approved, {
           approvalMode: msg.approvalMode,
           feedback: msg.feedback,
@@ -839,4 +870,14 @@ export class MessageRouter {
       this.settingsManager.sendProviderProfilesForPanel(instance.panel, panelId);
     }
   }
+}
+
+function buildPlanImplementationMessage(planContent: string, transcriptPath: string | null): string {
+  let message = `Implement the following plan:\n\n${planContent}`;
+
+  if (transcriptPath) {
+    message += `\n\nIf you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: ${transcriptPath}`;
+  }
+
+  return message;
 }

@@ -2,6 +2,15 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.27] - 2026-01-18
+
+### Added
+
+- **Clear Context & Auto-Accept**: New plan approval option that clears conversation and starts fresh with the plan injected
+  - Matches Claude Code CLI behavior: preserves planning session, creates new implementation session
+  - Plan content injected as first message with transcript reference to original planning session
+  - Permission mode automatically set to "acceptEdits" for streamlined implementation
+
 ## [1.0.26] - 2026-01-17
 
 ### Added
@@ -259,6 +268,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.27]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.26...v1.0.27
 [1.0.26]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.25...v1.0.26
 [1.0.25]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.24...v1.0.25
 [1.0.24]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.23...v1.0.24
