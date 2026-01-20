@@ -24,7 +24,15 @@ import {
   extractPreviewText,
   extractTextFromSlashCommand,
 } from './parsing';
-import { getActiveBranchUuids, getInjectedMessageUuids } from './branches';
+import { getActiveBranchUuids } from './branches';
+
+interface MinimalEntry {
+  type?: string;
+  slug?: string;
+  customTitle?: string;
+  isMeta?: boolean;
+  message?: { content?: unknown };
+}
 
 async function parseSessionFile(filePath: string): Promise<{
   preview: string;
@@ -42,21 +50,19 @@ async function parseSessionFile(filePath: string): Promise<{
 
   for (const line of lines) {
     try {
-      const entry = parseSessionEntry(line);
+      const entry = JSON.parse(line) as MinimalEntry;
+      const entryType = entry.type;
 
-      if (entry.type === 'custom-title' && entry.customTitle) {
+      if (entryType === 'custom-title' && entry.customTitle) {
         customTitle = entry.customTitle;
+        continue;
       }
 
       if (!slug && entry.slug) {
         slug = entry.slug;
       }
 
-      if (entry.type !== 'user' && entry.type !== 'assistant') {
-        continue;
-      }
-
-      if (entry.type === 'user' && !entry.isMeta && entry.message) {
+      if (entryType === 'user' && !entry.isMeta && entry.message) {
         messageCount++;
         if (!preview) {
           const msgContent = entry.message.content;
@@ -71,7 +77,7 @@ async function parseSessionFile(filePath: string): Promise<{
             }
           }
         }
-      } else if (entry.type === 'assistant' && entry.message) {
+      } else if (entryType === 'assistant' && entry.message) {
         messageCount++;
         hasAssistantMessage = true;
       }
@@ -92,13 +98,12 @@ export async function listSessions(workspacePath: string): Promise<StoredSession
 
   try {
     const files = await fs.promises.readdir(sessionDir);
-    const sessions: StoredSession[] = [];
 
-    for (const file of files) {
-      if (!file.endsWith('.jsonl') || file.startsWith('agent-')) {
-        continue;
-      }
+    const sessionFiles = files.filter(file =>
+      file.endsWith('.jsonl') && !file.startsWith('agent-')
+    );
 
+    const sessionPromises = sessionFiles.map(async (file): Promise<StoredSession | null> => {
       const sessionId = file.replace('.jsonl', '');
       const filePath = path.join(sessionDir, file);
 
@@ -106,27 +111,30 @@ export async function listSessions(workspacePath: string): Promise<StoredSession
         const stat = await fs.promises.stat(filePath);
 
         if (stat.size === 0) {
-          continue;
+          return null;
         }
 
         const sessionData = await parseSessionFile(filePath);
 
         if (sessionData.messageCount === 0) {
-          continue;
+          return null;
         }
 
-        sessions.push({
+        return {
           id: sessionId,
           timestamp: stat.mtime.getTime(),
           preview: sessionData.preview || 'Session started...',
           slug: sessionData.slug,
           customTitle: sessionData.customTitle,
           messageCount: sessionData.messageCount,
-        });
+        };
       } catch {
-        continue;
+        return null;
       }
-    }
+    });
+
+    const results = await Promise.all(sessionPromises);
+    const sessions = results.filter((s): s is StoredSession => s !== null);
 
     sessions.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -195,7 +203,7 @@ export async function readActiveBranchEntries(
   customLeaf?: string
 ): Promise<ClaudeSessionEntry[]> {
   const allEntries = await readSessionEntries(workspacePath, sessionId);
-  const activeUuids = getActiveBranchUuids(allEntries, customLeaf);
+  const activeUuids = getActiveBranchUuids(allEntries, { customLeaf });
   return allEntries.filter(entry => entry.uuid && activeUuids.has(entry.uuid));
 }
 
@@ -319,98 +327,100 @@ export async function readAgentData(workspacePath: string, agentId: string): Pro
   }
 }
 
-export async function extractSessionStats(
-  workspacePath: string,
-  sessionId: string
-): Promise<ExtractedSessionStats | undefined> {
-  const entries = await readSessionEntries(workspacePath, sessionId);
+interface SinglePassResult {
+  entryByUuid: Map<string, ClaudeSessionEntry>;
+  leafUuid: string | null;
+  subagentCorrelations: Map<string, string>;
+  statsMessageData: Map<string, { usage: NonNullable<ClaudeSessionEntry['message']>['usage'] }>;
+  lastCompactEntry: ClaudeSessionEntry | undefined;
+  lastCompactIndex: number;
+  injectedCandidates: Array<{ entry: ClaudeSessionEntry; parentUuid: string }>;
+}
 
-  const assistantEntries = entries.filter(e =>
-    e.type === 'assistant' && e.message?.usage && !e.isSidechain
-  );
+function processEntriesSinglePass(allEntries: ClaudeSessionEntry[]): SinglePassResult {
+  const entryByUuid = new Map<string, ClaudeSessionEntry>();
+  let leafUuid: string | null = null;
+  const subagentCorrelations = new Map<string, string>();
+  const statsMessageData = new Map<string, { usage: NonNullable<ClaudeSessionEntry['message']>['usage'] }>();
+  let lastCompactEntry: ClaudeSessionEntry | undefined;
+  let lastCompactIndex = -1;
+  const injectedCandidates: Array<{ entry: ClaudeSessionEntry; parentUuid: string }> = [];
 
-  if (assistantEntries.length === 0) return undefined;
+  for (let i = 0; i < allEntries.length; i++) {
+    const entry = allEntries[i];
 
-  const messageData = new Map<string, {
-    usage: NonNullable<ClaudeSessionEntry['message']>['usage'];
-  }>();
+    if (entry.uuid) {
+      entryByUuid.set(entry.uuid, entry);
+    }
 
-  for (const entry of assistantEntries) {
-    const usage = entry.message?.usage;
-    const messageId = entry.message?.id;
-    if (!usage || !messageId) continue;
+    if ((entry.type === 'user' || entry.type === 'assistant') && entry.uuid) {
+      leafUuid = entry.uuid;
+    }
 
-    messageData.set(messageId, { usage });
+    if (isSubagentCorrelationEntry(entry)) {
+      subagentCorrelations.set(entry.toolUseId, entry.agentId);
+    }
+    if (entry.type === 'user' && entry.message && Array.isArray(entry.message.content)) {
+      for (const block of entry.message.content as JsonlContentBlock[]) {
+        const toolResult = entry.toolUseResult;
+        if (block.type === 'tool_result' && toolResult && !Array.isArray(toolResult) && toolResult.agentId) {
+          subagentCorrelations.set(block.tool_use_id, toolResult.agentId);
+        }
+      }
+    }
+
+    if (entry.type === 'assistant' && entry.message?.usage && !entry.isSidechain) {
+      const usage = entry.message.usage;
+      const messageId = entry.message.id;
+      if (usage && messageId) {
+        statsMessageData.set(messageId, { usage });
+      }
+    }
+
+    if (entry.type === 'system' && entry.subtype === 'compact_boundary' && entry.uuid) {
+      lastCompactEntry = entry;
+      lastCompactIndex = i;
+    }
+
+    if (entry.type === 'user' && entry.uuid && entry.isInjected && entry.parentUuid) {
+      injectedCandidates.push({ entry, parentUuid: entry.parentUuid });
+    }
   }
 
+  return {
+    entryByUuid,
+    leafUuid,
+    subagentCorrelations,
+    statsMessageData,
+    lastCompactEntry,
+    lastCompactIndex,
+    injectedCandidates,
+  };
+}
+
+function computeStatsFromMessageData(
+  statsMessageData: Map<string, { usage: NonNullable<ClaudeSessionEntry['message']>['usage'] }>
+): ExtractedSessionStats | undefined {
+  if (statsMessageData.size === 0) return undefined;
+
   let totalOutputTokens = 0;
-  for (const data of messageData.values()) {
+  for (const data of statsMessageData.values()) {
     totalOutputTokens += data.usage?.output_tokens ?? 0;
   }
 
-  const lastEntry = Array.from(messageData.values()).pop();
+  const lastEntry = Array.from(statsMessageData.values()).pop();
   if (!lastEntry) return undefined;
 
   const { usage } = lastEntry;
 
-  const inputTokens = usage?.input_tokens ?? 0;
-  const cacheCreation = usage?.cache_creation_input_tokens ?? 0;
-  const cacheRead = usage?.cache_read_input_tokens ?? 0;
-
   return {
     totalCostUsd: 0,
-    totalInputTokens: inputTokens,
+    totalInputTokens: usage?.input_tokens ?? 0,
     totalOutputTokens,
-    cacheCreationTokens: cacheCreation,
-    cacheReadTokens: cacheRead,
-    numTurns: messageData.size,
+    cacheCreationTokens: usage?.cache_creation_input_tokens ?? 0,
+    cacheReadTokens: usage?.cache_read_input_tokens ?? 0,
+    numTurns: statsMessageData.size,
     contextWindowSize: 200000,
-  };
-}
-
-function extractCompactInfo(
-  allEntries: ClaudeSessionEntry[],
-  activeUuids: Set<string>
-): { compactInfo: CompactInfo | undefined; compactEntry: ClaudeSessionEntry | undefined } {
-  let lastCompactEntry: ClaudeSessionEntry | undefined;
-  for (let i = allEntries.length - 1; i >= 0; i--) {
-    const entry = allEntries[i];
-    if (entry.type === 'system' && entry.subtype === 'compact_boundary' && entry.uuid && activeUuids.has(entry.uuid)) {
-      lastCompactEntry = entry;
-      break;
-    }
-  }
-
-  if (!lastCompactEntry) {
-    return { compactInfo: undefined, compactEntry: undefined };
-  }
-
-  const metadata = lastCompactEntry.compactMetadata;
-  if (!metadata) {
-    return { compactInfo: undefined, compactEntry: lastCompactEntry };
-  }
-
-  const timestamp = lastCompactEntry.timestamp ? new Date(lastCompactEntry.timestamp).getTime() : Date.now();
-  const compactUuid = lastCompactEntry.uuid;
-  const compactIndexInAll = allEntries.findIndex(e => e.uuid === compactUuid);
-
-  let summary: string | undefined;
-  for (let i = compactIndexInAll + 1; i < allEntries.length; i++) {
-    const entry = allEntries[i];
-    if (entry.isCompactSummary && entry.message?.content) {
-      summary = typeof entry.message.content === 'string' ? entry.message.content : '';
-      break;
-    }
-  }
-
-  return {
-    compactInfo: {
-      trigger: metadata.trigger,
-      preTokens: metadata.preTokens,
-      summary,
-      timestamp,
-    },
-    compactEntry: lastCompactEntry,
   };
 }
 
@@ -433,36 +443,14 @@ function filterDisplayableEntries(
   });
 }
 
-/** Extract subagent correlations from all entries (toolUseId -> agentId) */
-function extractSubagentCorrelations(allEntries: ClaudeSessionEntry[]): Map<string, string> {
-  const correlations = new Map<string, string>();
-
-  for (const entry of allEntries) {
-    if (isSubagentCorrelationEntry(entry)) {
-      correlations.set(entry.toolUseId, entry.agentId);
-    }
-
-    // Check toolUseResult (written when Task completes - may override correlation)
-    if (entry.type === 'user' && entry.message && Array.isArray(entry.message.content)) {
-      for (const block of entry.message.content as JsonlContentBlock[]) {
-        const toolResult = entry.toolUseResult;
-        if (block.type === 'tool_result' && toolResult && !Array.isArray(toolResult) && toolResult.agentId) {
-          correlations.set(block.tool_use_id, toolResult.agentId);
-        }
-      }
-    }
-  }
-
-  return correlations;
-}
-
 function paginateEntries(
   entries: ClaudeSessionEntry[],
   offset: number,
   limit: number,
   compactInfo?: CompactInfo,
   injectedUuids?: Set<string>,
-  subagentCorrelations?: Map<string, string>
+  subagentCorrelations?: Map<string, string>,
+  stats?: ExtractedSessionStats
 ): PaginatedSessionResult {
   const totalCount = entries.length;
   const endIndex = totalCount - offset;
@@ -471,7 +459,7 @@ function paginateEntries(
   const hasMore = startIndex > 0;
   const nextOffset = offset + paginatedEntries.length;
 
-  return { entries: paginatedEntries, totalCount, hasMore, nextOffset, compactInfo, injectedUuids, subagentCorrelations };
+  return { entries: paginatedEntries, totalCount, hasMore, nextOffset, compactInfo, injectedUuids, subagentCorrelations, stats };
 }
 
 export async function readSessionEntriesPaginated(
@@ -488,14 +476,54 @@ export async function readSessionEntriesPaginated(
 
     log(`[SessionStorage] readSessionEntriesPaginated: allEntries=${allEntries.length}`);
 
-    const activeUuids = getActiveBranchUuids(allEntries);
+    const {
+      entryByUuid,
+      leafUuid,
+      subagentCorrelations,
+      statsMessageData,
+      lastCompactEntry,
+      lastCompactIndex,
+      injectedCandidates,
+    } = processEntriesSinglePass(allEntries);
+
+    const activeUuids = getActiveBranchUuids(allEntries, {
+      prebuiltUuidMap: entryByUuid,
+      prebuiltLeafUuid: leafUuid,
+    });
     log(`[SessionStorage] readSessionEntriesPaginated: activeUuids=${activeUuids.size}`);
 
-    const injectedUuids = getInjectedMessageUuids(allEntries, activeUuids);
+    const injectedUuids = new Set<string>();
+    for (const { entry, parentUuid } of injectedCandidates) {
+      if (!activeUuids.has(entry.uuid!) && activeUuids.has(parentUuid)) {
+        injectedUuids.add(entry.uuid!);
+      }
+    }
     log(`[SessionStorage] readSessionEntriesPaginated: injectedUuids=${injectedUuids.size}`);
 
-    const { compactInfo, compactEntry } = extractCompactInfo(allEntries, activeUuids);
-    log(`[SessionStorage] compact_boundary search: found=${!!compactEntry}, uuid=${compactEntry?.uuid?.slice(0, 8) ?? 'none'}`);
+    let compactInfo: CompactInfo | undefined;
+    if (lastCompactEntry && lastCompactEntry.uuid && activeUuids.has(lastCompactEntry.uuid)) {
+      const metadata = lastCompactEntry.compactMetadata;
+      if (metadata) {
+        const timestamp = lastCompactEntry.timestamp ? new Date(lastCompactEntry.timestamp).getTime() : Date.now();
+
+        let summary: string | undefined;
+        for (let i = lastCompactIndex + 1; i < allEntries.length; i++) {
+          const entry = allEntries[i];
+          if (entry.isCompactSummary && entry.message?.content) {
+            summary = typeof entry.message.content === 'string' ? entry.message.content : '';
+            break;
+          }
+        }
+
+        compactInfo = {
+          trigger: metadata.trigger,
+          preTokens: metadata.preTokens,
+          summary,
+          timestamp,
+        };
+      }
+    }
+    log(`[SessionStorage] compact_boundary search: found=${!!lastCompactEntry}, uuid=${lastCompactEntry?.uuid?.slice(0, 8) ?? 'none'}`);
 
     if (compactInfo) {
       log(`[SessionStorage] compactInfo created: trigger=${compactInfo.trigger}, hasSummary=${!!compactInfo.summary}`);
@@ -509,10 +537,9 @@ export async function readSessionEntriesPaginated(
     );
     log(`[SessionStorage] postCompactEntries=${displayableEntries.length}`);
 
-    // Extract subagent correlations from ALL entries (before filtering)
-    const subagentCorrelations = extractSubagentCorrelations(allEntries);
+    const stats = computeStatsFromMessageData(statsMessageData);
 
-    return paginateEntries(displayableEntries, offset, limit, compactInfo, injectedUuids, subagentCorrelations);
+    return paginateEntries(displayableEntries, offset, limit, compactInfo, injectedUuids, subagentCorrelations, stats);
   } catch {
     return { entries: [], totalCount: 0, hasMore: false, nextOffset: 0 };
   }

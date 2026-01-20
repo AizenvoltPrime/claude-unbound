@@ -1,20 +1,33 @@
-import * as fs from 'fs';
 import type { ClaudeSessionEntry } from './types';
 import { INTERRUPT_MARKER } from './types';
 import { getSessionDir, buildSessionFilePath } from './paths';
-import { readSessionFileLines, parseSessionEntry, isDisplayableMessage } from './parsing';
-import { log } from '../logger';
+import { readSessionFileLines, parseSessionEntry } from './parsing';
 
-export function getActiveBranchUuids(allEntries: ClaudeSessionEntry[], customLeaf?: string): Set<string> {
-  const entryByUuid = new Map<string, ClaudeSessionEntry>();
-  for (const entry of allEntries) {
-    if (entry.uuid) {
-      entryByUuid.set(entry.uuid, entry);
+export interface ActiveBranchOptions {
+  customLeaf?: string;
+  prebuiltUuidMap?: Map<string, ClaudeSessionEntry>;
+  prebuiltLeafUuid?: string | null;
+}
+
+export function getActiveBranchUuids(
+  allEntries: ClaudeSessionEntry[],
+  options: ActiveBranchOptions = {}
+): Set<string> {
+  const { customLeaf, prebuiltUuidMap, prebuiltLeafUuid } = options;
+
+  const entryByUuid = prebuiltUuidMap ?? new Map<string, ClaudeSessionEntry>();
+  if (!prebuiltUuidMap) {
+    for (const entry of allEntries) {
+      if (entry.uuid) {
+        entryByUuid.set(entry.uuid, entry);
+      }
     }
   }
 
   let leafUuid: string | null = null;
-  if (customLeaf && entryByUuid.has(customLeaf)) {
+  if (prebuiltLeafUuid !== undefined) {
+    leafUuid = prebuiltLeafUuid;
+  } else if (customLeaf && entryByUuid.has(customLeaf)) {
     leafUuid = customLeaf;
   } else {
     for (let i = allEntries.length - 1; i >= 0; i--) {
@@ -41,25 +54,6 @@ export function getActiveBranchUuids(allEntries: ClaudeSessionEntry[], customLea
   }
 
   return activeUuids;
-}
-
-export function getInjectedMessageUuids(allEntries: ClaudeSessionEntry[], activeUuids: Set<string>): Set<string> {
-  const injectedUuids = new Set<string>();
-  for (const entry of allEntries) {
-    if (entry.type === 'user' && entry.uuid && !activeUuids.has(entry.uuid)) {
-      if (entry.isInjected && entry.parentUuid && activeUuids.has(entry.parentUuid)) {
-        injectedUuids.add(entry.uuid);
-      }
-    }
-  }
-  return injectedUuids;
-}
-
-export function extractActiveBranch(allEntries: ClaudeSessionEntry[]): ClaudeSessionEntry[] {
-  const activeUuids = getActiveBranchUuids(allEntries);
-  return allEntries.filter(entry =>
-    isDisplayableMessage(entry) && entry.uuid && activeUuids.has(entry.uuid)
-  );
 }
 
 export function findLastQueueOperationIndex(lines: string[]): number {
@@ -141,10 +135,6 @@ export async function findUserMessageInCurrentTurn(
   try {
     const lines = await readSessionFileLines(filePath);
 
-    // When searching by content, search entire file since the message may be
-    // written before any queue operations. Content matching + excludeUuid
-    // is sufficient to find the correct message.
-    // Queue op filtering only applies when finding "last user message" without content.
     const startIndex = matchContent !== undefined
       ? 0
       : findLastQueueOperationIndex(lines) + 1;

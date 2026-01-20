@@ -158,6 +158,8 @@ export interface PaginatedSessionResult {
   injectedUuids?: Set<string>;
   /** Subagent correlations: toolUseId -> agentId (extracted from subagent-correlation entries) */
   subagentCorrelations?: Map<string, string>;
+  /** Pre-computed stats to avoid double file read */
+  stats?: ExtractedSessionStats;
 }
 
 export interface PersistUserMessageOptions {

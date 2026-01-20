@@ -2,27 +2,27 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.28] - 2026-01-20
+
+### Changed
+
+- **Performance Optimization**: Panel loading reduced from 20-30s to ~2s first load, ~16ms cached. Single-pass entry processing extracts all data in one iteration instead of 5+ passes. Parallelized session listing and command history extraction. Added caching for sessions list and command history. Removed aggressive cache invalidation on panel focus.
+
+### Fixed
+
+- Fix race condition where panels would get stuck loading when webview sent `ready` before message listener was attached. Message queue now buffers early messages until panel initialization completes.
+
 ## [1.0.27] - 2026-01-18
 
 ### Added
 
-- **Clear Context & Auto-Accept**: New plan approval option that clears conversation and starts fresh with the plan injected
-  - Matches Claude Code CLI behavior: preserves planning session, creates new implementation session
-  - Plan content injected as first message with transcript reference to original planning session
-  - Permission mode automatically set to "acceptEdits" for streamlined implementation
+- **Clear Context & Auto-Accept**: New plan approval option that clears conversation and starts fresh with the plan injected. Matches Claude Code CLI behavior: preserves planning session, creates new implementation session. Plan content injected as first message with transcript reference to original planning session. Permission mode automatically set to "acceptEdits" for streamlined implementation.
 
 ## [1.0.26] - 2026-01-17
 
 ### Added
 
-- **Bind Plan to Session**: New link icon button in chat header to inject a custom plan file into the session
-  - File picker opens to workspace folder by default, filtered to markdown files
-  - If session already has a plan slug: writes file directly, sends a system message informing Claude of the update
-  - If session has no plan slug: temporarily enters plan mode, the Stop hook writes the file and notifies Claude via systemMessage after the acknowledgment
-  - Thinking is disabled during all programmatic messages to minimize response overhead
-  - Confirmation dialog when overwriting an existing plan file (only applies when session already has a plan slug)
-  - Claude is notified of the plan file path so it can reference the plan in subsequent responses
-  - Use case: inject pre-written implementation plans or custom plan templates into Claude's context
+- **Bind Plan to Session**: New link icon button in chat header to inject a custom plan file into the session. File picker opens to workspace folder by default, filtered to markdown files. If session already has a plan slug, it writes file directly and sends a system message informing Claude of the update. If session has no plan slug, it temporarily enters plan mode and notifies Claude via systemMessage after the acknowledgment.
 
 ## [1.0.25] - 2026-01-16
 
@@ -268,6 +268,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.28]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.27...v1.0.28
 [1.0.27]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.26...v1.0.27
 [1.0.26]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.25...v1.0.26
 [1.0.25]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.24...v1.0.25

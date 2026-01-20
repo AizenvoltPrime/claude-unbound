@@ -37,7 +37,6 @@ export {
   readSessionEntries,
   readActiveBranchEntries,
   readAgentData,
-  extractSessionStats,
   readSessionEntriesPaginated,
   readLatestCompactSummary,
 } from './reading';
@@ -58,8 +57,6 @@ export type { PersistInjectedMessageOptions } from './writing';
 
 export {
   getActiveBranchUuids,
-  getInjectedMessageUuids,
-  extractActiveBranch,
   getLastMessageUuid,
   getMessageParentUuid,
   findUserMessageInCurrentTurn,

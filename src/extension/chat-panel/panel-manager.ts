@@ -82,6 +82,20 @@ export class PanelManager {
 
   private async initializePanel(panel: vscode.WebviewPanel, lockEditorGroup: boolean): Promise<void> {
     const panelId = `panel-${++this.panelCounter}`;
+    const panelDisposables: vscode.Disposable[] = [];
+
+    const pendingMessages: WebviewToExtensionMessage[] = [];
+    let panelReady = false;
+
+    panelDisposables.push(
+      panel.webview.onDidReceiveMessage((message: WebviewToExtensionMessage) => {
+        if (panelReady) {
+          this.handleWebviewMessage(message, panelId);
+        } else {
+          pendingMessages.push(message);
+        }
+      })
+    );
 
     panel.webview.html = this.getHtmlContent(panel.webview);
     panel.iconPath = vscode.Uri.joinPath(this.extensionUri, "resources", "icon.png");
@@ -89,8 +103,6 @@ export class PanelManager {
     if (lockEditorGroup) {
       await vscode.commands.executeCommand("workbench.action.lockEditorGroup");
     }
-
-    const panelDisposables: vscode.Disposable[] = [];
 
     const permissionHandler = new PermissionHandler(this.extensionUri);
     permissionHandler.setPostMessage((msg) => this.postMessageToPanel(panel, msg));
@@ -105,11 +117,15 @@ export class PanelManager {
 
     this.panels.set(panelId, { panel, session, permissionHandler, ideContextManager, disposables: panelDisposables });
 
+    panelReady = true;
+    for (const msg of pendingMessages) {
+      this.handleWebviewMessage(msg, panelId);
+    }
+
     panelDisposables.push(
       panel.onDidChangeViewState((e) => {
         if (e.webviewPanel.visible) {
           this.postMessageToPanel(panel, { type: "panelFocused" });
-          this.invalidateSessionsCache();
           this.getStoredSessions()
             .then(({ sessions, hasMore, nextOffset }) => {
               this.postMessageToPanel(panel, {
@@ -122,12 +138,6 @@ export class PanelManager {
             })
             .catch(() => {});
         }
-      })
-    );
-
-    panelDisposables.push(
-      panel.webview.onDidReceiveMessage((message: WebviewToExtensionMessage) => {
-        this.handleWebviewMessage(message, panelId);
       })
     );
 

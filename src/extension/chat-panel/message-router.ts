@@ -9,7 +9,7 @@ import { createQueuedMessage } from "./queue-manager";
 import type { WebviewToExtensionMessage, ExtensionToWebviewMessage, RewindOption, UserContentBlock } from "../../shared/types";
 import type { PanelInstance } from "./types";
 import type { IdeContextManager } from "./ide-context-manager";
-import { getSessionFilePath, getAgentFilePath, getSessionMetadata, renameSession, deleteSession, extractCommandHistory } from "../session";
+import { getSessionFilePath, getAgentFilePath, getSessionMetadata, renameSession, deleteSession } from "../session";
 import * as os from "os";
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -305,7 +305,7 @@ export class MessageRouter {
         this.postMessage(ctx.panel, { type: "languageChange", locale: this.getLanguagePreference() });
 
         try {
-          const { history, hasMore } = await extractCommandHistory(this.workspacePath, 0);
+          const { history, hasMore } = await this.storageManager.getCommandHistory(0);
           this.postMessage(ctx.panel, { type: "commandHistory", history, hasMore });
         } catch (err) {
           log("[MessageRouter] Error pre-loading command history:", err);
@@ -733,7 +733,7 @@ export class MessageRouter {
         if (msg.type !== "requestCommandHistory") return;
         try {
           const offset = msg.offset ?? 0;
-          const { history, hasMore } = await extractCommandHistory(this.workspacePath, offset);
+          const { history, hasMore } = await this.storageManager.getCommandHistory(offset);
           this.postMessage(ctx.panel, { type: "commandHistory", history, hasMore });
         } catch (err) {
           log("Failed to extract command history:", err);

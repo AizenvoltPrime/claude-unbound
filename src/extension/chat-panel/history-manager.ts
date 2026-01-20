@@ -6,7 +6,6 @@ import {
   readActiveBranchEntries,
   readSessionEntries,
   readAgentData,
-  extractSessionStats,
   findUserTextBlock,
   findUserImageBlocks,
   type AgentData,
@@ -130,29 +129,24 @@ export class HistoryManager {
       }
     }
 
-    try {
-      const stats = await extractSessionStats(this.workspacePath, sessionId);
-      if (stats) {
-        this.postMessage(panel, {
-          type: "tokenUsageUpdate",
-          inputTokens: stats.totalInputTokens,
-          cacheCreationTokens: stats.cacheCreationTokens,
-          cacheReadTokens: stats.cacheReadTokens,
-        });
-        this.postMessage(panel, {
-          type: "done",
-          data: {
-            type: "result",
-            session_id: sessionId,
-            is_done: true,
-            total_output_tokens: stats.totalOutputTokens,
-            num_turns: stats.numTurns,
-            context_window_size: stats.contextWindowSize,
-          },
-        });
-      }
-    } catch {
-      // Stats extraction failed - session will load without stats
+    if (result.stats) {
+      this.postMessage(panel, {
+        type: "tokenUsageUpdate",
+        inputTokens: result.stats.totalInputTokens,
+        cacheCreationTokens: result.stats.cacheCreationTokens,
+        cacheReadTokens: result.stats.cacheReadTokens,
+      });
+      this.postMessage(panel, {
+        type: "done",
+        data: {
+          type: "result",
+          session_id: sessionId,
+          is_done: true,
+          total_output_tokens: result.stats.totalOutputTokens,
+          num_turns: result.stats.numTurns,
+          context_window_size: result.stats.contextWindowSize,
+        },
+      });
     }
 
     if (result.hasMore) {

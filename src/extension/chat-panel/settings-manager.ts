@@ -109,6 +109,7 @@ export class SettingsManager {
   private providerProfiles: ProviderProfile[] = [];
   private activeProviderProfile: string | null = null;
   private perPanelActiveProfile: Map<string, string | null> = new Map();
+  private profilesLoaded = false;
   private static readonly PROFILE_SECRET_PREFIX = "claude-unbound.profile:";
 
   constructor(config: SettingsManagerConfig) {
@@ -377,6 +378,10 @@ export class SettingsManager {
   }
 
   async loadProviderProfiles(): Promise<void> {
+    if (this.profilesLoaded) {
+      return;
+    }
+
     const config = vscode.workspace.getConfiguration("claude-unbound");
     const storedProfiles = config.get<ProviderProfile[]>("providerProfiles", []);
     this.activeProviderProfile = config.get<string | null>("activeProviderProfile", null);
@@ -390,6 +395,8 @@ export class SettingsManager {
         return { name: profile.name, env };
       })
     );
+
+    this.profilesLoaded = true;
   }
 
   async createProviderProfile(profile: ProviderProfile): Promise<void> {

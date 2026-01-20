@@ -5,6 +5,7 @@ import {
   listSessions,
   getSessionDirSync,
   getSessionMetadata,
+  extractCommandHistory,
   type StoredSession,
 } from "../session";
 import type { ExtensionToWebviewMessage } from "../../shared/types";
@@ -18,6 +19,7 @@ export interface StorageManagerConfig {
 
 export class StorageManager {
   private allSessionsCache: StoredSession[] | null = null;
+  private commandHistoryCache: string[] | null = null;
   private sessionWatcher: vscode.FileSystemWatcher | null = null;
   private readonly workspacePath: string;
   private readonly postMessage: StorageManagerConfig["postMessage"];
@@ -47,6 +49,26 @@ export class StorageManager {
 
   invalidateSessionsCache(): void {
     this.allSessionsCache = null;
+    this.commandHistoryCache = null;
+  }
+
+  async getCommandHistory(
+    offset: number = 0
+  ): Promise<{ history: string[]; hasMore: boolean }> {
+    if (!this.allSessionsCache) {
+      this.allSessionsCache = await listSessions(this.workspacePath);
+    }
+
+    if (!this.commandHistoryCache) {
+      const result = await extractCommandHistory(this.workspacePath, this.allSessionsCache);
+      this.commandHistoryCache = result.allHistory;
+    }
+
+    const COMMAND_HISTORY_PAGE_SIZE = 100;
+    const pageItems = this.commandHistoryCache.slice(offset, offset + COMMAND_HISTORY_PAGE_SIZE);
+    const hasMore = this.commandHistoryCache.length > offset + COMMAND_HISTORY_PAGE_SIZE;
+
+    return { history: pageItems, hasMore };
   }
 
   setupSessionWatcher(): void {
