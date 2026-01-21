@@ -5,10 +5,9 @@
 Ultrathink step-by-step before implementing. For complex problems:
 
 1. First, analyze the problem and identify edge cases
-2. **Use LSP tools** for semantic code analysis (findReferences, goToImplementation, incomingCalls/outgoingCalls)
-3. Outline your approach before writing code
-4. Implement the solution
-5. Review for potential issues
+2. Outline your approach before writing code
+3. Implement the solution
+4. Review for potential issues
 
 ## Requirement Gathering
 
