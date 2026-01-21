@@ -2,6 +2,13 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.29] - 2026-01-21
+
+### Changed
+
+- **Namespaced Slash Commands**: Commands in subdirectories (e.g., `~/.claude/commands/gsd/`) now display as `/gsd:command-name` instead of showing a separate badge, matching the plugin command naming convention
+- **Improved Badge Visibility**: Source badges (plugin, user) now use neutral colors with border for better visibility across light and dark themes
+
 ## [1.0.28] - 2026-01-20
 
 ### Changed
@@ -268,6 +275,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.29]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.28...v1.0.29
 [1.0.28]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.27...v1.0.28
 [1.0.27]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.26...v1.0.27
 [1.0.26]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.25...v1.0.26

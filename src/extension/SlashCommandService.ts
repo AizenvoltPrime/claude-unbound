@@ -207,7 +207,7 @@ export class SlashCommandService {
           const parsed = this.parseMarkdownFile(content);
 
           commands.push({
-            name: commandName,
+            name: namespace ? `${namespace}:${commandName}` : commandName,
             description: parsed.description,
             argumentHint: parsed.argumentHint,
             filePath,

@@ -95,9 +95,6 @@ function getSourceBadge(command: SlashCommandItem): string | null {
   if (command.source === 'plugin' && 'pluginName' in command) {
     return `plugin:${command.pluginName}`;
   }
-  if ('namespace' in command && command.namespace) {
-    return command.namespace;
-  }
   if (command.source === 'user') {
     return 'user';
   }
@@ -169,7 +166,7 @@ function getSourceBadge(command: SlashCommandItem): string | null {
                   <!-- Source badge -->
                   <span
                     v-if="getSourceBadge(cmd)"
-                    class="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary/80"
+                    class="text-[10px] px-1.5 py-0.5 rounded bg-muted-foreground/15 text-muted-foreground border border-border/50"
                   >
                     {{ getSourceBadge(cmd) }}
                   </span>
