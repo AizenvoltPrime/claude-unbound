@@ -2,6 +2,13 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.30] - 2026-01-21
+
+### Fixed
+
+- **Dynamic Cache Updates**: Fixed caches not propagating changes to webview panels. Session history, slash commands, skills, MCP servers, plugins, and custom agents now update automatically when underlying files change, without requiring panel refresh.
+- **MCP Server File Watcher**: Added file watcher for `.mcp.json` - changes to MCP server configuration are now detected and reflected in the settings panel immediately.
+
 ## [1.0.29] - 2026-01-21
 
 ### Changed
@@ -275,6 +282,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.30]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.29...v1.0.30
 [1.0.29]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.28...v1.0.29
 [1.0.28]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.27...v1.0.28
 [1.0.27]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.26...v1.0.27

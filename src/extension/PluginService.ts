@@ -35,9 +35,14 @@ export class PluginService {
   private registryWatcher: vscode.FileSystemWatcher | null = null;
   private projectWatcher: vscode.FileSystemWatcher | null = null;
   private debounceTimer: NodeJS.Timeout | null = null;
+  private onCacheInvalidate?: () => void;
 
   constructor(private workspacePath: string) {
     this.setupFileWatchers();
+  }
+
+  setOnCacheInvalidate(callback: () => void): void {
+    this.onCacheInvalidate = callback;
   }
 
   private setupFileWatchers(): void {
@@ -48,6 +53,7 @@ export class PluginService {
       this.debounceTimer = setTimeout(() => {
         this.cache = null;
         log("Plugin cache invalidated due to file change");
+        this.onCacheInvalidate?.();
       }, 300);
     };
 

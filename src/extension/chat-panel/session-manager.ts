@@ -15,6 +15,7 @@ export interface SessionManagerConfig {
   getActiveProviderEnvForPanel: (panelId: string) => Record<string, string> | undefined;
   postMessage: (panel: vscode.WebviewPanel, message: ExtensionToWebviewMessage) => void;
   setupSessionWatcher: () => void;
+  addOrUpdateSession: (sessionId: string) => Promise<void>;
 }
 
 export class SessionManager {
@@ -28,6 +29,7 @@ export class SessionManager {
   private readonly getActiveProviderEnvForPanel: SessionManagerConfig["getActiveProviderEnvForPanel"];
   private readonly postMessage: SessionManagerConfig["postMessage"];
   private readonly setupSessionWatcher: SessionManagerConfig["setupSessionWatcher"];
+  private readonly addOrUpdateSession: SessionManagerConfig["addOrUpdateSession"];
 
   constructor(config: SessionManagerConfig) {
     this.workspacePath = config.workspacePath;
@@ -40,6 +42,7 @@ export class SessionManager {
     this.getActiveProviderEnvForPanel = config.getActiveProviderEnvForPanel;
     this.postMessage = config.postMessage;
     this.setupSessionWatcher = config.setupSessionWatcher;
+    this.addOrUpdateSession = config.addOrUpdateSession;
   }
 
   async createSessionForPanel(
@@ -63,6 +66,9 @@ export class SessionManager {
       onSessionIdChange: (sessionId) => {
         this.postMessage(panel, { type: "sessionStarted", sessionId: sessionId || "" });
         this.setupSessionWatcher();
+        if (sessionId) {
+          void this.addOrUpdateSession(sessionId);
+        }
       },
       mcpServers: this.getEnabledMcpServers(),
       plugins: this.getEnabledPlugins(),

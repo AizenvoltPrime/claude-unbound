@@ -35,9 +35,14 @@ export class CustomAgentService {
   private userWatcher: vscode.FileSystemWatcher | null = null;
   private pluginWatcher: vscode.FileSystemWatcher | null = null;
   private debounceTimer: NodeJS.Timeout | null = null;
+  private onCacheInvalidate?: () => void;
 
   constructor(private workspacePath: string) {
     this.setupFileWatchers();
+  }
+
+  setOnCacheInvalidate(callback: () => void): void {
+    this.onCacheInvalidate = callback;
   }
 
   private setupFileWatchers(): void {
@@ -48,6 +53,7 @@ export class CustomAgentService {
       this.debounceTimer = setTimeout(() => {
         this.cache = null;
         log("Custom agent cache invalidated due to file change");
+        this.onCacheInvalidate?.();
       }, 300);
     };
 
@@ -58,6 +64,7 @@ export class CustomAgentService {
       this.debounceTimer = setTimeout(() => {
         this.pluginCache = null;
         log("Plugin agent cache invalidated due to file change");
+        this.onCacheInvalidate?.();
       }, 300);
     };
 

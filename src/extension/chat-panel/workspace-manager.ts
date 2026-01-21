@@ -10,19 +10,52 @@ import { log } from "../logger";
 export interface WorkspaceManagerConfig {
   workspacePath: string;
   postMessage: (panel: vscode.WebviewPanel, message: ExtensionToWebviewMessage) => void;
+  broadcastToAllPanels: (message: ExtensionToWebviewMessage) => void;
+  getEnabledPluginIds: () => Set<string>;
 }
 
 export class WorkspaceManager {
   private readonly workspacePath: string;
   private readonly postMessage: WorkspaceManagerConfig["postMessage"];
+  private readonly broadcastToAllPanels: WorkspaceManagerConfig["broadcastToAllPanels"];
+  private readonly getEnabledPluginIds: WorkspaceManagerConfig["getEnabledPluginIds"];
   private readonly slashCommandService: SlashCommandService;
   private readonly customAgentService: CustomAgentService;
 
   constructor(config: WorkspaceManagerConfig) {
     this.workspacePath = config.workspacePath;
     this.postMessage = config.postMessage;
+    this.broadcastToAllPanels = config.broadcastToAllPanels;
+    this.getEnabledPluginIds = config.getEnabledPluginIds;
     this.slashCommandService = new SlashCommandService(this.workspacePath);
     this.customAgentService = new CustomAgentService(this.workspacePath);
+
+    this.slashCommandService.setOnCacheInvalidate(() => {
+      void this.broadcastSlashCommands();
+    });
+
+    this.customAgentService.setOnCacheInvalidate(() => {
+      void this.broadcastCustomAgents();
+    });
+  }
+
+  async broadcastSlashCommands(): Promise<void> {
+    try {
+      const commands = await this.getCustomSlashCommands(this.getEnabledPluginIds());
+      this.broadcastToAllPanels({ type: "customSlashCommands", commands });
+    } catch (err) {
+      log("[WorkspaceManager] Error broadcasting slash commands:", err);
+    }
+  }
+
+  async broadcastCustomAgents(): Promise<void> {
+    try {
+      const agents = await this.customAgentService.getCustomAgents();
+      const pluginAgents = await this.customAgentService.getPluginAgents(this.getEnabledPluginIds());
+      this.broadcastToAllPanels({ type: "customAgents", agents, pluginAgents });
+    } catch (err) {
+      log("[WorkspaceManager] Error broadcasting custom agents:", err);
+    }
   }
 
   async isSkill(name: string, enabledPluginIds?: Set<string>): Promise<boolean> {

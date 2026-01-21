@@ -100,6 +100,8 @@ export interface SettingsManagerConfig {
 export class SettingsManager {
   private mcpServerEntries: McpServerEntry[] = [];
   private mcpConfigLoaded = false;
+  private mcpWatcher: vscode.FileSystemWatcher | null = null;
+  private onMcpConfigChange?: () => void;
   private pluginEntries: PluginEntry[] = [];
   private pluginConfigLoaded = false;
   private readonly postMessage: SettingsManagerConfig["postMessage"];
@@ -115,6 +117,31 @@ export class SettingsManager {
   constructor(config: SettingsManagerConfig) {
     this.postMessage = config.postMessage;
     this.secrets = config.secrets;
+  }
+
+  setOnMcpConfigChange(callback: () => void): void {
+    this.onMcpConfigChange = callback;
+  }
+
+  setupMcpWatcher(workspacePath: string): void {
+    if (this.mcpWatcher) return;
+
+    const pattern = new vscode.RelativePattern(workspacePath, ".mcp.json");
+    this.mcpWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+    const reload = async () => {
+      this.mcpConfigLoaded = false;
+      await this.loadMcpConfig();
+      this.onMcpConfigChange?.();
+    };
+
+    this.mcpWatcher.onDidCreate(reload);
+    this.mcpWatcher.onDidChange(reload);
+    this.mcpWatcher.onDidDelete(reload);
+  }
+
+  dispose(): void {
+    this.mcpWatcher?.dispose();
   }
 
   async setServerEnabled(serverName: string, enabled: boolean): Promise<void> {
@@ -515,15 +542,11 @@ export class SettingsManager {
   }
 
   getActiveProviderProfileForPanel(panelId: string): string | null {
-    return this.perPanelActiveProfile.has(panelId)
-      ? this.perPanelActiveProfile.get(panelId)!
-      : this.activeProviderProfile;
+    return this.perPanelActiveProfile.get(panelId) ?? this.activeProviderProfile;
   }
 
   setActiveProviderProfileForPanel(panelId: string, profileName: string | null): boolean {
-    const currentProfile = this.perPanelActiveProfile.has(panelId)
-      ? this.perPanelActiveProfile.get(panelId)!
-      : this.activeProviderProfile;
+    const currentProfile = this.perPanelActiveProfile.get(panelId) ?? this.activeProviderProfile;
     if (profileName === currentProfile) {
       return false;
     }

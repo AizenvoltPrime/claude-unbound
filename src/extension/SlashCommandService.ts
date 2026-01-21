@@ -43,9 +43,14 @@ export class SlashCommandService {
   private commandDebounceTimer: NodeJS.Timeout | null = null;
   private pluginDebounceTimer: NodeJS.Timeout | null = null;
   private skillDebounceTimer: NodeJS.Timeout | null = null;
+  private onCacheInvalidate?: () => void;
 
   constructor(private workspacePath: string) {
     this.setupFileWatchers();
+  }
+
+  setOnCacheInvalidate(callback: () => void): void {
+    this.onCacheInvalidate = callback;
   }
 
   private setupFileWatchers(): void {
@@ -56,6 +61,7 @@ export class SlashCommandService {
       this.commandDebounceTimer = setTimeout(() => {
         this.cache = null;
         log("Slash command cache invalidated due to file change");
+        this.onCacheInvalidate?.();
       }, 300);
     };
 
@@ -67,6 +73,7 @@ export class SlashCommandService {
         this.pluginCache = null;
         this.pluginSkillCache = null;
         log("Plugin command/skill cache invalidated due to file change");
+        this.onCacheInvalidate?.();
       }, 300);
     };
 
@@ -77,6 +84,7 @@ export class SlashCommandService {
       this.skillDebounceTimer = setTimeout(() => {
         this.skillCache = null;
         log("Skill cache invalidated due to file change");
+        this.onCacheInvalidate?.();
       }, 300);
     };
 

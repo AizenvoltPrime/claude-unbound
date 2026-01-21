@@ -50,6 +50,8 @@ export class ChatPanelProvider {
     this.workspaceManager = new WorkspaceManager({
       workspacePath: this.workspacePath,
       postMessage,
+      broadcastToAllPanels: (message) => this.panelManager.broadcastToAllPanels(message),
+      getEnabledPluginIds: () => this.settingsManager.getEnabledPluginIds(),
     });
 
     this.pluginService = new PluginService(this.workspacePath);
@@ -65,6 +67,7 @@ export class ChatPanelProvider {
       getActiveProviderEnvForPanel: (panelId) => this.settingsManager.getActiveProviderEnvForPanel(panelId),
       postMessage,
       setupSessionWatcher: () => this.storageManager.setupSessionWatcher(),
+      addOrUpdateSession: (sessionId) => this.storageManager.addOrUpdateSession(sessionId),
     });
 
     this.messageRouter = new MessageRouter({
@@ -93,6 +96,23 @@ export class ChatPanelProvider {
     });
 
     this.storageManager.setupSessionWatcher();
+
+    this.settingsManager.setOnMcpConfigChange(() => {
+      const servers = this.settingsManager.getMcpServersForUI();
+      this.panelManager.broadcastToAllPanels({ type: "mcpConfigUpdate", servers });
+    });
+    this.settingsManager.setupMcpWatcher(this.workspacePath);
+
+    this.pluginService.setOnCacheInvalidate(async () => {
+      try {
+        await this.settingsManager.loadPluginConfig(this.pluginService);
+        const plugins = this.settingsManager.getPluginsForUI();
+        this.panelManager.broadcastToAllPanels({ type: "pluginConfigUpdate", plugins });
+      } catch (err) {
+        log("[ChatPanelProvider] Error broadcasting plugin config:", err);
+      }
+    });
+
     this.settingsManager.loadMcpConfig().catch((err) => {
       log("[ChatPanelProvider] Error pre-loading MCP config:", err);
     });
@@ -124,6 +144,7 @@ export class ChatPanelProvider {
     this.storageManager.dispose();
     this.workspaceManager.dispose();
     this.pluginService.dispose();
+    this.settingsManager.dispose();
     this.panelManager.dispose();
   }
 }

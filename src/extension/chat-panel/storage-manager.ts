@@ -52,6 +52,13 @@ export class StorageManager {
     this.commandHistoryCache = null;
   }
 
+  async addOrUpdateSession(sessionId: string): Promise<void> {
+    const metadata = await getSessionMetadata(this.workspacePath, sessionId);
+    if (!metadata) return;
+
+    await this.upsertSessionInCache(metadata);
+  }
+
   async getCommandHistory(
     offset: number = 0
   ): Promise<{ history: string[]; hasMore: boolean }> {
@@ -133,10 +140,14 @@ export class StorageManager {
       return;
     }
 
+    await this.upsertSessionInCache(metadata);
+  }
+
+  private async upsertSessionInCache(metadata: StoredSession): Promise<void> {
     if (!this.allSessionsCache) {
       this.allSessionsCache = await listSessions(this.workspacePath);
     } else {
-      const existingIndex = this.allSessionsCache.findIndex((s) => s.id === sessionId);
+      const existingIndex = this.allSessionsCache.findIndex((s) => s.id === metadata.id);
       if (existingIndex >= 0) {
         this.allSessionsCache[existingIndex] = metadata;
       } else {
@@ -144,7 +155,6 @@ export class StorageManager {
       }
       this.allSessionsCache.sort((a, b) => b.timestamp - a.timestamp);
     }
-
     this.pushSessionsToAllPanels();
   }
 
