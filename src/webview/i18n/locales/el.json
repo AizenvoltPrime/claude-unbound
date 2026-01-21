@@ -429,7 +429,8 @@
   },
   "imageThumbnail": {
     "attachedImage": "Συνημμένη εικόνα",
-    "remove": "Αφαίρεση {name}"
+    "remove": "Αφαίρεση {name}",
+    "clickToPreview": "Κλικ για προεπισκόπηση"
   },
   "mcpIndicator": {
     "connecting": "MCP: {connected}/{total} συνδέεται",

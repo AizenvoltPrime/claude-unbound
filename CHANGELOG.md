@@ -2,6 +2,17 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.31] - 2026-01-21
+
+### Added
+
+- **Image Preview in Chat Input**: Attached images in the chat input can now be clicked to open a full-screen preview, matching the behavior of images in sent messages.
+
+### Fixed
+
+- **Textarea Overflow in Constrained Panels**: Textareas in overlay prompts (AskUserQuestion, PermissionPrompt, SkillApproval, EnterPlanMode, PlanApproval) now scroll when content exceeds container height instead of pushing buttons out of view. Added `overflow-y-auto` to base Textarea component and `max-h-32` constraints to prompt textareas. Answer preview in question submit tab also constrained with scrolling.
+- **HTML Rendered Instead of Displayed**: Fixed raw HTML in chat messages being rendered as actual DOM elements instead of displayed as text. For example, `<span>ID</span>` now shows as literal text rather than just "ID".
+
 ## [1.0.30] - 2026-01-21
 
 ### Fixed
@@ -282,6 +293,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.31]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.30...v1.0.31
 [1.0.30]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.29...v1.0.30
 [1.0.29]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.28...v1.0.29
 [1.0.28]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.27...v1.0.28

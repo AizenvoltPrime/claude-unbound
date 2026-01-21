@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { ImageAttachment } from '@/composables/useImageAttachments';
 import { IconX } from '@/components/icons';
+import ImageLightbox from './ImageLightbox.vue';
 
 const { t } = useI18n();
 
@@ -12,6 +14,16 @@ defineProps<{
 defineEmits<{
   remove: [id: string];
 }>();
+
+const lightboxImageUrl = ref<string | null>(null);
+
+function openLightbox(attachment: ImageAttachment): void {
+  lightboxImageUrl.value = attachment.dataUrl;
+}
+
+function closeLightbox(): void {
+  lightboxImageUrl.value = null;
+}
 </script>
 
 <template>
@@ -27,7 +39,9 @@ defineEmits<{
       <img
         :src="attachment.dataUrl"
         :alt="attachment.fileName || t('imageThumbnail.attachedImage')"
-        class="w-16 h-16 object-cover rounded-md border border-border"
+        class="w-16 h-16 object-cover rounded-md border border-border cursor-pointer hover:opacity-80 transition-opacity"
+        :title="t('imageThumbnail.clickToPreview')"
+        @click="openLightbox(attachment)"
       />
       <button
         class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground
@@ -39,5 +53,11 @@ defineEmits<{
         <IconX :size="12" />
       </button>
     </div>
+
+    <ImageLightbox
+      :open="lightboxImageUrl !== null"
+      :image-url="lightboxImageUrl ?? ''"
+      @close="closeLightbox"
+    />
   </div>
 </template>

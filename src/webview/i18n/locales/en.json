@@ -429,7 +429,8 @@
   },
   "imageThumbnail": {
     "attachedImage": "Attached image",
-    "remove": "Remove {name}"
+    "remove": "Remove {name}",
+    "clickToPreview": "Click to preview"
   },
   "mcpIndicator": {
     "connecting": "MCP: {connected}/{total} connecting",

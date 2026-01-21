@@ -62,7 +62,7 @@ function handleSendFeedback() {
       <Textarea
         v-model="feedbackText"
         :placeholder="t('planApproval.feedbackPlaceholder')"
-        class="resize-none"
+        class="resize-none max-h-32"
         @keydown.enter.ctrl="handleSendFeedback"
       />
       <div class="flex justify-end gap-2">

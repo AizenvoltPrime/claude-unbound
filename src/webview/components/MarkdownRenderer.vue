@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, h, type VNode } from 'vue';
 import { marked, type Token, type Tokens } from 'marked';
-import DOMPurify from 'dompurify';
 import CodeBlock from './CodeBlock.vue';
 import { useVSCode } from '@/composables/useVSCode';
 
@@ -199,8 +198,7 @@ function renderToken(token: Token): VNode | null {
 
     case 'html': {
       const htmlToken = token as Tokens.HTML;
-      const sanitized = DOMPurify.sanitize(htmlToken.text, { ADD_ATTR: ['target', 'rel'] });
-      return h('span', { innerHTML: sanitized });
+      return h('span', { innerHTML: escapeHtml(htmlToken.raw) });
     }
 
     case 'space':

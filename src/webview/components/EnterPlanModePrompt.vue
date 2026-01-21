@@ -148,7 +148,7 @@ watch(() => props.visible, (visible) => {
       <Textarea
         ref="textareaRef"
         v-model="customMessage"
-        class="min-h-20 bg-card border-border resize-none focus:border-primary mb-3"
+        class="min-h-20 bg-card border-border resize-none focus:border-primary mb-3 max-h-32"
         :placeholder="t('planMode.customPlaceholder')"
         @keydown.enter.ctrl="handleCustomSubmit"
         @keydown.escape="handleCustomBack"

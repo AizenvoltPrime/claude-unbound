@@ -291,7 +291,7 @@ watch(() => store.currentTabIndex, () => {
         <Textarea
           ref="textareaRef"
           v-model="customInputValue"
-          class="min-h-20 bg-card border-border resize-none focus:border-primary mb-3"
+          class="min-h-20 bg-card border-border resize-none focus:border-primary mb-3 max-h-32"
           :placeholder="t('question.customTextareaPlaceholder')"
           @keydown.enter.ctrl="handleCustomInputSave"
           @keydown.escape="handleCustomInputBack"
@@ -327,7 +327,7 @@ watch(() => store.currentTabIndex, () => {
           class="p-2 rounded bg-card text-sm"
         >
           <div class="text-muted-foreground text-xs mb-1">{{ question.header || t('question.questionHeader') }}</div>
-          <div class="text-foreground">{{ getAnswerSummary(question) }}</div>
+          <div class="text-foreground max-h-24 overflow-y-auto whitespace-pre-wrap break-words">{{ getAnswerSummary(question) }}</div>
         </div>
       </div>
 
