@@ -111,7 +111,7 @@ export class SettingsManager {
   private providerProfiles: ProviderProfile[] = [];
   private activeProviderProfile: string | null = null;
   private perPanelActiveProfile: Map<string, string | null> = new Map();
-  private profilesLoaded = false;
+  private profileLoadPromise: Promise<void> | null = null;
   private static readonly PROFILE_SECRET_PREFIX = "claude-unbound.profile:";
 
   constructor(config: SettingsManagerConfig) {
@@ -404,16 +404,21 @@ export class SettingsManager {
     await updateConfigAtEffectiveScope("claude-unbound", "permissionMode", mode);
   }
 
-  async loadProviderProfiles(): Promise<void> {
-    if (this.profilesLoaded) {
-      return;
+  loadProviderProfiles(): Promise<void> {
+    if (!this.profileLoadPromise) {
+      this.profileLoadPromise = this.doLoadProviderProfiles().catch((err) => {
+        this.profileLoadPromise = null;
+        throw err;
+      });
     }
+    return this.profileLoadPromise;
+  }
 
+  private async doLoadProviderProfiles(): Promise<void> {
     const config = vscode.workspace.getConfiguration("claude-unbound");
     const storedProfiles = config.get<ProviderProfile[]>("providerProfiles", []);
     this.activeProviderProfile = config.get<string | null>("activeProviderProfile", null);
 
-    // Load env vars from SecretStorage for each profile
     this.providerProfiles = await Promise.all(
       storedProfiles.map(async (profile) => {
         const secretKey = SettingsManager.PROFILE_SECRET_PREFIX + profile.name;
@@ -422,8 +427,6 @@ export class SettingsManager {
         return { name: profile.name, env };
       })
     );
-
-    this.profilesLoaded = true;
   }
 
   async createProviderProfile(profile: ProviderProfile): Promise<void> {
@@ -573,7 +576,8 @@ export class SettingsManager {
     return profile?.env;
   }
 
-  sendProviderProfilesForPanel(panel: vscode.WebviewPanel, panelId: string): void {
+  async sendProviderProfilesForPanel(panel: vscode.WebviewPanel, panelId: string): Promise<void> {
+    await this.loadProviderProfiles();
     const activeProfile = this.perPanelActiveProfile.has(panelId)
       ? this.perPanelActiveProfile.get(panelId)!
       : this.activeProviderProfile;

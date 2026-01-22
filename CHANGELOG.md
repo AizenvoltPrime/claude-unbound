@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.32] - 2026-01-22
+
+### Fixed
+
+- **Provider Profile Loading**: Fixed potential race condition where profiles could be sent before SecretStorage finished loading. May resolve delays reported when debug sessions are active before opening the extension.
+
 ## [1.0.31] - 2026-01-21
 
 ### Added
@@ -293,6 +299,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.32]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.31...v1.0.32
 [1.0.31]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.30...v1.0.31
 [1.0.30]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.29...v1.0.30
 [1.0.29]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.28...v1.0.29

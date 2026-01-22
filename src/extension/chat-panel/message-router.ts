@@ -301,7 +301,7 @@ export class MessageRouter {
         this.settingsManager.sendAvailableModels(ctx.session, ctx.panel);
         this.settingsManager.sendMcpConfig(ctx.panel);
         this.settingsManager.sendPluginConfig(ctx.panel);
-        this.settingsManager.sendProviderProfilesForPanel(ctx.panel, ctx.panelId);
+        await this.settingsManager.sendProviderProfilesForPanel(ctx.panel, ctx.panelId);
         this.postMessage(ctx.panel, { type: "languageChange", locale: this.getLanguagePreference() });
 
         try {
@@ -767,15 +767,15 @@ export class MessageRouter {
       },
 
       // Provider profiles
-      requestProviderProfiles: (msg, ctx) => {
-        this.settingsManager.sendProviderProfilesForPanel(ctx.panel, ctx.panelId);
+      requestProviderProfiles: async (msg, ctx) => {
+        await this.settingsManager.sendProviderProfilesForPanel(ctx.panel, ctx.panelId);
       },
 
       createProviderProfile: async (msg, ctx) => {
         if (msg.type !== "createProviderProfile") return;
         try {
           await this.settingsManager.createProviderProfile(msg.profile);
-          this.broadcastProviderProfilesToAllPanels();
+          await this.broadcastProviderProfilesToAllPanels();
         } catch (err) {
           log("[MessageRouter] Error creating provider profile:", err);
           this.postMessage(ctx.panel, {
@@ -790,7 +790,7 @@ export class MessageRouter {
         if (msg.type !== "updateProviderProfile") return;
         try {
           const needsRestart = await this.settingsManager.updateProviderProfile(msg.originalName, msg.profile);
-          this.broadcastProviderProfilesToAllPanels();
+          await this.broadcastProviderProfilesToAllPanels();
 
           if (needsRestart) {
             ctx.session.setProviderEnv(this.settingsManager.getActiveProviderEnvForPanel(ctx.panelId));
@@ -812,7 +812,7 @@ export class MessageRouter {
           const currentProfile = this.settingsManager.getActiveProviderProfileForPanel(ctx.panelId);
           const needsRestart = currentProfile === msg.profileName;
           await this.settingsManager.deleteProviderProfile(msg.profileName);
-          this.broadcastProviderProfilesToAllPanels();
+          await this.broadcastProviderProfilesToAllPanels();
 
           if (needsRestart) {
             ctx.session.setProviderEnv(undefined);
@@ -832,7 +832,7 @@ export class MessageRouter {
         if (msg.type !== "setActiveProviderProfile") return;
         try {
           const needsRestart = this.settingsManager.setActiveProviderProfileForPanel(ctx.panelId, msg.profileName);
-          this.settingsManager.sendProviderProfilesForPanel(ctx.panel, ctx.panelId);
+          await this.settingsManager.sendProviderProfilesForPanel(ctx.panel, ctx.panelId);
 
           if (needsRestart) {
             ctx.session.setProviderEnv(this.settingsManager.getActiveProviderEnvForPanel(ctx.panelId));
@@ -852,7 +852,7 @@ export class MessageRouter {
         if (msg.type !== "setDefaultProviderProfile") return;
         try {
           await this.settingsManager.setDefaultProviderProfile(msg.profileName);
-          this.broadcastProviderProfilesToAllPanels();
+          await this.broadcastProviderProfilesToAllPanels();
         } catch (err) {
           log("[MessageRouter] Error setting default provider profile:", err);
           this.postMessage(ctx.panel, {
@@ -865,10 +865,13 @@ export class MessageRouter {
     };
   }
 
-  private broadcastProviderProfilesToAllPanels(): void {
-    for (const [panelId, instance] of this.getPanels()) {
-      this.settingsManager.sendProviderProfilesForPanel(instance.panel, panelId);
-    }
+  private async broadcastProviderProfilesToAllPanels(): Promise<void> {
+    const panels = Array.from(this.getPanels());
+    await Promise.all(
+      panels.map(([panelId, instance]) =>
+        this.settingsManager.sendProviderProfilesForPanel(instance.panel, panelId)
+      )
+    );
   }
 }
 
