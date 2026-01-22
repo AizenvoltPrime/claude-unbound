@@ -12,6 +12,17 @@ export interface StreamingSubagentMessage {
 
 type ToolStatus = { status: ToolCall['status']; result?: string; errorMessage?: string };
 
+// Status priority for preventing downgrades (higher = more final)
+const STATUS_PRIORITY: Record<ToolCall['status'], number> = {
+  'abandoned': 0,
+  'awaiting_approval': 1,
+  'approved': 2,
+  'running': 3,
+  'denied': 4,
+  'failed': 4,
+  'completed': 5,
+};
+
 function buildChatMessagesFromHistory(
   agentMessages: HistoryAgentMessage[],
   idPrefix: string,
@@ -245,18 +256,21 @@ export const useSubagentStore = defineStore('subagent', () => {
 
   function addToolCallToSubagent(parentToolUseId: string, tool: ToolCall): void {
     const subagent = subagents.value[parentToolUseId];
-    if (subagent) {
-      const existing = subagent.toolCalls.find(t => t.id === tool.id);
-      if (!existing) {
-        subagents.value = {
-          ...subagents.value,
-          [parentToolUseId]: {
-            ...subagent,
-            toolCalls: [...subagent.toolCalls, tool],
-          },
-        };
-      }
-    }
+    if (!subagent) return;
+
+    const existsInToolCalls = subagent.toolCalls.some(t => t.id === tool.id);
+    if (existsInToolCalls) return;
+
+    const existsInMessages = subagent.messages.some(msg => msg.toolCalls?.some(t => t.id === tool.id));
+    if (existsInMessages) return;
+
+    subagents.value = {
+      ...subagents.value,
+      [parentToolUseId]: {
+        ...subagent,
+        toolCalls: [...subagent.toolCalls, tool],
+      },
+    };
   }
 
   function updateSubagentToolStatus(
@@ -265,9 +279,14 @@ export const useSubagentStore = defineStore('subagent', () => {
     result?: string,
     errorMessage?: string
   ): boolean {
+    const newPriority = STATUS_PRIORITY[status] ?? 0;
+
     for (const [subagentId, subagent] of Object.entries(subagents.value)) {
       const toolIndex = subagent.toolCalls.findIndex(t => t.id === toolUseId);
       if (toolIndex !== -1) {
+        const oldPriority = STATUS_PRIORITY[subagent.toolCalls[toolIndex].status] ?? 0;
+        if (newPriority < oldPriority) return true;
+
         const updatedToolCalls = [...subagent.toolCalls];
         updatedToolCalls[toolIndex] = {
           ...updatedToolCalls[toolIndex],
@@ -290,6 +309,9 @@ export const useSubagentStore = defineStore('subagent', () => {
         if (msg.toolCalls) {
           const msgToolIndex = msg.toolCalls.findIndex(t => t.id === toolUseId);
           if (msgToolIndex !== -1) {
+            const oldPriority = STATUS_PRIORITY[msg.toolCalls[msgToolIndex].status] ?? 0;
+            if (newPriority < oldPriority) return true;
+
             const updatedMsgToolCalls = [...msg.toolCalls];
             updatedMsgToolCalls[msgToolIndex] = {
               ...updatedMsgToolCalls[msgToolIndex],

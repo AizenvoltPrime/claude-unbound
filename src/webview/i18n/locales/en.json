@@ -148,8 +148,11 @@
   },
   "permission": {
     "runCommand": "Run this command?",
+    "runCommandAgent": "{agent} wants to run this command:",
     "createFile": "Create this file",
+    "createFileAgent": "{agent} wants to create this file",
     "editFile": "Make this edit to",
+    "editFileAgent": "{agent} wants to edit",
     "queuePosition": "{position} of {total} pending",
     "options": {
       "yes": "Yes",

@@ -27,6 +27,7 @@ interface PendingApproval {
   reject: (error: Error) => void;
   cleanup: () => void;
   diffId?: string;
+  parentToolUseId?: string | null;
 }
 
 interface QuestionResult {
@@ -79,6 +80,7 @@ export class PermissionHandler {
   private pendingEnterPlanApprovals: Map<string, PendingEnterPlanApproval> = new Map();
   private pendingSkillApprovals: Map<string, PendingSkillApproval> = new Map();
   private autoApprovedSkills: Set<string> = new Set();
+  private autoApprovedSubagents: Set<string> = new Set();
   private postMessageToWebview: ((msg: ExtensionToWebviewMessage) => void) | null = null;
   private _permissionMode: PermissionMode = 'default';
   private _dangerouslySkipPermissions: boolean = false;
@@ -100,6 +102,31 @@ export class PermissionHandler {
 
   revokeSkillPreApproval(skillName: string): void {
     this.autoApprovedSkills.delete(skillName);
+  }
+
+  autoApproveSubagent(parentToolUseId: string): void {
+    this.autoApprovedSubagents.add(parentToolUseId);
+
+    for (const [toolUseId, pending] of this.pendingApprovals) {
+      if (pending.parentToolUseId === parentToolUseId) {
+        if (pending.diffId) {
+          this.diffManager.closeDiffView(pending.diffId);
+        }
+        pending.cleanup();
+        pending.resolve({ approved: true });
+        this.pendingApprovals.delete(toolUseId);
+
+        this.postMessageToWebview?.({
+          type: 'permissionAutoResolved',
+          toolUseId,
+          parentToolUseId,
+        });
+      }
+    }
+  }
+
+  clearSubagentAutoApprovals(): void {
+    this.autoApprovedSubagents.clear();
   }
 
   getPermissionMode(): PermissionMode {
@@ -172,6 +199,9 @@ export class PermissionHandler {
     }
 
     if (toolName === 'Edit' || toolName === 'Write') {
+      if (context.parentToolUseId && this.autoApprovedSubagents.has(context.parentToolUseId)) {
+        return { behavior: 'allow', updatedInput: input };
+      }
       if (this._permissionMode === 'acceptEdits' || this._dangerouslySkipPermissions) {
         return { behavior: 'allow', updatedInput: input };
       }
@@ -192,10 +222,12 @@ export class PermissionHandler {
     }
 
     if (toolName === 'Bash') {
+      if (context.parentToolUseId && this.autoApprovedSubagents.has(context.parentToolUseId)) {
+        return { behavior: 'allow', updatedInput: input };
+      }
       if (this._dangerouslySkipPermissions) {
         return { behavior: 'allow', updatedInput: input };
       }
-
       const result = await this.requestBashPermissionFromWebview(input, context);
 
       if (!result.approved) {
@@ -339,6 +371,7 @@ export class PermissionHandler {
         reject: () => resolve({ approved: false }),
         cleanup,
         diffId: toolUseId,
+        parentToolUseId: context.parentToolUseId,
       });
 
       context.signal.addEventListener('abort', abortHandler, { once: true });
@@ -386,6 +419,7 @@ export class PermissionHandler {
         resolve,
         reject: () => resolve({ approved: false }),
         cleanup,
+        parentToolUseId: context.parentToolUseId,
       });
 
       context.signal.addEventListener('abort', abortHandler, { once: true });
@@ -641,6 +675,7 @@ export class PermissionHandler {
     cleanupMap(this.pendingSkillApprovals);
 
     this.autoApprovedSkills.clear();
+    this.autoApprovedSubagents.clear();
 
     await this.diffManager.dispose();
   }

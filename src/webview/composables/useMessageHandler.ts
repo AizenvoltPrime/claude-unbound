@@ -303,13 +303,12 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           }
 
           if (parentToolUseId && hasSubagent) {
-            const toolCall: ToolCall = {
+            subagentStore.addToolCallToSubagent(parentToolUseId, {
               id: message.tool.id,
               name: message.tool.name,
               input: message.tool.input,
               status: "running",
-            };
-            subagentStore.addToolCallToSubagent(parentToolUseId, toolCall);
+            });
             sessionStore.trackFileAccess(message.tool.name, message.tool.input);
             break;
           }
@@ -339,6 +338,8 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
         case "requestPermission": {
           const parentToolUseId = message.parentToolUseId;
+          const hasSubagent = parentToolUseId ? subagentStore.hasSubagent(parentToolUseId) : false;
+
           const toolCall: ToolCall = {
             id: message.toolUseId,
             name: message.toolName,
@@ -351,7 +352,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             sessionStore.trackFileAccess(message.toolName, message.toolInput);
           }
 
-          if (parentToolUseId && subagentStore.hasSubagent(parentToolUseId)) {
+          if (parentToolUseId && hasSubagent) {
             subagentStore.addToolCallToSubagent(parentToolUseId, toolCall);
           } else {
             streamingStore.addToolCall({
@@ -374,6 +375,15 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             parentToolUseId,
             agentDescription,
           });
+          break;
+        }
+
+        case "permissionAutoResolved": {
+          permissionStore.removePermission(message.toolUseId);
+          const found = subagentStore.updateSubagentToolStatus(message.toolUseId, "approved");
+          if (!found) {
+            streamingStore.updateToolStatus(message.toolUseId, "approved");
+          }
           break;
         }
 

@@ -156,6 +156,7 @@ export class MessageRouter {
       clearSession: async (_msg, ctx) => {
         ctx.session.clear();
         ctx.permissionHandler.setDangerouslySkipPermissions(false);
+        ctx.permissionHandler.clearSubagentAutoApprovals();
         await this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
         this.postMessage(ctx.panel, { type: "conversationCleared" });
       },
@@ -209,6 +210,11 @@ export class MessageRouter {
       // Permission handling
       approveEdit: (msg, ctx) => {
         if (msg.type !== "approveEdit") return;
+
+        if (msg.acceptAll && msg.parentToolUseId) {
+          ctx.permissionHandler.autoApproveSubagent(msg.parentToolUseId);
+        }
+
         ctx.permissionHandler.resolveApproval(msg.toolUseId, msg.approved, {
           customMessage: msg.customMessage,
         });

@@ -148,8 +148,11 @@
   },
   "permission": {
     "runCommand": "Εκτέλεση αυτής της εντολής;",
+    "runCommandAgent": "Ο {agent} θέλει να εκτελέσει αυτή την εντολή:",
     "createFile": "Δημιουργία αυτού του αρχείου",
+    "createFileAgent": "Ο {agent} θέλει να δημιουργήσει αυτό το αρχείο",
     "editFile": "Επεξεργασία αυτού του αρχείου",
+    "editFileAgent": "Ο {agent} θέλει να επεξεργαστεί",
     "queuePosition": "{position} από {total} σε αναμονή",
     "options": {
       "yes": "Ναι",

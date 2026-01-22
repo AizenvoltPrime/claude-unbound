@@ -34,6 +34,11 @@ const isBash = computed(() => props.toolName === 'Bash');
 const isNewFile = computed(() => !props.originalContent);
 
 const actionLabel = computed(() => {
+  if (props.agentDescription) {
+    if (isBash.value) return t('permission.runCommandAgent', { agent: props.agentDescription });
+    if (isNewFile.value) return t('permission.createFileAgent', { agent: props.agentDescription });
+    return t('permission.editFileAgent', { agent: props.agentDescription });
+  }
   if (isBash.value) return t('permission.runCommand');
   if (isNewFile.value) return t('permission.createFile');
   return t('permission.editFile');
@@ -122,13 +127,9 @@ watch(() => props.visible, (visible) => {
     role="region"
     aria-label="Permission request"
   >
-    <!-- Header with agent badge and queue indicator -->
-    <div class="px-4 pt-2 flex items-center gap-2">
-      <span v-if="agentDescription" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs bg-primary/20 text-primary border border-border">
-        <span class="text-primary">🤖</span>
-        {{ agentDescription }}
-      </span>
-      <span v-if="queueTotal && queueTotal > 1" class="ml-auto text-xs text-muted-foreground">
+    <!-- Header with queue indicator -->
+    <div v-if="queueTotal && queueTotal > 1" class="px-4 pt-2 flex items-center justify-end">
+      <span class="text-xs text-muted-foreground">
         {{ t('permission.queuePosition', { position: queuePosition, total: queueTotal }) }}
       </span>
     </div>
@@ -140,8 +141,10 @@ watch(() => props.visible, (visible) => {
         <div class="mt-2 p-2 bg-card rounded font-mono text-xs text-primary break-all whitespace-pre-wrap">{{ command }}</div>
       </template>
       <template v-else>
-        {{ actionLabel }}
-        <span class="text-muted-foreground break-all">{{ filePath }}</span>?
+        <div class="flex items-baseline gap-1 flex-wrap">
+          <span>{{ actionLabel }}</span>
+          <span class="text-muted-foreground break-all">{{ filePath }}</span>?
+        </div>
       </template>
     </div>
 

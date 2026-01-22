@@ -2,6 +2,13 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.33] - 2026-01-22
+
+### Added
+
+- **Subagent-Scoped Accept All**: When clicking "Accept all edits" on a subagent's permission prompt, only that subagent's subsequent tools are auto-approved. The global session mode (e.g., Plan mode) remains unchanged. This allows granular permission control where each subagent can be independently auto-approved without affecting the main session or other subagents.
+- **Agent Attribution in Permissions**: Permission prompts now show which agent is requesting the action (e.g., "Explorer agent wants to run this command:") for better visibility into subagent behavior.
+
 ## [1.0.32] - 2026-01-22
 
 ### Added
@@ -303,6 +310,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.33]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.32...v1.0.33
 [1.0.32]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.31...v1.0.32
 [1.0.31]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.30...v1.0.31
 [1.0.30]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.29...v1.0.30

@@ -489,6 +489,8 @@ export type WebviewToExtensionMessage =
       toolUseId: string;
       approved: boolean;
       customMessage?: string;
+      acceptAll?: boolean;
+      parentToolUseId?: string;
     }
   | { type: "ready"; savedSessionId?: string }
   // New: Model and settings control
@@ -663,6 +665,7 @@ export type ExtensionToWebviewMessage =
       parentToolUseId?: string | null;
       editLineNumber?: number;
     }
+  | { type: "permissionAutoResolved"; toolUseId: string; parentToolUseId?: string | null }
   // Custom slash commands from .claude/commands/
   | { type: "customSlashCommands"; commands: SlashCommandItem[] }
   // Custom agents from .claude/agents/ and plugin agents

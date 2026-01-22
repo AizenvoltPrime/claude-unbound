@@ -459,9 +459,9 @@ function handleTypeSelected(option: RewindOption) {
 }
 
 function handlePermissionApproval(toolUseId: string, approved: boolean, options?: { acceptAll?: boolean; customMessage?: string }) {
-  streamingStore.updateToolStatus(toolUseId, approved ? 'approved' : 'denied');
+  const permission = permissionStore.pendingPermissions[toolUseId];
 
-  if (options?.acceptAll) {
+  if (options?.acceptAll && !permission?.parentToolUseId) {
     handleSetPermissionMode('acceptEdits');
   }
 
@@ -470,6 +470,8 @@ function handlePermissionApproval(toolUseId: string, approved: boolean, options?
     toolUseId,
     approved,
     customMessage: options?.customMessage,
+    acceptAll: options?.acceptAll,
+    parentToolUseId: permission?.parentToolUseId ?? undefined,
   });
   permissionStore.removePermission(toolUseId);
 }
