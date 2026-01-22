@@ -5,7 +5,7 @@ import {
   listSessions,
   getSessionDirSync,
   getSessionMetadata,
-  extractCommandHistory,
+  extractPromptHistory,
   type StoredSession,
 } from "../session";
 import type { ExtensionToWebviewMessage } from "../../shared/types";
@@ -19,7 +19,8 @@ export interface StorageManagerConfig {
 
 export class StorageManager {
   private allSessionsCache: StoredSession[] | null = null;
-  private commandHistoryCache: string[] | null = null;
+  private promptHistoryCache: string[] | null = null;
+  private pendingPromptEntries: string[] = [];
   private sessionWatcher: vscode.FileSystemWatcher | null = null;
   private readonly workspacePath: string;
   private readonly postMessage: StorageManagerConfig["postMessage"];
@@ -49,7 +50,7 @@ export class StorageManager {
 
   invalidateSessionsCache(): void {
     this.allSessionsCache = null;
-    this.commandHistoryCache = null;
+    this.promptHistoryCache = null;
   }
 
   async addOrUpdateSession(sessionId: string): Promise<void> {
@@ -59,21 +60,24 @@ export class StorageManager {
     await this.upsertSessionInCache(metadata);
   }
 
-  async getCommandHistory(
+  async getPromptHistory(
     offset: number = 0
   ): Promise<{ history: string[]; hasMore: boolean }> {
     if (!this.allSessionsCache) {
       this.allSessionsCache = await listSessions(this.workspacePath);
     }
 
-    if (!this.commandHistoryCache) {
-      const result = await extractCommandHistory(this.workspacePath, this.allSessionsCache);
-      this.commandHistoryCache = result.allHistory;
+    if (!this.promptHistoryCache) {
+      const result = await extractPromptHistory(this.workspacePath, this.allSessionsCache);
+      const diskSet = new Set(result.allHistory);
+      const uniquePending = this.pendingPromptEntries.filter((e) => !diskSet.has(e));
+      this.promptHistoryCache = [...uniquePending, ...result.allHistory];
+      this.pendingPromptEntries = uniquePending;
     }
 
-    const COMMAND_HISTORY_PAGE_SIZE = 100;
-    const pageItems = this.commandHistoryCache.slice(offset, offset + COMMAND_HISTORY_PAGE_SIZE);
-    const hasMore = this.commandHistoryCache.length > offset + COMMAND_HISTORY_PAGE_SIZE;
+    const PROMPT_HISTORY_PAGE_SIZE = 100;
+    const pageItems = this.promptHistoryCache.slice(offset, offset + PROMPT_HISTORY_PAGE_SIZE);
+    const hasMore = this.promptHistoryCache.length > offset + PROMPT_HISTORY_PAGE_SIZE;
 
     return { history: pageItems, hasMore };
   }
@@ -112,10 +116,14 @@ export class StorageManager {
     }
   }
 
-  broadcastCommandHistoryEntry(entry: string): void {
+  broadcastPromptHistoryEntry(entry: string): void {
+    const MAX_PENDING_ENTRIES = 50;
+    this.pendingPromptEntries = [entry, ...this.pendingPromptEntries.filter((e) => e !== entry)].slice(0, MAX_PENDING_ENTRIES);
+    this.promptHistoryCache = null;
+
     for (const [, instance] of this.getPanels()) {
       this.postMessage(instance.panel, {
-        type: "commandHistoryPush",
+        type: "promptHistoryPush",
         entry,
       });
     }

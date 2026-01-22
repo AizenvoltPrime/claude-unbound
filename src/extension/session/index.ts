@@ -64,5 +64,5 @@ export {
 } from './branches';
 
 export {
-  extractCommandHistory,
+  extractPromptHistory,
 } from './history';

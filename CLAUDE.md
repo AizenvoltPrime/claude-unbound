@@ -159,7 +159,7 @@ Sessions are stored in `~/.claude/projects/<encoded-workspace-path>/` as JSONL f
 | `reading.ts`  | List sessions, read entries, extract stats            |
 | `writing.ts`  | Initialize sessions, persist messages, rename/delete  |
 | `branches.ts` | Active branch resolution (handles conversation forks) |
-| `history.ts`  | Command history extraction for up/down navigation     |
+| `history.ts`  | Prompt history extraction for up/down navigation      |
 | `parsing.ts`  | Parse content blocks from JSONL entries               |
 
 ## Code Quality Standards

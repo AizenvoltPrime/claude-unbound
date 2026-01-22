@@ -5,7 +5,7 @@ import type { ExtensionToWebviewMessage } from '@shared/types';
 const MAX_LOCAL_HISTORY_SIZE = 500;
 const PREFETCH_THRESHOLD = 25;
 
-export function useCommandHistory() {
+export function usePromptHistory() {
   const { postMessage, onMessage } = useVSCode();
 
   const history = ref<string[]>([]);
@@ -28,7 +28,7 @@ export function useCommandHistory() {
   let pendingLoadMore = false;
 
   function handleMessage(message: ExtensionToWebviewMessage) {
-    if (message.type === 'commandHistory') {
+    if (message.type === 'promptHistory') {
       const loadedSet = new Set(message.history);
       const pushedEntries = history.value.filter(item => !loadedSet.has(item));
 
@@ -50,7 +50,7 @@ export function useCommandHistory() {
         historyIndex.value = 0;
         pendingNavigate = false;
       }
-    } else if (message.type === 'commandHistoryPush') {
+    } else if (message.type === 'promptHistoryPush') {
       const entry = message.entry;
       const currentEntry = historyIndex.value >= 0 ? history.value[historyIndex.value] : null;
       const previousLength = history.value.length;
@@ -81,7 +81,7 @@ export function useCommandHistory() {
     if (!isLoaded.value && !isLoading.value) {
       isLoading.value = true;
       pendingNavigate = true;
-      postMessage({ type: 'requestCommandHistory' });
+      postMessage({ type: 'requestPromptHistory' });
       return;
     }
 
@@ -96,12 +96,12 @@ export function useCommandHistory() {
       if (distanceFromEnd <= PREFETCH_THRESHOLD && hasMore.value && !isLoading.value) {
         isLoading.value = true;
         pendingLoadMore = true;
-        postMessage({ type: 'requestCommandHistory', offset: history.value.length });
+        postMessage({ type: 'requestPromptHistory', offset: history.value.length });
       }
     } else if (hasMore.value && !isLoading.value) {
       isLoading.value = true;
       pendingLoadMore = true;
-      postMessage({ type: 'requestCommandHistory', offset: history.value.length });
+      postMessage({ type: 'requestPromptHistory', offset: history.value.length });
     }
   }
 

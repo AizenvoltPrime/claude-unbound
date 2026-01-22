@@ -26,8 +26,7 @@ export function isSubagentCorrelationEntry(entry: ClaudeSessionEntry): entry is 
 
 export const TOOL_RESULT_PREVIEW_LENGTH = 500;
 export const COMPACT_SUMMARY_SEARCH_DEPTH = 20;
-export const COMMAND_HISTORY_PAGE_SIZE = 50;
-export const MAX_COMMAND_HISTORY = 500;
+export const MAX_PROMPT_HISTORY = 500;
 
 export type JsonlContentBlock =
   | { type: 'text'; text: string }

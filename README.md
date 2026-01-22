@@ -37,10 +37,10 @@
 - **Image Attachments**: Paste images from clipboard directly into chat (supports PNG, JPEG, GIF, WebP up to 5MB)
 - **IDE Context**: Automatically include the active file or selected code in your message (toggleable in input bar)
 - **Slash Commands**: Type `/` for built-in commands (`/clear`, `/compact`, `/rewind`, etc.) and custom commands from `.claude/commands/`
-- **Command History**: Navigate previous prompts with arrow keys (shell-style)
+- **Prompt History**: Navigate previous prompts with arrow keys (shell-style)
 - **Session Management**: Create, rename, resume, and delete sessions with confirmation
 - **Panel Persistence**: Panels and active sessions survive VS Code restarts
-- **Multi-Panel Sync**: Command history syncs across all open panels instantly
+- **Multi-Panel Sync**: Prompt history syncs across all open panels instantly
 - **Context Stats**: Live tracking of token usage, cache activity, context window %, and session cost
 - **Session Logs**: Quick access button to open the raw JSONL session file (also works for subagent logs)
 - **Model Selection**: Switch between Opus 4.5, Sonnet 4.5, and Haiku 4.5
@@ -78,7 +78,7 @@
 ### Keyboard Shortcuts
 
 - `Ctrl+Shift+U` / `Cmd+Shift+U`: Focus the chat panel
-- `↑` / `↓`: Navigate through command history (like terminal shell)
+- `↑` / `↓`: Navigate through prompt history (like terminal shell)
 - `Shift+Tab`: Cycle through permission modes
 - `Escape`: Cancel current request (when processing)
 - `Escape Escape`: Open rewind popup to restore previous state

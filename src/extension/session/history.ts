@@ -1,6 +1,6 @@
 import { extractSlashCommandDisplay } from '@shared/utils';
 import type { JsonlContentBlock, StoredSession } from './types';
-import { SDK_GENERATED_PREFIXES, MAX_COMMAND_HISTORY } from './types';
+import { SDK_GENERATED_PREFIXES, MAX_PROMPT_HISTORY } from './types';
 import { findUserTextBlock } from './parsing';
 import { readSessionEntries } from './reading';
 
@@ -8,7 +8,7 @@ function isSdkGeneratedMessage(text: string): boolean {
   return SDK_GENERATED_PREFIXES.some(prefix => text.startsWith(prefix));
 }
 
-function cleanCommandWrapper(text: string): string {
+function cleanPromptWrapper(text: string): string {
   const commandDisplay = extractSlashCommandDisplay(text);
   if (commandDisplay) {
     return commandDisplay;
@@ -23,13 +23,13 @@ function cleanCommandWrapper(text: string): string {
 
 function extractUserMessageText(content: string | JsonlContentBlock[]): string {
   if (typeof content === 'string') {
-    return cleanCommandWrapper(content);
+    return cleanPromptWrapper(content);
   }
 
   if (Array.isArray(content)) {
     const textBlock = findUserTextBlock(content);
     if (textBlock) {
-      return cleanCommandWrapper(textBlock.text);
+      return cleanPromptWrapper(textBlock.text);
     }
   }
 
@@ -60,7 +60,7 @@ async function extractPromptsFromSession(
   return userPrompts.reverse();
 }
 
-export async function extractCommandHistory(
+export async function extractPromptHistory(
   workspacePath: string,
   sessions: StoredSession[]
 ): Promise<{ allHistory: string[] }> {
@@ -75,13 +75,13 @@ export async function extractCommandHistory(
 
   for (const prompts of sessionPrompts) {
     for (const text of prompts) {
-      if (allHistory.length >= MAX_COMMAND_HISTORY) break;
+      if (allHistory.length >= MAX_PROMPT_HISTORY) break;
       if (seen.has(text)) continue;
 
       seen.add(text);
       allHistory.push(text);
     }
-    if (allHistory.length >= MAX_COMMAND_HISTORY) break;
+    if (allHistory.length >= MAX_PROMPT_HISTORY) break;
   }
 
   return { allHistory };

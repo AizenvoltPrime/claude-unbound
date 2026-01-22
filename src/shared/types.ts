@@ -522,8 +522,8 @@ export type WebviewToExtensionMessage =
   | { type: "requestMoreHistory"; sessionId: string; offset: number }
   // Session list pagination
   | { type: "requestMoreSessions"; offset: number }
-  // Command history navigation (arrow up/down)
-  | { type: "requestCommandHistory"; offset?: number }
+  // Prompt history navigation (arrow up/down)
+  | { type: "requestPromptHistory"; offset?: number }
   // Workspace file listing for @ mentions
   | { type: "requestWorkspaceFiles" }
   // Open file in editor (from clickable file paths)
@@ -644,10 +644,10 @@ export type ExtensionToWebviewMessage =
   | { type: "errorReplay"; content: string }
   // History pagination (includes tool calls for Edit/Write/etc.)
   | { type: "historyChunk"; messages: HistoryMessage[]; hasMore: boolean; nextOffset: number }
-  // Command history (for arrow up/down navigation)
-  | { type: "commandHistory"; history: string[]; hasMore: boolean }
-  // Broadcast new command to all panels
-  | { type: "commandHistoryPush"; entry: string }
+  // Prompt history (for arrow up/down navigation)
+  | { type: "promptHistory"; history: string[]; hasMore: boolean }
+  // Broadcast new prompt to all panels
+  | { type: "promptHistoryPush"; entry: string }
   // Panel visibility changed (for auto-focus)
   | { type: "panelFocused" }
   // Workspace file listing response for @ mentions

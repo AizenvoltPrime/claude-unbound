@@ -2,6 +2,16 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.34] - 2026-01-23
+
+### Fixed
+
+- **Prompt History Not Syncing Across Panels**: Fixed two issues preventing prompt history from syncing correctly: (1) cache not being invalidated when broadcasting new entries, causing newly opened panels to show stale history; (2) race condition where prompts submitted in a single-panel session weren't available when opening a new panel before the SDK wrote to disk. Implemented pending entries buffer that merges with disk history on cache rebuild.
+
+### Changed
+
+- **Renamed Command History to Prompt History**: Updated terminology throughout codebase and documentation to use "prompt history" instead of "command history" for better clarity.
+
 ## [1.0.33] - 2026-01-22
 
 ### Added
@@ -310,6 +320,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.34]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.33...v1.0.34
 [1.0.33]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.32...v1.0.33
 [1.0.32]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.31...v1.0.32
 [1.0.31]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.30...v1.0.31

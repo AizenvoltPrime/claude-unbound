@@ -12,7 +12,7 @@ import {
   IconEye,
   IconCode,
 } from '@/components/icons';
-import { useCommandHistory } from '@/composables/useCommandHistory';
+import { usePromptHistory } from '@/composables/usePromptHistory';
 import { useAtMentionAutocomplete } from '@/composables/useAtMentionAutocomplete';
 import { useSlashCommandAutocomplete } from '@/composables/useSlashCommandAutocomplete';
 import { useImageAttachments } from '@/composables/useImageAttachments';
@@ -106,7 +106,7 @@ const {
   getOriginalInput,
   clearRestoreFlag,
   addEntry,
-} = useCommandHistory();
+} = usePromptHistory();
 
 watch(currentEntry, (entry) => {
   if (entry !== null) {

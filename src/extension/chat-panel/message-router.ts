@@ -130,7 +130,7 @@ export class MessageRouter {
         this.postMessage(ctx.panel, { type: "userMessage", content: originalTextContent, contentBlocks, correlationId });
 
         if (originalTextContent.trim()) {
-          this.storageManager.broadcastCommandHistoryEntry(originalTextContent.trim());
+          this.storageManager.broadcastPromptHistoryEntry(originalTextContent.trim());
         }
 
         // Use transformed content for skill invocations, original for everything else
@@ -174,7 +174,7 @@ export class MessageRouter {
         if (injected) {
           this.postMessage(ctx.panel, { type: "messageQueued", message: queuedMessage });
           if (textContent.trim()) {
-            this.storageManager.broadcastCommandHistoryEntry(textContent.trim());
+            this.storageManager.broadcastPromptHistoryEntry(textContent.trim());
           }
         } else {
           this.postMessage(ctx.panel, {
@@ -313,10 +313,10 @@ export class MessageRouter {
         this.postMessage(ctx.panel, { type: "languageChange", locale: this.getLanguagePreference() });
 
         try {
-          const { history, hasMore } = await this.storageManager.getCommandHistory(0);
-          this.postMessage(ctx.panel, { type: "commandHistory", history, hasMore });
+          const { history, hasMore } = await this.storageManager.getPromptHistory(0);
+          this.postMessage(ctx.panel, { type: "promptHistory", history, hasMore });
         } catch (err) {
-          log("[MessageRouter] Error pre-loading command history:", err);
+          log("[MessageRouter] Error pre-loading prompt history:", err);
         }
 
         if (msg.type === "ready" && msg.savedSessionId) {
@@ -743,15 +743,15 @@ export class MessageRouter {
         });
       },
 
-      requestCommandHistory: async (msg, ctx) => {
-        if (msg.type !== "requestCommandHistory") return;
+      requestPromptHistory: async (msg, ctx) => {
+        if (msg.type !== "requestPromptHistory") return;
         try {
           const offset = msg.offset ?? 0;
-          const { history, hasMore } = await this.storageManager.getCommandHistory(offset);
-          this.postMessage(ctx.panel, { type: "commandHistory", history, hasMore });
+          const { history, hasMore } = await this.storageManager.getPromptHistory(offset);
+          this.postMessage(ctx.panel, { type: "promptHistory", history, hasMore });
         } catch (err) {
-          log("Failed to extract command history:", err);
-          this.postMessage(ctx.panel, { type: "commandHistory", history: [], hasMore: false });
+          log("Failed to extract prompt history:", err);
+          this.postMessage(ctx.panel, { type: "promptHistory", history: [], hasMore: false });
         }
       },
 
