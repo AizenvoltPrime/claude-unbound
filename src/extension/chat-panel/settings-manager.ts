@@ -236,6 +236,7 @@ export class SettingsManager {
       defaultPermissionMode: config.get<PermissionMode>("permissionMode", "default"),
       enableFileCheckpointing: config.get<boolean>("enableFileCheckpointing", true),
       sandbox: config.get<{ enabled: boolean }>("sandbox", { enabled: false }),
+      dangerouslySkipPermissions: permissionHandler.getDangerouslySkipPermissions(),
     };
     this.postMessage(panel, { type: "settingsUpdate", settings });
   }
@@ -402,6 +403,10 @@ export class SettingsManager {
 
   async handleSetDefaultPermissionMode(mode: PermissionMode): Promise<void> {
     await updateConfigAtEffectiveScope("claude-unbound", "permissionMode", mode);
+  }
+
+  handleSetDangerouslySkipPermissions(permissionHandler: PermissionHandler, enabled: boolean): void {
+    permissionHandler.setDangerouslySkipPermissions(enabled);
   }
 
   async loadProviderProfiles(): Promise<void> {

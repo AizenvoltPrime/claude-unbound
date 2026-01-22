@@ -2,7 +2,7 @@
   "name": "claude-unbound",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.0.31",
+  "version": "1.0.32",
   "publisher": "Aizenvolt",
   "icon": "resources/icon.png",
   "license": "MIT",
@@ -81,13 +81,11 @@
           "enum": [
             "default",
             "acceptEdits",
-            "bypassPermissions",
             "plan"
           ],
           "enumDescriptions": [
             "%configuration.permissionMode.default%",
             "%configuration.permissionMode.acceptEdits%",
-            "%configuration.permissionMode.bypassPermissions%",
             "%configuration.permissionMode.plan%"
           ],
           "description": "%configuration.permissionMode.description%"

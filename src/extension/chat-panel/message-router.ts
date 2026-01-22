@@ -153,8 +153,10 @@ export class MessageRouter {
         ctx.session.cancel();
       },
 
-      clearSession: (_msg, ctx) => {
+      clearSession: async (_msg, ctx) => {
         ctx.session.clear();
+        ctx.permissionHandler.setDangerouslySkipPermissions(false);
+        await this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
         this.postMessage(ctx.panel, { type: "conversationCleared" });
       },
 
@@ -378,6 +380,12 @@ export class MessageRouter {
       setDefaultPermissionMode: async (msg) => {
         if (msg.type !== "setDefaultPermissionMode") return;
         await this.settingsManager.handleSetDefaultPermissionMode(msg.mode);
+      },
+
+      setDangerouslySkipPermissions: async (msg, ctx) => {
+        if (msg.type !== "setDangerouslySkipPermissions") return;
+        this.settingsManager.handleSetDangerouslySkipPermissions(ctx.permissionHandler, msg.enabled);
+        await this.settingsManager.sendCurrentSettings(ctx.panel, ctx.permissionHandler);
       },
 
       // Rewind operations

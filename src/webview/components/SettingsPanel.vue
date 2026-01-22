@@ -63,7 +63,6 @@ const emit = defineEmits<{
 const permissionModeOptions = computed<{ value: PermissionMode; label: string; description: string }[]>(() => [
   { value: 'default', label: t('settings.permissionOptions.default.label'), description: t('settings.permissionOptions.default.description') },
   { value: 'acceptEdits', label: t('settings.permissionOptions.acceptEdits.label'), description: t('settings.permissionOptions.acceptEdits.description') },
-  { value: 'bypassPermissions', label: t('settings.permissionOptions.bypassPermissions.label'), description: t('settings.permissionOptions.bypassPermissions.description') },
   { value: 'plan', label: t('settings.permissionOptions.plan.label'), description: t('settings.permissionOptions.plan.description') },
 ]);
 

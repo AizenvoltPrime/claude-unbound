@@ -29,6 +29,7 @@ const MAX_TEXTAREA_HEIGHT = 200;
 const props = defineProps<{
   isProcessing: boolean;
   permissionMode: PermissionMode;
+  dangerouslySkipPermissions: boolean;
   settingsOpen?: boolean;
 }>();
 
@@ -37,6 +38,7 @@ const emit = defineEmits<{
   queue: [content: string | UserContentBlock[]];
   cancel: [];
   changeMode: [mode: PermissionMode];
+  toggleDangerouslySkipPermissions: [];
 }>();
 
 const inputText = ref('');
@@ -138,11 +140,10 @@ const canSend = computed(() => inputText.value.trim().length > 0 || hasImageAtta
 const modeConfig = computed<Record<PermissionMode, { icon: Component; label: string; shortLabel: string }>>(() => ({
   default: { icon: IconPencil, label: t('chatInput.permissionModes.default.label'), shortLabel: t('chatInput.permissionModes.default.short') },
   acceptEdits: { icon: IconCheck, label: t('chatInput.permissionModes.acceptEdits.label'), shortLabel: t('chatInput.permissionModes.acceptEdits.short') },
-  bypassPermissions: { icon: IconBolt, label: t('chatInput.permissionModes.bypassPermissions.label'), shortLabel: t('chatInput.permissionModes.bypassPermissions.short') },
   plan: { icon: IconClipboard, label: t('chatInput.permissionModes.plan.label'), shortLabel: t('chatInput.permissionModes.plan.short') },
 }));
 
-const modeOrder: PermissionMode[] = ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
+const modeOrder: PermissionMode[] = ['default', 'acceptEdits', 'plan'];
 
 const currentModeConfig = computed(() => modeConfig.value[props.permissionMode]);
 
@@ -150,6 +151,10 @@ function cycleMode() {
   const currentIndex = modeOrder.indexOf(props.permissionMode);
   const nextIndex = (currentIndex + 1) % modeOrder.length;
   emit('changeMode', modeOrder[nextIndex]);
+}
+
+function toggleDangerouslySkipPermissions() {
+  emit('toggleDangerouslySkipPermissions');
 }
 
 const ideContextLabel = computed(() => {
@@ -381,6 +386,22 @@ onUnmounted(() => {
             >
               <component :is="currentModeConfig.icon" :size="12" />
               <span>{{ currentModeConfig.label }}</span>
+            </Button>
+
+            <!-- YOLO mode toggle -->
+            <Button
+              variant="ghost"
+              size="sm"
+              class="h-auto px-2 py-1 text-xs flex items-center gap-1.5"
+              :class="dangerouslySkipPermissions
+                ? 'text-destructive hover:text-destructive/80 bg-destructive/10'
+                : 'text-muted-foreground hover:text-foreground'"
+              :disabled="isProcessing"
+              @click="toggleDangerouslySkipPermissions"
+              :title="t('chatInput.yolo.tooltip')"
+            >
+              <IconBolt :size="12" />
+              <span>{{ dangerouslySkipPermissions ? t('chatInput.yolo.active') : t('chatInput.yolo.inactive') }}</span>
             </Button>
 
             <!-- IDE Context toggle -->

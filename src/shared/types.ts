@@ -171,7 +171,7 @@ export interface ProviderProfile {
 }
 
 // Permission modes from SDK
-export type PermissionMode = "default" | "acceptEdits" | "bypassPermissions" | "plan";
+export type PermissionMode = "default" | "acceptEdits" | "plan";
 
 // Agent definition matching SDK's AgentDefinition type
 export interface AgentDefinition {
@@ -219,6 +219,7 @@ export interface ExtensionSettings {
   defaultPermissionMode: PermissionMode;    // Global default for new panels (persisted)
   enableFileCheckpointing: boolean;
   sandbox: SandboxConfig;
+  dangerouslySkipPermissions: boolean;      // Skip all permission prompts (works with any mode)
 }
 
 // Checkpoint info for file rewind functionality
@@ -498,6 +499,7 @@ export type WebviewToExtensionMessage =
   | { type: "toggleBeta"; beta: string; enabled: boolean }
   | { type: "setPermissionMode"; mode: PermissionMode }
   | { type: "setDefaultPermissionMode"; mode: PermissionMode }
+  | { type: "setDangerouslySkipPermissions"; enabled: boolean }
   // New: File rewind
   | { type: "rewindToMessage"; userMessageId: string; option: RewindOption; promptContent?: string }
   | { type: "requestRewindHistory" }

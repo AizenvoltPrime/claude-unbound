@@ -46,14 +46,15 @@
         "label": "Αποδοχή αλλαγών",
         "short": "Αποδοχή"
       },
-      "bypassPermissions": {
-        "label": "Παράκαμψη αδειών",
-        "short": "Παράκαμψη"
-      },
       "plan": {
         "label": "Λειτουργία σχεδίου",
         "short": "Σχέδιο"
       }
+    },
+    "yolo": {
+      "tooltip": "YOLO mode - αυτόματη έγκριση όλων των εργαλείων (εκτός έγκρισης σχεδίου και ερωτήσεων)",
+      "active": "YOLO",
+      "inactive": "YOLO"
     }
   },
   "settings": {
@@ -99,10 +100,6 @@
       "acceptEdits": {
         "label": "Αποδοχή αλλαγών",
         "description": "Αυτόματη έγκριση αλλαγών αρχείων"
-      },
-      "bypassPermissions": {
-        "label": "Παράκαμψη όλων",
-        "description": "Αυτόματη έγκριση όλων"
       },
       "plan": {
         "label": "Λειτουργία σχεδίου",

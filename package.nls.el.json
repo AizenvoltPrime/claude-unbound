@@ -8,7 +8,6 @@
   "configuration.permissionMode.description": "Πώς να διαχειρίζεστε τις άδειες εργαλείων",
   "configuration.permissionMode.default": "Τυπική συμπεριφορά - ερωτήσεις για επικίνδυνες λειτουργίες",
   "configuration.permissionMode.acceptEdits": "Αυτόματη αποδοχή λειτουργιών επεξεργασίας αρχείων",
-  "configuration.permissionMode.bypassPermissions": "Παράκαμψη όλων των ελέγχων αδειών (χρήση με προσοχή)",
   "configuration.permissionMode.plan": "Λειτουργία σχεδιασμού - μόνο ανάγνωση, χωρίς εκτέλεση",
   "configuration.maxTurns.description": "Μέγιστος αριθμός γύρων συνομιλίας ανά συνεδρία",
   "configuration.model.description": "Μοντέλο Claude προς χρήση (κενό για προεπιλογή). Παραδείγματα: claude-sonnet-4-5-20250929, claude-opus-4-20250514",

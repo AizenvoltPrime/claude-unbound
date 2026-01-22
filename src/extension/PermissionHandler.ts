@@ -81,6 +81,7 @@ export class PermissionHandler {
   private autoApprovedSkills: Set<string> = new Set();
   private postMessageToWebview: ((msg: ExtensionToWebviewMessage) => void) | null = null;
   private _permissionMode: PermissionMode = 'default';
+  private _dangerouslySkipPermissions: boolean = false;
 
   constructor(private extensionUri: vscode.Uri) {
     this.diffManager = new DiffManager();
@@ -105,6 +106,14 @@ export class PermissionHandler {
     return this._permissionMode;
   }
 
+  setDangerouslySkipPermissions(enabled: boolean): void {
+    this._dangerouslySkipPermissions = enabled;
+  }
+
+  getDangerouslySkipPermissions(): boolean {
+    return this._dangerouslySkipPermissions;
+  }
+
   setPostMessage(fn: (msg: ExtensionToWebviewMessage) => void): void {
     this.postMessageToWebview = fn;
   }
@@ -114,12 +123,12 @@ export class PermissionHandler {
     input: Record<string, unknown>,
     context: CanUseToolContext
   ): Promise<PermissionResult> {
-    if (this._permissionMode === 'bypassPermissions') {
-      return { behavior: 'allow', updatedInput: input };
-    }
-
     if (toolName === 'EnterPlanMode') {
       if (this._permissionMode === 'plan') {
+        return { behavior: 'allow', updatedInput: input };
+      }
+
+      if (this._dangerouslySkipPermissions) {
         return { behavior: 'allow', updatedInput: input };
       }
 
@@ -163,7 +172,7 @@ export class PermissionHandler {
     }
 
     if (toolName === 'Edit' || toolName === 'Write') {
-      if (this._permissionMode === 'acceptEdits') {
+      if (this._permissionMode === 'acceptEdits' || this._dangerouslySkipPermissions) {
         return { behavior: 'allow', updatedInput: input };
       }
       const typedInput = input as unknown as FileEditInput | FileWriteInput;
@@ -183,6 +192,10 @@ export class PermissionHandler {
     }
 
     if (toolName === 'Bash') {
+      if (this._dangerouslySkipPermissions) {
+        return { behavior: 'allow', updatedInput: input };
+      }
+
       const result = await this.requestBashPermissionFromWebview(input, context);
 
       if (!result.approved) {
@@ -233,7 +246,7 @@ export class PermissionHandler {
     if (toolName === 'Skill') {
       const skillName = typeof input.skill === 'string' ? input.skill : '';
 
-      if (this.autoApprovedSkills.has(skillName)) {
+      if (this.autoApprovedSkills.has(skillName) || this._dangerouslySkipPermissions) {
         return { behavior: 'allow', updatedInput: input };
       }
 
@@ -255,6 +268,10 @@ export class PermissionHandler {
         this.autoApprovedSkills.add(skillName);
       }
 
+      return { behavior: 'allow', updatedInput: input };
+    }
+
+    if (this._dangerouslySkipPermissions) {
       return { behavior: 'allow', updatedInput: input };
     }
 

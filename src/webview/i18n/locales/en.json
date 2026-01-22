@@ -46,14 +46,15 @@
         "label": "Accept edits",
         "short": "Accept"
       },
-      "bypassPermissions": {
-        "label": "Bypass permissions",
-        "short": "Bypass"
-      },
       "plan": {
         "label": "Plan mode",
         "short": "Plan"
       }
+    },
+    "yolo": {
+      "tooltip": "YOLO mode - auto-approve all tool calls (except plan approval and questions)",
+      "active": "YOLO",
+      "inactive": "YOLO"
     }
   },
   "settings": {
@@ -99,10 +100,6 @@
       "acceptEdits": {
         "label": "Accept edits",
         "description": "Auto-approve file changes"
-      },
-      "bypassPermissions": {
-        "label": "Bypass all",
-        "description": "Auto-approve everything"
       },
       "plan": {
         "label": "Plan mode",

@@ -8,7 +8,6 @@
   "configuration.permissionMode.description": "How to handle tool permissions",
   "configuration.permissionMode.default": "Standard behavior - prompts for dangerous operations",
   "configuration.permissionMode.acceptEdits": "Auto-accept file edit operations",
-  "configuration.permissionMode.bypassPermissions": "Bypass all permission checks (use with caution)",
   "configuration.permissionMode.plan": "Planning mode - read-only, no execution",
   "configuration.maxTurns.description": "Maximum conversation turns per session",
   "configuration.model.description": "Claude model to use (empty for default). Examples: claude-sonnet-4-5-20250929, claude-opus-4-20250514",

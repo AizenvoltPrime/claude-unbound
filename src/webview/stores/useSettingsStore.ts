@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   defaultPermissionMode: 'default',
   enableFileCheckpointing: true,
   sandbox: { enabled: false },
+  dangerouslySkipPermissions: false,
 };
 
 export interface BudgetWarningState {
@@ -70,6 +71,10 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function setDefaultPermissionMode(mode: PermissionMode) {
     currentSettings.value.defaultPermissionMode = mode;
+  }
+
+  function setDangerouslySkipPermissions(enabled: boolean) {
+    currentSettings.value.dangerouslySkipPermissions = enabled;
   }
 
   function setAvailableModels(models: ModelInfo[]) {
@@ -160,6 +165,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setBudgetLimit,
     toggleBeta,
     setDefaultPermissionMode,
+    setDangerouslySkipPermissions,
     setAvailableModels,
     setAccountInfo,
     setMcpServers,

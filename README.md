@@ -46,6 +46,7 @@
 - **Model Selection**: Switch between Opus 4.5, Sonnet 4.5, and Haiku 4.5
 - **Extended Thinking**: Toggle thinking mode on/off with adjustable token budget (1K-64K)
 - **Per-Panel Permission Mode**: Each panel can have its own permission mode independent of the global default
+- **YOLO Mode**: Toggle to auto-approve all tool calls (except plan approval and questions). Ephemeral setting that resets on session clear.
 - **Plan Mode**: When enabled, Claude creates implementation plans for your approval before making changes. Review plans in a modal, approve with auto-accept or manual mode, or request revisions with feedback. View session plan anytime via the header button
 - **Clear Context & Auto-Accept**: Plan approval option that clears conversation context and starts fresh with the plan injected (matches Claude Code CLI behavior). Preserves planning session as reference while implementation runs in a clean session
 - **Bind Plan to Session**: Inject a custom plan file into the session via the link icon in the header. Claude is notified of the plan file path so it can reference the plan.
@@ -221,13 +222,13 @@ When you activate a profile, the session automatically restarts with the new pro
 
 ## Configuration
 
-| Setting                                | Description                                                                            | Default   |
-| -------------------------------------- | -------------------------------------------------------------------------------------- | --------- |
-| `claude-unbound.permissionMode`        | How to handle tool permissions (`default`, `acceptEdits`, `bypassPermissions`, `plan`) | `default` |
-| `claude-unbound.maxTurns`              | Maximum conversation turns per session                                                 | `100`     |
-| `claude-unbound.maxIndexedFiles`       | Maximum files to index for @ mention autocomplete                                      | `5000`    |
-| `claude-unbound.providerProfiles`      | Array of provider profile names (credentials stored securely in OS keychain)           | `[]`      |
-| `claude-unbound.activeProviderProfile` | Currently active provider profile name                                                 | `null`    |
+| Setting                                | Description                                                                  | Default   |
+| -------------------------------------- | ---------------------------------------------------------------------------- | --------- |
+| `claude-unbound.permissionMode`        | How to handle tool permissions (`default`, `acceptEdits`, `plan`)            | `default` |
+| `claude-unbound.maxTurns`              | Maximum conversation turns per session                                       | `100`     |
+| `claude-unbound.maxIndexedFiles`       | Maximum files to index for @ mention autocomplete                            | `5000`    |
+| `claude-unbound.providerProfiles`      | Array of provider profile names (credentials stored securely in OS keychain) | `[]`      |
+| `claude-unbound.activeProviderProfile` | Currently active provider profile name                                       | `null`    |
 
 ## Localization
 

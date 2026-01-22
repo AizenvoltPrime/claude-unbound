@@ -212,6 +212,12 @@ function handleModeChange(mode: PermissionMode) {
   settingsStore.setPermissionMode(mode);
 }
 
+function handleToggleDangerouslySkipPermissions() {
+  const newValue = !currentSettings.value.dangerouslySkipPermissions;
+  postMessage({ type: 'setDangerouslySkipPermissions', enabled: newValue });
+  settingsStore.setDangerouslySkipPermissions(newValue);
+}
+
 function handleCancel() {
   postMessage({ type: 'cancelSession' });
 }
@@ -881,11 +887,13 @@ const rewindMessagePreview = computed(() => {
       ref="chatInputRef"
       :is-processing="isProcessing"
       :permission-mode="currentSettings.permissionMode"
+      :dangerously-skip-permissions="currentSettings.dangerouslySkipPermissions"
       :settings-open="showSettingsPanel"
       @send="handleSendMessage"
       @queue="handleQueueMessage"
       @cancel="handleCancel"
       @change-mode="handleModeChange"
+      @toggle-dangerously-skip-permissions="handleToggleDangerouslySkipPermissions"
     />
 
     <!-- Settings Panel (overlay) -->

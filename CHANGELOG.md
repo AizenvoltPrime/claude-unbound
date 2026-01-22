@@ -2,6 +2,16 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.32] - 2026-01-22
+
+### Added
+
+- **YOLO Mode**: New toggle button that auto-approves all tool calls (except plan approval and questions). Ephemeral per-panel setting that resets on session clear and VS Code restart. Replaces the previous `bypassPermissions` mode.
+
+### Changed
+
+- **Removed `bypassPermissions` Mode**: The persisted `bypassPermissions` permission mode has been removed from VS Code settings.
+
 ## [1.0.31] - 2026-01-21
 
 ### Added
@@ -293,6 +303,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.32]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.31...v1.0.32
 [1.0.31]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.30...v1.0.31
 [1.0.30]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.29...v1.0.30
 [1.0.29]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.28...v1.0.29
