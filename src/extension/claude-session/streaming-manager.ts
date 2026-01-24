@@ -418,62 +418,168 @@ export class StreamingManager {
     const streamParentToolUseId = (message.parent_tool_use_id as string | null) ?? null;
     const event = message.event as {
       type: string;
-      message?: { id: string };
-      delta?: { type: string; text?: string; thinking?: string };
+      message?: { id: string; usage?: { input_tokens?: number; output_tokens?: number } };
+      index?: number;
+      content_block?: { type: string; id?: string; name?: string };
+      delta?: {
+        type: string;
+        text?: string;
+        thinking?: string;
+        partial_json?: string;
+        signature?: string;
+        stop_reason?: string;
+      };
+      usage?: { output_tokens?: number };
     };
 
-    if (event.type === 'message_start' && event.message?.id) {
-      if (this.streamingContent.messageId && this.streamingContent.messageId !== event.message.id) {
-        this.flushPendingAssistant();
-      }
-      this.streamingContent = createEmptyStreamingContent();
-      this.streamingContent.messageId = event.message.id;
-      this.streamingContent.parentToolUseId = streamParentToolUseId;
+    switch (event.type) {
+      case 'message_start':
+        this.handleMessageStart(event, streamParentToolUseId);
+        break;
+      case 'content_block_start':
+        this.handleContentBlockStart(event, streamParentToolUseId);
+        break;
+      case 'content_block_delta':
+        this.handleContentBlockDelta(event);
+        break;
+      case 'content_block_stop':
+        this.handleContentBlockStop();
+        break;
+      case 'message_delta':
+        this.handleMessageDelta(event);
+        break;
+      case 'message_stop':
+        log('[StreamingManager] Message stream complete');
+        break;
+      case 'ping':
+        break;
+      default:
+        log('[StreamingManager] Unknown stream event type: %s', event.type);
+    }
+  }
+
+  private handleMessageStart(
+    event: { message?: { id: string } },
+    parentToolUseId: string | null
+  ): void {
+    if (!event.message?.id) return;
+
+    if (this.streamingContent.messageId && this.streamingContent.messageId !== event.message.id) {
+      this.flushPendingAssistant();
     }
 
-    if (event.type === 'content_block_delta') {
-      if (event.delta?.type === 'thinking_delta' && event.delta.thinking) {
-        if (!this.streamingContent.thinkingStartTime) {
-          this.streamingContent.thinkingStartTime = Date.now();
-        }
-        this.streamingContent.thinking += event.delta.thinking;
-        this.streamingContent.isThinking = true;
-        if (!this.streamingContent.hasStreamedTools) {
-          this.callbacks.onMessage({
-            type: 'partial',
-            data: {
-              type: 'partial',
-              content: [],
-              session_id: this._sessionId || '',
-              messageId: this.streamingContent.messageId,
-              streamingThinking: this.streamingContent.thinking,
-              isThinking: true,
-            },
-            parentToolUseId: this.streamingContent.parentToolUseId,
-          });
-        }
-      } else if (event.delta?.type === 'text_delta' && event.delta.text) {
-        this.calculateThinkingDurationIfNeeded();
-        this.streamingContent.text += event.delta.text;
-        if (isLocalCommandText(this.streamingContent.text)) {
-          log('[StreamingManager] Filtering local command text from streaming');
-          return;
-        }
-        this.callbacks.onMessage({
-          type: 'partial',
-          data: {
-            type: 'partial',
-            content: [],
-            session_id: this._sessionId || '',
-            messageId: this.streamingContent.messageId,
-            streamingThinking: this.streamingContent.thinking,
-            streamingText: this.streamingContent.text,
-            isThinking: false,
-            thinkingDuration: this.streamingContent.thinkingDuration ?? undefined,
-          },
-          parentToolUseId: this.streamingContent.parentToolUseId,
-        });
+    this.streamingContent = createEmptyStreamingContent();
+    this.streamingContent.messageId = event.message.id;
+    this.streamingContent.parentToolUseId = parentToolUseId;
+  }
+
+  private handleContentBlockStart(
+    event: { index?: number; content_block?: { type: string; id?: string; name?: string } },
+    _parentToolUseId: string | null
+  ): void {
+    const index = event.index;
+    const block = event.content_block;
+    if (index === undefined || !block) return;
+
+    this.streamingContent.activeBlockIndex = index;
+    this.streamingContent.activeBlockType = block.type as 'text' | 'thinking' | 'tool_use' | null;
+
+    if (block.type === 'tool_use' && block.id) {
+      this.streamingContent.activeToolId = block.id;
+    } else if (block.type === 'thinking') {
+      if (!this.streamingContent.thinkingStartTime) {
+        this.streamingContent.thinkingStartTime = Date.now();
       }
+      this.streamingContent.isThinking = true;
+    }
+  }
+
+  private handleContentBlockDelta(
+    event: { delta?: { type: string; text?: string; thinking?: string } }
+  ): void {
+    const delta = event.delta;
+    if (!delta) return;
+
+    switch (delta.type) {
+      case 'thinking_delta':
+        this.handleThinkingDelta(delta.thinking || '');
+        break;
+      case 'text_delta':
+        this.handleTextDelta(delta.text || '');
+        break;
+    }
+  }
+
+  private handleThinkingDelta(thinking: string): void {
+    if (!thinking) return;
+
+    if (!this.streamingContent.thinkingStartTime) {
+      this.streamingContent.thinkingStartTime = Date.now();
+    }
+    this.streamingContent.thinking += thinking;
+    this.streamingContent.isThinking = true;
+
+    if (!this.streamingContent.hasStreamedTools) {
+      this.callbacks.onMessage({
+        type: 'partial',
+        data: {
+          type: 'partial',
+          content: [],
+          session_id: this._sessionId || '',
+          messageId: this.streamingContent.messageId,
+          streamingThinking: this.streamingContent.thinking,
+          isThinking: true,
+        },
+        parentToolUseId: this.streamingContent.parentToolUseId,
+      });
+    }
+  }
+
+  private handleTextDelta(text: string): void {
+    if (!text) return;
+
+    this.calculateThinkingDurationIfNeeded();
+    this.streamingContent.text += text;
+
+    if (isLocalCommandText(this.streamingContent.text)) {
+      log('[StreamingManager] Filtering local command text from streaming');
+      return;
+    }
+
+    this.callbacks.onMessage({
+      type: 'partial',
+      data: {
+        type: 'partial',
+        content: [],
+        session_id: this._sessionId || '',
+        messageId: this.streamingContent.messageId,
+        streamingThinking: this.streamingContent.thinking,
+        streamingText: this.streamingContent.text,
+        isThinking: false,
+        thinkingDuration: this.streamingContent.thinkingDuration ?? undefined,
+      },
+      parentToolUseId: this.streamingContent.parentToolUseId,
+    });
+  }
+
+  private handleContentBlockStop(): void {
+    if (this.streamingContent.activeBlockType === 'thinking') {
+      this.calculateThinkingDurationIfNeeded();
+    }
+
+    this.streamingContent.activeBlockIndex = null;
+    this.streamingContent.activeBlockType = null;
+    this.streamingContent.activeToolId = null;
+  }
+
+  private handleMessageDelta(
+    event: { delta?: { stop_reason?: string }; usage?: { output_tokens?: number } }
+  ): void {
+    if (event.delta?.stop_reason) {
+      log('[StreamingManager] Message stop_reason: %s', event.delta.stop_reason);
+    }
+    if (event.usage?.output_tokens) {
+      log('[StreamingManager] Output tokens: %d', event.usage.output_tokens);
     }
   }
 

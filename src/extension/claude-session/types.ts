@@ -51,6 +51,9 @@ export interface StreamingContent {
   parentToolUseId: string | null;
   contentBlocks: ContentBlock[];
   committedTextLength: number;
+  activeBlockIndex: number | null;
+  activeBlockType: 'text' | 'thinking' | 'tool_use' | null;
+  activeToolId: string | null;
 }
 
 /** Info about a streamed tool for correlation */
@@ -94,5 +97,8 @@ export function createEmptyStreamingContent(): StreamingContent {
     parentToolUseId: null,
     contentBlocks: [],
     committedTextLength: 0,
+    activeBlockIndex: null,
+    activeBlockType: null,
+    activeToolId: null,
   };
 }
