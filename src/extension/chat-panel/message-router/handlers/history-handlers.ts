@@ -1,0 +1,60 @@
+import type { HandlerDependencies, HandlerRegistry } from "../types";
+import { log } from "../../../logger";
+
+export function createHistoryHandlers(deps: HandlerDependencies): Partial<HandlerRegistry> {
+  const { postMessage, storageManager, historyManager } = deps;
+
+  return {
+    rewindToMessage: async (msg, ctx) => {
+      if (msg.type !== "rewindToMessage") return;
+      if (msg.option === "cancel") return;
+      await ctx.session.rewindFiles(msg.userMessageId, msg.option, msg.promptContent);
+    },
+
+    requestRewindHistory: async (_msg, ctx) => {
+      const currentSessionId = ctx.session.currentSessionId;
+      if (!currentSessionId) {
+        postMessage(ctx.panel, { type: "rewindHistory", prompts: [] });
+        return;
+      }
+
+      try {
+        const conversationHead = ctx.session.conversationHead;
+        const history = await historyManager.extractRewindHistory(currentSessionId, conversationHead);
+        postMessage(ctx.panel, { type: "rewindHistory", prompts: history });
+      } catch (err) {
+        log("[MessageRouter] Error extracting rewind history:", err);
+        postMessage(ctx.panel, { type: "rewindHistory", prompts: [] });
+      }
+    },
+
+    requestMoreHistory: async (msg, ctx) => {
+      if (msg.type !== "requestMoreHistory") return;
+      await historyManager.loadMoreHistory(msg.sessionId, msg.offset, ctx.panel);
+    },
+
+    requestMoreSessions: async (msg, ctx) => {
+      if (msg.type !== "requestMoreSessions") return;
+      const { sessions, hasMore, nextOffset } = await storageManager.getStoredSessions(msg.offset);
+      postMessage(ctx.panel, {
+        type: "storedSessions",
+        sessions,
+        hasMore,
+        nextOffset,
+        isFirstPage: false,
+      });
+    },
+
+    requestPromptHistory: async (msg, ctx) => {
+      if (msg.type !== "requestPromptHistory") return;
+      try {
+        const offset = msg.offset ?? 0;
+        const { history, hasMore } = await storageManager.getPromptHistory(offset);
+        postMessage(ctx.panel, { type: "promptHistory", history, hasMore });
+      } catch (err) {
+        log("Failed to extract prompt history:", err);
+        postMessage(ctx.panel, { type: "promptHistory", history: [], hasMore: false });
+      }
+    },
+  };
+}

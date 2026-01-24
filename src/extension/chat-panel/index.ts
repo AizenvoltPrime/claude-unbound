@@ -5,7 +5,7 @@ import { HistoryManager } from "./history-manager";
 import { SettingsManager } from "./settings-manager";
 import { WorkspaceManager } from "./workspace-manager";
 import { SessionManager } from "./session-manager";
-import { MessageRouter } from "./message-router";
+import { MessageRouter } from "./message-router/index";
 import { PluginService } from "../PluginService";
 import { log } from "../logger";
 

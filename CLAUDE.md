@@ -79,7 +79,7 @@ The webview panel management is modularized into focused managers:
 | ------------------------ | -------------------------------------------------------------------- |
 | `index.ts`               | Public facade (ChatPanelProvider), wires managers together           |
 | `panel-manager.ts`       | Webview panel lifecycle, HTML generation, resource URIs              |
-| `message-router.ts`      | Handles all webview↔extension message routing                        |
+| `message-router/`        | Modular message routing (see MessageRouter Module below)             |
 | `session-manager.ts`     | ClaudeSession lifecycle, coordinates with claude-session module      |
 | `settings-manager.ts`    | Model/thinking/permission settings, MCP server management            |
 | `history-manager.ts`     | Session list, history pagination, session CRUD operations            |
@@ -88,6 +88,24 @@ The webview panel management is modularized into focused managers:
 | `ide-context-manager.ts` | Active editor tracking, selection context injection                  |
 | `queue-manager.ts`       | Message queuing while Claude is processing (tool boundary injection) |
 | `types.ts`               | Internal interfaces for manager communication                        |
+
+### MessageRouter Module (`message-router/`)
+
+Webview↔extension message routing is modularized into domain-specific handlers:
+
+| File                            | Responsibility                                                |
+| ------------------------------- | ------------------------------------------------------------- |
+| `index.ts`                      | Thin facade exposing public API, wires handlers together      |
+| `types.ts`                      | Handler types, context interfaces, dependency definitions     |
+| `utils.ts`                      | Shared utilities (plan message builder)                       |
+| `handler-registry.ts`           | Combines all handlers into unified registry                   |
+| `handlers/chat-handlers.ts`     | sendMessage, cancel, clear, queue, resume, interrupt          |
+| `handlers/permission-handlers.ts` | Edit/plan/skill approvals, question responses               |
+| `handlers/settings-handlers.ts` | Model, thinking tokens, permissions, MCP, plugins             |
+| `handlers/session-handlers.ts`  | Panel ready, session rename/delete                            |
+| `handlers/history-handlers.ts`  | Rewind, history pagination, prompt history                    |
+| `handlers/workspace-handlers.ts`| File operations, plans, slash commands, agents                |
+| `handlers/provider-handlers.ts` | Provider profile CRUD operations                              |
 
 ### Webview State (Pinia Stores)
 
