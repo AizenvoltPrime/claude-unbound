@@ -196,12 +196,11 @@ export class QueryManager {
       includePartialMessages: true,
       maxTurns,
       model,
-      ...(this.options.providerEnv && Object.keys(this.options.providerEnv).length > 0 && {
-        env: {
-          ...process.env,
-          ...this.options.providerEnv,
-        },
-      }),
+      env: {
+        ...process.env,
+        CLAUDE_CODE_ENABLE_TASKS: "true",
+        ...(this.options.providerEnv && Object.keys(this.options.providerEnv).length > 0 && this.options.providerEnv),
+      },
       ...(this.maxBudgetUsd && { maxBudgetUsd: this.maxBudgetUsd }),
       ...(maxThinkingTokens && { maxThinkingTokens }),
       ...(betasEnabled.length > 0 && { betas: betasEnabled }),

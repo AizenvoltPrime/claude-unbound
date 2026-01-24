@@ -10,25 +10,15 @@ import { useStreamingStore } from "@/stores/useStreamingStore";
 import { useSubagentStore } from "@/stores/useSubagentStore";
 import { useQuestionStore } from "@/stores/useQuestionStore";
 import { usePlanViewStore } from "@/stores/usePlanViewStore";
+import { useTaskStore } from "@/stores/useTaskStore";
 import { applyLocale, i18n } from "@/i18n";
 import {
   FEEDBACK_MARKER,
   type ChatMessage,
   type ToolCall,
-  type TodoItem,
   type HistoryMessage,
   type HistoryToolCall,
 } from "@shared/types";
-
-function parseTodosFromInput(input: Record<string, unknown>): TodoItem[] | undefined {
-  const typed = input as { todos?: Array<{ content: string; status: string; activeForm: string }> };
-  if (!typed.todos) return undefined;
-  return typed.todos.map(t => ({
-    content: t.content,
-    status: t.status as TodoItem['status'],
-    activeForm: t.activeForm,
-  }));
-}
 
 function extractUserDenialFeedback(errorMessage: string): string | undefined {
   if (!errorMessage.includes(FEEDBACK_MARKER)) return undefined;
@@ -66,6 +56,7 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
   const subagentStore = useSubagentStore();
   const questionStore = useQuestionStore();
   const planViewStore = usePlanViewStore();
+  const taskStore = useTaskStore();
 
   onMounted(() => {
     onMessage((message) => {
@@ -253,11 +244,12 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           questionStore.$reset();
           permissionStore.$reset();
           planViewStore.$reset();
+          taskStore.$reset();
           sessionStore.clearSessionData();
           sessionStore.setCurrentSession(null);
           sessionStore.setSelectedSession(null);
           sessionStore.setResumedSession(null);
-          uiStore.setTodosPanelCollapsed(true);
+          uiStore.setTasksPanelCollapsed(true);
           if (message.pendingMessage) {
             streamingStore.addUserMessage(message.pendingMessage.content, false, undefined, undefined, message.pendingMessage.correlationId);
             uiStore.setProcessing(true);
@@ -271,9 +263,10 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           questionStore.$reset();
           permissionStore.$reset();
           planViewStore.$reset();
+          taskStore.$reset();
           sessionStore.clearSessionData();
           uiStore.setProcessing(false);
-          uiStore.setTodosPanelCollapsed(true);
+          uiStore.setTasksPanelCollapsed(true);
           toast.success(i18n.global.t('toast.conversationCleared'));
           break;
 
@@ -293,13 +286,8 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
             );
           }
 
-          const parsedTodos = message.tool.name === "TodoWrite"
-            ? parseTodosFromInput(message.tool.input)
-            : undefined;
-
-          if (parsedTodos) {
-            sessionStore.updateTodos(parsedTodos);
-            uiStore.setTodosPanelCollapsed(false);
+          if (["TaskCreate", "TaskUpdate"].includes(message.tool.name)) {
+            taskStore.trackToolInput(message.tool.id, message.tool.input);
           }
 
           if (parentToolUseId && hasSubagent) {
@@ -511,6 +499,30 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               console.warn("[useMessageHandler] Failed to parse Task tool result");
             }
           }
+
+          if (["TaskCreate", "TaskUpdate", "TaskList", "TaskGet"].includes(message.toolName)) {
+            try {
+              const result = JSON.parse(message.result);
+              switch (message.toolName) {
+                case "TaskCreate":
+                  taskStore.handleTaskCreate(message.toolUseId, result);
+                  uiStore.setTasksPanelCollapsed(false);
+                  break;
+                case "TaskUpdate":
+                  taskStore.handleTaskUpdate(message.toolUseId, result);
+                  break;
+                case "TaskList":
+                  taskStore.handleTaskList(result);
+                  break;
+                case "TaskGet":
+                  taskStore.handleTaskGet(result);
+                  break;
+              }
+            } catch {
+              console.warn("[useMessageHandler] Failed to parse Task* tool result");
+            }
+          }
+
           uiStore.setCurrentRunningTool(null);
           break;
         }
@@ -604,8 +616,8 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           break;
         }
 
-        case "todosUpdate":
-          sessionStore.updateTodos(message.todos);
+        case "tasksUpdate":
+          taskStore.handleTaskList({ tasks: message.tasks });
           break;
 
         case "checkpointInfo":
@@ -622,8 +634,8 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
           if (truncateConversation) {
             subagentStore.$reset();
-            sessionStore.updateTodos([]);
-            uiStore.setTodosPanelCollapsed(true);
+            taskStore.clearTasks();
+            uiStore.setTasksPanelCollapsed(true);
 
             // Use bulletproof truncation that tries sdkMessageId first, then content matching
             const removedContent = streamingStore.truncateToMessage(message.rewindToMessageId, message.promptContent);
@@ -665,11 +677,12 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
               if (tool.name === "Task") {
                 subagentStore.restoreSubagentFromHistory(tool);
               }
-              if (tool.name === "TodoWrite") {
-                const todos = parseTodosFromInput(tool.input);
-                if (todos) {
-                  sessionStore.updateTodos(todos);
-                }
+              if (tool.name === "TaskList" && tool.result) {
+                try {
+                  const result = JSON.parse(tool.result);
+                  taskStore.handleTaskList(result);
+                  uiStore.setTasksPanelCollapsed(false);
+                } catch { /* ignore parse errors */ }
               }
             }
           }

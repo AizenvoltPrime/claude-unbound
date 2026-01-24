@@ -19,7 +19,7 @@ export const useUIStore = defineStore('ui', () => {
   const renameInputValue = ref('');
   const deletingSessionId = ref<string | null>(null);
   const showDeleteModal = ref(false);
-  const todosPanelCollapsed = ref(false);
+  const tasksPanelCollapsed = ref(false);
   const ideContext = ref<IdeContextDisplayInfo | null>(null);
   const ideContextEnabled = ref(true);
 
@@ -131,8 +131,8 @@ export const useUIStore = defineStore('ui', () => {
     showDeleteModal.value = false;
   }
 
-  function setTodosPanelCollapsed(collapsed: boolean) {
-    todosPanelCollapsed.value = collapsed;
+  function setTasksPanelCollapsed(collapsed: boolean) {
+    tasksPanelCollapsed.value = collapsed;
   }
 
   function setIdeContext(context: IdeContextDisplayInfo | null) {
@@ -160,7 +160,7 @@ export const useUIStore = defineStore('ui', () => {
     renameInputValue.value = '';
     deletingSessionId.value = null;
     showDeleteModal.value = false;
-    todosPanelCollapsed.value = false;
+    tasksPanelCollapsed.value = false;
     ideContext.value = null;
     ideContextEnabled.value = true;
   }
@@ -205,8 +205,8 @@ export const useUIStore = defineStore('ui', () => {
     cancelRename,
     startDelete,
     cancelDelete,
-    todosPanelCollapsed,
-    setTodosPanelCollapsed,
+    tasksPanelCollapsed,
+    setTasksPanelCollapsed,
     ideContext,
     ideContextEnabled,
     setIdeContext,

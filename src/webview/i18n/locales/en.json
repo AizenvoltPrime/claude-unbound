@@ -221,12 +221,12 @@
     "tokens": "{n} tokens",
     "toolCalls": "{n} tool call | {n} tool calls"
   },
-  "todo": {
+  "task": {
     "title": "Tasks",
-    "currentTasks": "Current Tasks",
-    "pending": "pending",
-    "inProgress": "in progress",
-    "completed": "completed",
+    "done": "done",
+    "open": "open",
+    "inProgress": "In Progress",
+    "blocked": "blocked by",
     "noTasks": "No tasks"
   },
   "mcp": {

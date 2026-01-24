@@ -255,11 +255,17 @@ export interface SubagentState {
   sdkAgentId?: string;
 }
 
-// Todo item from TodoWrite tool
-export interface TodoItem {
-  content: string;
+// Task item from TaskCreate/TaskUpdate/TaskList/TaskGet tools
+export interface Task {
+  id: string;
+  subject: string;
+  description?: string;
   status: "pending" | "in_progress" | "completed";
-  activeForm: string;
+  activeForm?: string;
+  blockedBy?: string[];
+  blocks?: string[];
+  owner?: string;
+  metadata?: Record<string, unknown>;
 }
 
 // Compaction marker for UI
@@ -628,8 +634,8 @@ export type ExtensionToWebviewMessage =
   | { type: "preCompact"; trigger: "manual" | "auto" }
   | { type: "compactBoundary"; preTokens: number; postTokens?: number; trigger: "manual" | "auto"; summary?: string; timestamp?: number; isHistorical?: boolean }
   | { type: "compactSummary"; summary: string }
-  // New: Todos from TodoWrite tool
-  | { type: "todosUpdate"; todos: TodoItem[] }
+  // New: Tasks from TaskCreate/TaskUpdate/TaskList/TaskGet tools
+  | { type: "tasksUpdate"; tasks: Task[] }
   // New: Context usage for /context command
   | { type: "contextUsage"; data: ContextUsageData }
   // Live token usage updates during streaming

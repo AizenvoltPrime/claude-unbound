@@ -85,7 +85,7 @@ export async function persistUserMessage(options: PersistUserMessageOptions): Pr
     uuid: messageUuid,
     timestamp,
     thinkingMetadata: { level: 'high', disabled: false, triggers: [] },
-    todos: [],
+    tasks: [],
   };
 
   const lines = [JSON.stringify(snapshotEntry), JSON.stringify(userEntry)].join('\n') + '\n';

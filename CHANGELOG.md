@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.36] - 2026-01-24
+
+### Changed
+
+- **Task System UI**: Replaced the legacy `TodoWrite`-based todo system with the SDK's richer `TaskCreate`/`TaskUpdate`/`TaskList`/`TaskGet` tools. New features include task IDs, subjects, descriptions, dependency tracking (`blockedBy`/`blocks`), owner assignment, and metadata. Tasks are managed in a dedicated `useTaskStore` with input tracking pattern to handle incremental updates.
+
 ## [1.0.35] - 2026-01-24
 
 ### Changed
@@ -326,6 +332,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.36]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.35...v1.0.36
 [1.0.35]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.34...v1.0.35
 [1.0.34]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.33...v1.0.34
 [1.0.33]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.32...v1.0.33

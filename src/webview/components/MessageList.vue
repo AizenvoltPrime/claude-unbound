@@ -78,8 +78,8 @@ function canRewindTo(message: ChatMessage): boolean {
   return message.role === "user" && !!message.sdkMessageId && (props.checkpointMessages?.has(message.sdkMessageId) ?? false);
 }
 
-function isTodoWriteTool(toolName: string): boolean {
-  return toolName === 'TodoWrite';
+function isTaskTool(toolName: string): boolean {
+  return ["TaskCreate", "TaskUpdate", "TaskList", "TaskGet"].includes(toolName);
 }
 
 function isAskUserQuestionTool(toolName: string): boolean {
@@ -252,7 +252,7 @@ function getTrailingStreamingText(message: ChatMessage): string {
                     :tool-call="getToolCallById(message, block.id)!"
                   />
                   <ToolCallCard
-                    v-else-if="!isTodoWriteTool(block.name)"
+                    v-else-if="!isTaskTool(block.name)"
                     :tool-call="getToolCallById(message, block.id)!"
                     @expand="emit('expandMcpTool', $event)"
                     @expand-diff="emit('expandDiff', $event)"
@@ -297,7 +297,7 @@ function getTrailingStreamingText(message: ChatMessage): string {
                 v-else-if="isSkillTool(tool.name)"
                 :tool-call="tool"
               />
-              <ToolCallCard v-else-if="!isTodoWriteTool(tool.name)" :tool-call="tool" @expand="emit('expandMcpTool', $event)" @expand-diff="emit('expandDiff', $event)" />
+              <ToolCallCard v-else-if="!isTaskTool(tool.name)" :tool-call="tool" @expand="emit('expandMcpTool', $event)" @expand-diff="emit('expandDiff', $event)" />
             </template>
           </div>
 

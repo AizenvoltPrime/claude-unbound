@@ -52,7 +52,7 @@
 - **Clear Context & Auto-Accept**: Plan approval option that clears conversation context and starts fresh with the plan injected (matches Claude Code CLI behavior). Preserves planning session as reference while implementation runs in a clean session
 - **Bind Plan to Session**: Inject a custom plan file into the session via the link icon in the header. Claude is notified of the plan file path so it can reference the plan.
 - **File Checkpointing**: Track file changes and rewind to any previous state with the Rewind Browser (`/rewind`)
-- **Todo List**: Visual display of Claude's current task list with real-time progress tracking
+- **Task List**: Visual display of Claude's current tasks with status tracking, dependencies (`blockedBy`), and active form indicators
 - **Message Queue**: Send messages while Claude is working - they're injected at the next tool boundary
 - **MCP Server Management**: Enable/disable MCP servers from the UI with settings persisted to Claude config
 - **Hooks Support**: Claude Code hooks (shell commands that run on events like tool calls) work automatically

@@ -28,7 +28,7 @@ import PlanApprovalOverlay from './components/PlanApprovalOverlay.vue';
 import PlanViewOverlay from './components/PlanViewOverlay.vue';
 import EnterPlanModePrompt from './components/EnterPlanModePrompt.vue';
 import SkillApprovalPrompt from './components/SkillApprovalPrompt.vue';
-import TodoListCard from './components/TodoListCard.vue';
+import TaskListCard from './components/TaskListCard.vue';
 import { useVSCode } from './composables/useVSCode';
 import { useMessageHandler } from './composables/useMessageHandler';
 import { useDoubleKeyStroke } from './composables/useDoubleKeyStroke';
@@ -43,6 +43,7 @@ import {
   useQuestionStore,
   useDiffStore,
 } from './stores';
+import { useTaskStore } from './stores/useTaskStore';
 import { usePlanViewStore } from './stores/usePlanViewStore';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -90,7 +91,7 @@ const {
   renameInputValue,
   deletingSessionId,
   showDeleteModal,
-  todosPanelCollapsed,
+  tasksPanelCollapsed,
 } = storeToRefs(uiStore);
 
 const settingsStore = useSettingsStore();
@@ -123,8 +124,10 @@ const {
   sessionStats,
   selectedSession,
   lastAccessedFile,
-  currentTodos,
 } = storeToRefs(sessionStore);
+
+const taskStore = useTaskStore();
+const { tasks } = storeToRefs(taskStore);
 
 const permissionStore = usePermissionStore();
 const { currentPermission, pendingCount: pendingPermissionCount, pendingPlanApproval, pendingEnterPlanApproval, pendingSkillApproval } = storeToRefs(permissionStore);
@@ -828,12 +831,12 @@ const rewindMessagePreview = computed(() => {
       </Transition>
     </div>
 
-    <!-- Persistent Todo List Panel (always visible when todos exist) -->
-    <div v-if="currentTodos.length > 0" class="px-3 py-2 border-t border-border/30 bg-card">
-      <TodoListCard
-        :todos="currentTodos"
-        :is-collapsed="todosPanelCollapsed"
-        @update:is-collapsed="uiStore.setTodosPanelCollapsed"
+    <!-- Persistent Task List Panel (always visible when tasks exist) -->
+    <div v-if="tasks.length > 0" class="px-3 py-2 border-t border-border/30 bg-card">
+      <TaskListCard
+        :tasks="tasks"
+        :is-collapsed="tasksPanelCollapsed"
+        @update:is-collapsed="uiStore.setTasksPanelCollapsed"
       />
     </div>
 
