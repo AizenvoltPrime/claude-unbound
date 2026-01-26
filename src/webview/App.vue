@@ -1,38 +1,38 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { initLocaleMessaging } from '@/i18n';
-import { onKeyStroke, useIntersectionObserver } from '@vueuse/core';
-import { storeToRefs } from 'pinia';
-import MessageList from './components/MessageList.vue';
-import ChatInput from './components/ChatInput.vue';
-import SessionStats from './components/SessionStats.vue';
-import SettingsPanel from './components/SettingsPanel.vue';
-import { Toaster } from '@/components/ui/sonner';
-import McpStatusIndicator from './components/McpStatusIndicator.vue';
-import McpStatusPanel from './components/McpStatusPanel.vue';
-import PluginStatusIndicator from './components/PluginStatusIndicator.vue';
-import PluginStatusPanel from './components/PluginStatusPanel.vue';
-import SubagentIndicator from './components/SubagentIndicator.vue';
-import SubagentOverlay from './components/SubagentOverlay.vue';
-import DiffOverlay from './components/DiffOverlay.vue';
-import McpToolOverlay from './components/McpToolOverlay.vue';
-import StatusBar from './components/StatusBar.vue';
-import BudgetWarning from './components/BudgetWarning.vue';
-import RewindBrowser from './components/RewindBrowser.vue';
-import RewindConfirmModal from './components/RewindConfirmModal.vue';
-import SessionPicker from './components/SessionPicker.vue';
-import PermissionPrompt from './components/PermissionPrompt.vue';
-import QuestionPrompt from './components/QuestionPrompt.vue';
-import PlanApprovalOverlay from './components/PlanApprovalOverlay.vue';
-import PlanViewOverlay from './components/PlanViewOverlay.vue';
-import EnterPlanModePrompt from './components/EnterPlanModePrompt.vue';
-import SkillApprovalPrompt from './components/SkillApprovalPrompt.vue';
-import TaskListCard from './components/TaskListCard.vue';
-import { useVSCode } from './composables/useVSCode';
-import { useMessageHandler } from './composables/useMessageHandler';
-import { useDoubleKeyStroke } from './composables/useDoubleKeyStroke';
-import { useAutoScroll } from './composables/useAutoScroll';
+import { ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
+import { initLocaleMessaging } from "@/i18n";
+import { onKeyStroke, useIntersectionObserver } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import MessageList from "./components/MessageList.vue";
+import ChatInput from "./components/ChatInput.vue";
+import SessionStats from "./components/SessionStats.vue";
+import SettingsPanel from "./components/SettingsPanel.vue";
+import { Toaster } from "@/components/ui/sonner";
+import McpStatusIndicator from "./components/McpStatusIndicator.vue";
+import McpStatusPanel from "./components/McpStatusPanel.vue";
+import PluginStatusIndicator from "./components/PluginStatusIndicator.vue";
+import PluginStatusPanel from "./components/PluginStatusPanel.vue";
+import SubagentIndicator from "./components/SubagentIndicator.vue";
+import SubagentOverlay from "./components/SubagentOverlay.vue";
+import DiffOverlay from "./components/DiffOverlay.vue";
+import McpToolOverlay from "./components/McpToolOverlay.vue";
+import StatusBar from "./components/StatusBar.vue";
+import BudgetWarning from "./components/BudgetWarning.vue";
+import RewindBrowser from "./components/RewindBrowser.vue";
+import RewindConfirmModal from "./components/RewindConfirmModal.vue";
+import SessionPicker from "./components/SessionPicker.vue";
+import PermissionPrompt from "./components/PermissionPrompt.vue";
+import QuestionPrompt from "./components/QuestionPrompt.vue";
+import PlanApprovalOverlay from "./components/PlanApprovalOverlay.vue";
+import PlanViewOverlay from "./components/PlanViewOverlay.vue";
+import EnterPlanModePrompt from "./components/EnterPlanModePrompt.vue";
+import SkillApprovalPrompt from "./components/SkillApprovalPrompt.vue";
+import TaskListCard from "./components/TaskListCard.vue";
+import { useVSCode } from "./composables/useVSCode";
+import { useMessageHandler } from "./composables/useMessageHandler";
+import { useDoubleKeyStroke } from "./composables/useDoubleKeyStroke";
+import { useAutoScroll } from "./composables/useAutoScroll";
 import {
   useUIStore,
   useSettingsStore,
@@ -42,23 +42,13 @@ import {
   useSubagentStore,
   useQuestionStore,
   useDiffStore,
-} from './stores';
-import { useTaskStore } from './stores/useTaskStore';
-import { usePlanViewStore } from './stores/usePlanViewStore';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  IconGear,
-  IconChevronDown,
-  IconFileText,
-  IconLink,
-} from '@/components/icons';
-import type {
-  PermissionMode,
-  RewindOption,
-  UserContentBlock,
-  ProviderProfile,
-} from '@shared/types';
+} from "./stores";
+import { useTaskStore } from "./stores/useTaskStore";
+import { usePlanViewStore } from "./stores/usePlanViewStore";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { IconGear, IconChevronDown, IconFileText, IconLink } from "@/components/icons";
+import type { PermissionMode, RewindOption, UserContentBlock, ProviderProfile } from "@shared/types";
 
 const { postMessage, setState, getState } = useVSCode();
 const { t } = useI18n();
@@ -96,9 +86,8 @@ const {
 
 const sessionStore = useSessionStore();
 const {
-  currentSessionId,
   selectedSessionId,
-  selectedSessionName,
+  selectedSessionDisplayName,
   currentResumedSessionId,
   storedSessions,
   hasMoreSessions,
@@ -110,15 +99,19 @@ const {
   checkpointMessages,
   compactMarkers,
   sessionStats,
-  selectedSession,
-  lastAccessedFile,
 } = storeToRefs(sessionStore);
 
 const taskStore = useTaskStore();
 const { tasks } = storeToRefs(taskStore);
 
 const permissionStore = usePermissionStore();
-const { currentPermission, pendingCount: pendingPermissionCount, pendingPlanApproval, pendingEnterPlanApproval, pendingSkillApproval } = storeToRefs(permissionStore);
+const {
+  currentPermission,
+  pendingCount: pendingPermissionCount,
+  pendingPlanApproval,
+  pendingEnterPlanApproval,
+  pendingSkillApproval,
+} = storeToRefs(permissionStore);
 
 const streamingStore = useStreamingStore();
 const { messages, streamingMessageId, expandedMcpTool } = storeToRefs(streamingStore);
@@ -152,7 +145,7 @@ useIntersectionObserver(
       loadMoreHistory();
     }
   },
-  { root: messageContainerRef, threshold: 0 }
+  { root: messageContainerRef, threshold: 0 },
 );
 
 useMessageHandler({
@@ -162,63 +155,58 @@ useMessageHandler({
 
 function openRewindFlow() {
   uiStore.openRewindBrowser();
-  postMessage({ type: 'requestRewindHistory' });
+  postMessage({ type: "requestRewindHistory" });
 }
 
-useDoubleKeyStroke('Escape', () => {
-  if (!showRewindTypeModal.value &&
-      !showRewindBrowser.value &&
-      !showSettingsPanel.value &&
-      !showMcpPanel.value &&
-      !showPluginPanel.value) {
+useDoubleKeyStroke("Escape", () => {
+  if (!showRewindTypeModal.value && !showRewindBrowser.value && !showSettingsPanel.value && !showMcpPanel.value && !showPluginPanel.value) {
     openRewindFlow();
   }
 });
 
 function handleSendMessage(content: string | UserContentBlock[], includeIdeContext: boolean) {
-  if (typeof content === 'string') {
+  if (typeof content === "string") {
     const trimmed = content.trim();
-    if (trimmed === '/rewind' || trimmed.startsWith('/rewind ')) {
+    if (trimmed === "/rewind" || trimmed.startsWith("/rewind ")) {
       openRewindFlow();
       return;
     }
-    if (trimmed === '/clear') {
-      postMessage({ type: 'clearSession' });
+    if (trimmed === "/clear") {
+      postMessage({ type: "clearSession" });
       return;
     }
   }
 
-  postMessage({ type: 'sendMessage', content, includeIdeContext });
+  postMessage({ type: "sendMessage", content, includeIdeContext });
 }
 
 function handleQueueMessage(content: string | UserContentBlock[]) {
-  postMessage({ type: 'queueMessage', content });
+  postMessage({ type: "queueMessage", content });
 }
 
 function handleModeChange(mode: PermissionMode) {
-  postMessage({ type: 'setPermissionMode', mode });
+  postMessage({ type: "setPermissionMode", mode });
   settingsStore.setPermissionMode(mode);
 }
 
 function handleToggleDangerouslySkipPermissions() {
   const newValue = !currentSettings.value.dangerouslySkipPermissions;
-  postMessage({ type: 'setDangerouslySkipPermissions', enabled: newValue });
+  postMessage({ type: "setDangerouslySkipPermissions", enabled: newValue });
   settingsStore.setDangerouslySkipPermissions(newValue);
 }
 
 function handleCancel() {
-  postMessage({ type: 'cancelSession' });
+  postMessage({ type: "cancelSession" });
 }
 
-
 function handleSessionSelect(sessionId: string) {
-  const session = storedSessions.value.find(s => s.id === sessionId);
-  const sessionName = session ? (session.customTitle || session.preview) : null;
+  const session = storedSessions.value.find((s) => s.id === sessionId);
+  const sessionName = session ? session.customTitle || session.preview : null;
   streamingStore.$reset();
   sessionStore.clearSessionData();
   sessionStore.setResumedSession(sessionId);
   sessionStore.setSelectedSession(sessionId, sessionName);
-  postMessage({ type: 'resumeSession', sessionId });
+  postMessage({ type: "resumeSession", sessionId });
   setState({ ...getState(), sessionId, sessionName });
 }
 
@@ -226,18 +214,18 @@ function handleSessionRename(sessionId: string, newName: string) {
   if (selectedSessionId.value === sessionId) {
     sessionStore.setSelectedSession(sessionId, newName);
   }
-  postMessage({ type: 'renameSession', sessionId, newName });
+  postMessage({ type: "renameSession", sessionId, newName });
 }
 
 function handleSessionDelete(sessionId: string) {
-  postMessage({ type: 'deleteSession', sessionId });
+  postMessage({ type: "deleteSession", sessionId });
 }
 
 function handleSessionLoadMore() {
   if (!hasMoreSessions.value || loadingMoreSessions.value) return;
   sessionStore.setLoadingMoreSessions(true);
   postMessage({
-    type: 'requestMoreSessions',
+    type: "requestMoreSessions",
     offset: nextSessionsOffset.value,
     selectedSessionId: selectedSessionId.value ?? undefined,
   });
@@ -248,16 +236,16 @@ function handleSessionSearch(query: string, offset: number = 0) {
     if (offset > 0) {
       sessionStore.setLoadingMoreSessions(true);
     }
-    postMessage({ type: 'searchSessions', query, offset, selectedSessionId: selectedSessionId.value ?? undefined });
+    postMessage({ type: "searchSessions", query, offset, selectedSessionId: selectedSessionId.value ?? undefined });
   } else {
     sessionStore.setLoadingMoreSessions(true);
-    postMessage({ type: 'requestMoreSessions', offset: 0, selectedSessionId: selectedSessionId.value ?? undefined });
+    postMessage({ type: "requestMoreSessions", offset: 0, selectedSessionId: selectedSessionId.value ?? undefined });
   }
 }
 
 function handleSessionPickerOpen() {
   if (selectedSessionId.value) {
-    postMessage({ type: 'requestMoreSessions', offset: 0, selectedSessionId: selectedSessionId.value });
+    postMessage({ type: "requestMoreSessions", offset: 0, selectedSessionId: selectedSessionId.value });
   }
 }
 
@@ -268,7 +256,7 @@ function loadMoreHistory() {
 
   sessionStore.setLoadingMoreHistory(true);
   postMessage({
-    type: 'requestMoreHistory',
+    type: "requestMoreHistory",
     sessionId: currentResumedSessionId.value,
     offset: nextHistoryOffset.value,
   });
@@ -285,106 +273,105 @@ function handleMessageScroll(event: Event) {
 function scrollToBottom() {
   const container = messageContainerRef.value;
   if (container) {
-    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }
 }
 
-
 function handleSetModel(model: string) {
   settingsStore.setModel(model);
-  postMessage({ type: 'setModel', model });
+  postMessage({ type: "setModel", model });
 }
 
 function handleSetMaxThinkingTokens(tokens: number | null) {
   settingsStore.setMaxThinkingTokens(tokens);
-  postMessage({ type: 'setMaxThinkingTokens', tokens });
+  postMessage({ type: "setMaxThinkingTokens", tokens });
 }
 
 function handleSetBudgetLimit(budgetUsd: number | null) {
   settingsStore.setBudgetLimit(budgetUsd);
-  postMessage({ type: 'setBudgetLimit', budgetUsd });
+  postMessage({ type: "setBudgetLimit", budgetUsd });
 }
 
 function handleToggleBeta(beta: string, enabled: boolean) {
   settingsStore.toggleBeta(beta, enabled);
-  postMessage({ type: 'toggleBeta', beta, enabled });
+  postMessage({ type: "toggleBeta", beta, enabled });
 }
 
 function handleSetPermissionMode(mode: PermissionMode) {
-  postMessage({ type: 'setPermissionMode', mode });
+  postMessage({ type: "setPermissionMode", mode });
   settingsStore.setPermissionMode(mode);
 }
 
 function handleSetDefaultPermissionMode(mode: PermissionMode) {
-  postMessage({ type: 'setDefaultPermissionMode', mode });
+  postMessage({ type: "setDefaultPermissionMode", mode });
   settingsStore.setDefaultPermissionMode(mode);
 }
 
 function handleOpenVSCodeSettings() {
-  postMessage({ type: 'openSettings' });
+  postMessage({ type: "openSettings" });
 }
 
 function handleCreateProfile(profile: ProviderProfile) {
-  postMessage({ type: 'createProviderProfile', profile });
+  postMessage({ type: "createProviderProfile", profile });
 }
 
 function handleUpdateProfile(originalName: string, profile: ProviderProfile) {
-  postMessage({ type: 'updateProviderProfile', originalName, profile });
+  postMessage({ type: "updateProviderProfile", originalName, profile });
 }
 
 function handleDeleteProfile(profileName: string) {
-  postMessage({ type: 'deleteProviderProfile', profileName });
+  postMessage({ type: "deleteProviderProfile", profileName });
 }
 
 function handleSetActiveProfile(profileName: string | null) {
-  postMessage({ type: 'setActiveProviderProfile', profileName });
+  postMessage({ type: "setActiveProviderProfile", profileName });
 }
 
 function handleSetDefaultProfile(profileName: string | null) {
-  postMessage({ type: 'setDefaultProviderProfile', profileName });
+  postMessage({ type: "setDefaultProviderProfile", profileName });
 }
 
 function handleOpenSessionLog() {
-  postMessage({ type: 'openSessionLog' });
+  postMessage({ type: "openSessionLog" });
 }
 
 function handleOpenPlan() {
-  postMessage({ type: 'openSessionPlan' });
+  postMessage({ type: "openSessionPlan" });
 }
 
 function handleBindPlan() {
-  postMessage({ type: 'bindPlanToSession' });
+  postMessage({ type: "bindPlanToSession" });
 }
 
 function handleOpenAgentLog(agentId: string) {
-  postMessage({ type: 'openAgentLog', agentId });
+  postMessage({ type: "openAgentLog", agentId });
 }
 
 function handleRefreshMcpStatus() {
-  postMessage({ type: 'requestMcpStatus' });
+  postMessage({ type: "requestMcpStatus" });
 }
 
 function handleToggleMcpServer(serverName: string, enabled: boolean) {
-  postMessage({ type: 'toggleMcpServer', serverName, enabled });
+  postMessage({ type: "toggleMcpServer", serverName, enabled });
 }
 
 function handleRefreshPluginStatus() {
-  postMessage({ type: 'requestPluginStatus' });
+  postMessage({ type: "requestPluginStatus" });
 }
 
 function handleTogglePlugin(pluginFullId: string, enabled: boolean) {
-  postMessage({ type: 'togglePlugin', pluginFullId, enabled });
+  postMessage({ type: "togglePlugin", pluginFullId, enabled });
 }
 
 function handleTypeSelected(option: RewindOption) {
-  if (option === 'cancel') {
+  if (option === "cancel") {
     uiStore.cancelTypeSelection();
     return;
   }
 
   if (selectedRewindItem.value) {
     postMessage({
-      type: 'rewindToMessage',
+      type: "rewindToMessage",
       userMessageId: selectedRewindItem.value.messageId,
       option,
       promptContent: selectedRewindItem.value.content,
@@ -398,11 +385,11 @@ function handlePermissionApproval(toolUseId: string, approved: boolean, options?
   const permission = permissionStore.pendingPermissions[toolUseId];
 
   if (options?.acceptAll && !permission?.parentToolUseId) {
-    handleSetPermissionMode('acceptEdits');
+    handleSetPermissionMode("acceptEdits");
   }
 
   postMessage({
-    type: 'approveEdit',
+    type: "approveEdit",
     toolUseId,
     approved,
     customMessage: options?.customMessage,
@@ -415,7 +402,7 @@ function handlePermissionApproval(toolUseId: string, approved: boolean, options?
 function handleQuestionSubmit(answers: Record<string, string>) {
   if (pendingQuestion.value) {
     postMessage({
-      type: 'answerQuestion',
+      type: "answerQuestion",
       toolUseId: pendingQuestion.value.toolUseId,
       answers,
     });
@@ -426,7 +413,7 @@ function handleQuestionSubmit(answers: Record<string, string>) {
 function handleQuestionCancel() {
   if (pendingQuestion.value) {
     postMessage({
-      type: 'answerQuestion',
+      type: "answerQuestion",
       toolUseId: pendingQuestion.value.toolUseId,
       answers: null,
     });
@@ -438,13 +425,13 @@ function handleDismissBudgetWarning() {
   settingsStore.dismissBudgetWarning();
 }
 
-function handlePlanApprove(options: { approvalMode: 'acceptEdits' | 'manual'; clearContext?: boolean }) {
+function handlePlanApprove(options: { approvalMode: "acceptEdits" | "manual"; clearContext?: boolean }) {
   if (!pendingPlanApproval.value) return;
   const { toolUseId, planContent } = pendingPlanApproval.value;
-  streamingStore.updateToolStatus(toolUseId, 'completed');
+  streamingStore.updateToolStatus(toolUseId, "completed");
   permissionStore.storePlanApproval(toolUseId, options.approvalMode);
   postMessage({
-    type: 'approvePlan',
+    type: "approvePlan",
     toolUseId,
     approved: true,
     approvalMode: options.approvalMode,
@@ -457,9 +444,9 @@ function handlePlanApprove(options: { approvalMode: 'acceptEdits' | 'manual'; cl
 function handlePlanFeedback(feedback: string) {
   if (!pendingPlanApproval.value) return;
   const toolUseId = pendingPlanApproval.value.toolUseId;
-  streamingStore.updateToolStatus(toolUseId, 'denied', { feedback });
+  streamingStore.updateToolStatus(toolUseId, "denied", { feedback });
   postMessage({
-    type: 'approvePlan',
+    type: "approvePlan",
     toolUseId,
     approved: false,
     feedback,
@@ -470,9 +457,9 @@ function handlePlanFeedback(feedback: string) {
 function handlePlanCancel() {
   if (!pendingPlanApproval.value) return;
   const toolUseId = pendingPlanApproval.value.toolUseId;
-  streamingStore.updateToolStatus(toolUseId, 'denied');
+  streamingStore.updateToolStatus(toolUseId, "denied");
   postMessage({
-    type: 'approvePlan',
+    type: "approvePlan",
     toolUseId,
     approved: false,
   });
@@ -484,14 +471,14 @@ function handleEnterPlanApprove(approved: boolean, options?: { customMessage?: s
   const toolUseId = pendingEnterPlanApproval.value.toolUseId;
 
   if (approved) {
-    streamingStore.updateToolStatus(toolUseId, 'completed');
+    streamingStore.updateToolStatus(toolUseId, "completed");
     permissionStore.storeEnterPlanApproval(toolUseId);
   } else {
-    streamingStore.updateToolStatus(toolUseId, 'denied', { feedback: options?.customMessage });
+    streamingStore.updateToolStatus(toolUseId, "denied", { feedback: options?.customMessage });
   }
 
   postMessage({
-    type: 'approveEnterPlanMode',
+    type: "approveEnterPlanMode",
     toolUseId,
     approved,
     customMessage: options?.customMessage,
@@ -499,22 +486,22 @@ function handleEnterPlanApprove(approved: boolean, options?: { customMessage?: s
   permissionStore.clearPendingEnterPlanApproval();
 }
 
-function handleSkillApprove(approved: boolean, options?: { approvalMode?: 'acceptEdits' | 'manual'; customMessage?: string }) {
+function handleSkillApprove(approved: boolean, options?: { approvalMode?: "acceptEdits" | "manual"; customMessage?: string }) {
   if (!pendingSkillApproval.value) return;
   const toolUseId = pendingSkillApproval.value.toolUseId;
 
   if (approved) {
-    streamingStore.updateToolStatus(toolUseId, 'completed');
+    streamingStore.updateToolStatus(toolUseId, "completed");
   } else {
-    streamingStore.updateToolStatus(toolUseId, 'denied', { feedback: options?.customMessage });
+    streamingStore.updateToolStatus(toolUseId, "denied", { feedback: options?.customMessage });
   }
 
-  if (options?.approvalMode === 'acceptEdits') {
-    handleSetPermissionMode('acceptEdits');
+  if (options?.approvalMode === "acceptEdits") {
+    handleSetPermissionMode("acceptEdits");
   }
 
   postMessage({
-    type: 'approveSkill',
+    type: "approveSkill",
     toolUseId,
     approved,
     approvalMode: options?.approvalMode,
@@ -524,7 +511,7 @@ function handleSkillApprove(approved: boolean, options?: { approvalMode?: 'accep
 }
 
 const rewindMessagePreview = computed(() => {
-  return selectedRewindItem.value?.content.slice(0, 100) || '';
+  return selectedRewindItem.value?.content.slice(0, 100) || "";
 });
 </script>
 
@@ -534,20 +521,11 @@ const rewindMessagePreview = computed(() => {
     <div class="px-3 py-1.5 text-xs border-b border-border/50 flex items-center gap-2 bg-card">
       <Popover v-if="accountInfo?.subscriptionType">
         <PopoverTrigger as-child>
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-auto px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 hover:text-primary"
-          >
+          <Button variant="ghost" size="sm" class="h-auto px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 hover:text-primary">
             {{ accountInfo.subscriptionType }}
           </Button>
         </PopoverTrigger>
-        <PopoverContent
-          v-if="accountInfo.email"
-          side="right"
-          :side-offset="8"
-          class="w-auto p-2 text-[11px]"
-        >
+        <PopoverContent v-if="accountInfo.email" side="right" :side-offset="8" class="w-auto p-2 text-[11px]">
           {{ accountInfo.email }}
         </PopoverContent>
       </Popover>
@@ -577,18 +555,10 @@ const rewindMessagePreview = computed(() => {
       </Button>
 
       <!-- MCP Status Indicator -->
-      <McpStatusIndicator
-        :servers="mcpServers"
-        :disabled="isProcessing"
-        @click="uiStore.openMcpPanel()"
-      />
+      <McpStatusIndicator :servers="mcpServers" :disabled="isProcessing" @click="uiStore.openMcpPanel()" />
 
       <!-- Plugin Status Indicator -->
-      <PluginStatusIndicator
-        :plugins="plugins"
-        :disabled="isProcessing"
-        @click="uiStore.openPluginPanel()"
-      />
+      <PluginStatusIndicator :plugins="plugins" :disabled="isProcessing" @click="uiStore.openPluginPanel()" />
 
       <!-- Settings button -->
       <Button
@@ -618,7 +588,7 @@ const rewindMessagePreview = computed(() => {
     <SessionPicker
       :sessions="storedSessions"
       :selected-session-id="selectedSessionId"
-      :selected-session-name="selectedSessionName"
+      :selected-session-name="selectedSessionDisplayName"
       :has-more="hasMoreSessions"
       :loading="loadingMoreSessions"
       @select="handleSessionSelect"
@@ -634,23 +604,10 @@ const rewindMessagePreview = computed(() => {
       <!-- Toast notifications (positioned in top-right of chat area) -->
       <Toaster position="top-right" :duration="4000" />
 
-      <div
-        ref="messageContainerRef"
-        class="h-full overflow-y-auto message-container"
-        @scroll="handleMessageScroll"
-      >
+      <div ref="messageContainerRef" class="h-full overflow-y-auto message-container" @scroll="handleMessageScroll">
         <!-- Sentinel for infinite scroll (Intersection Observer target) -->
-        <div
-          v-if="hasMoreHistory || loadingMoreHistory"
-          ref="historySentinelRef"
-          class="h-4"
-        >
-          <div
-            v-if="loadingMoreHistory"
-            class="text-center py-3 text-xs text-muted-foreground animate-pulse"
-          >
-            Loading history...
-          </div>
+        <div v-if="hasMoreHistory || loadingMoreHistory" ref="historySentinelRef" class="h-4">
+          <div v-if="loadingMoreHistory" class="text-center py-3 text-xs text-muted-foreground animate-pulse">Loading history...</div>
         </div>
 
         <MessageList
@@ -683,11 +640,7 @@ const rewindMessagePreview = computed(() => {
 
     <!-- Persistent Task List Panel (always visible when tasks exist) -->
     <div v-if="tasks.length > 0" class="px-3 py-2 border-t border-border/30 bg-card">
-      <TaskListCard
-        :tasks="tasks"
-        :is-collapsed="tasksPanelCollapsed"
-        @update:is-collapsed="uiStore.setTasksPanelCollapsed"
-      />
+      <TaskListCard :tasks="tasks" :is-collapsed="tasksPanelCollapsed" @update:is-collapsed="uiStore.setTasksPanelCollapsed" />
     </div>
 
     <!-- Permission Prompt (queue - shows one at a time) -->
@@ -707,19 +660,10 @@ const rewindMessagePreview = computed(() => {
     />
 
     <!-- Question Prompt for AskUserQuestion tool -->
-    <QuestionPrompt
-      v-if="pendingQuestion"
-      :visible="true"
-      @submit="handleQuestionSubmit"
-      @cancel="handleQuestionCancel"
-    />
+    <QuestionPrompt v-if="pendingQuestion" :visible="true" @submit="handleQuestionSubmit" @cancel="handleQuestionCancel" />
 
     <!-- Enter Plan Mode Prompt for EnterPlanMode tool -->
-    <EnterPlanModePrompt
-      v-if="pendingEnterPlanApproval"
-      :visible="true"
-      @approve="handleEnterPlanApprove"
-    />
+    <EnterPlanModePrompt v-if="pendingEnterPlanApproval" :visible="true" @approve="handleEnterPlanApprove" />
 
     <!-- Skill Approval Prompt for Skill tool -->
     <SkillApprovalPrompt
@@ -731,10 +675,7 @@ const rewindMessagePreview = computed(() => {
     />
 
     <!-- Status Bar with witty phrases (above input) -->
-    <StatusBar
-      :is-processing="isProcessing"
-      :current-tool-name="currentRunningTool ?? undefined"
-    />
+    <StatusBar :is-processing="isProcessing" :current-tool-name="currentRunningTool ?? undefined" />
 
     <SessionStats :stats="sessionStats" @open-log="handleOpenSessionLog" />
 
@@ -820,18 +761,10 @@ const rewindMessagePreview = computed(() => {
     />
 
     <!-- MCP Tool Overlay (full-screen) -->
-    <McpToolOverlay
-      v-if="expandedMcpTool"
-      :tool="expandedMcpTool"
-      @close="streamingStore.collapseMcpTool"
-    />
+    <McpToolOverlay v-if="expandedMcpTool" :tool="expandedMcpTool" @close="streamingStore.collapseMcpTool" />
 
     <!-- Diff Overlay (full-screen) -->
-    <DiffOverlay
-      v-if="expandedDiff"
-      :diff="expandedDiff"
-      @close="diffStore.collapseDiff"
-    />
+    <DiffOverlay v-if="expandedDiff" :diff="expandedDiff" @close="diffStore.collapseDiff" />
 
     <!-- Plan Approval Overlay (full-screen) -->
     <PlanApprovalOverlay
@@ -843,12 +776,7 @@ const rewindMessagePreview = computed(() => {
     />
 
     <!-- Plan View Overlay (read-only, full-screen) -->
-    <PlanViewOverlay
-      v-if="viewingPlan"
-      :plan-content="viewingPlan"
-      @close="planViewStore.closePlanView"
-    />
-
+    <PlanViewOverlay v-if="viewingPlan" :plan-content="viewingPlan" @close="planViewStore.closePlanView" />
   </div>
 </template>
 

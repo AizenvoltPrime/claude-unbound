@@ -42,6 +42,16 @@ export const useSessionStore = defineStore('session', () => {
     return storedSessions.value.find(s => s.id === selectedSessionId.value) ?? null;
   });
 
+  const selectedSessionDisplayName = computed(() => {
+    if (!selectedSessionId.value) return null;
+    // Prefer name from sessions list (source of truth)
+    if (selectedSession.value) {
+      return selectedSession.value.customTitle || selectedSession.value.preview;
+    }
+    // Fall back to stored name (for when session isn't in list yet)
+    return selectedSessionName.value;
+  });
+
   const lastAccessedFile = computed(() => {
     const files = Object.values(accessedFiles.value);
     if (files.length === 0) return undefined;
@@ -197,6 +207,7 @@ export const useSessionStore = defineStore('session', () => {
     compactMarkers,
     sessionStats,
     selectedSession,
+    selectedSessionDisplayName,
     lastAccessedFile,
     setCurrentSession,
     setSelectedSession,

@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.39] - 2026-01-27
+
+### Fixed
+
+- **Session Name Not Showing on New Session**: Fixed picker trigger button showing "New Session" instead of the actual session name when creating a new session.
+
 ## [1.0.38] - 2026-01-26
 
 ### Changed
@@ -348,6 +354,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.39]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.38...v1.0.39
 [1.0.38]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.37...v1.0.38
 [1.0.37]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.36...v1.0.37
 [1.0.36]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.35...v1.0.36
