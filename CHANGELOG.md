@@ -2,6 +2,16 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.37] - 2026-01-26
+
+### Added
+
+- **Session Search**: Search through sessions by name in the session picker dropdown. Type to filter sessions with 300ms debounce. Clear search to return to paginated view.
+
+### Changed
+
+- **Session Picker Refactored**: Extracted session picker into dedicated `SessionPicker.vue` component with proper separation of concerns. Search, rename, delete, and infinite scroll functionality are now self-contained.
+
 ## [1.0.36] - 2026-01-24
 
 ### Changed
@@ -332,6 +342,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.37]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.36...v1.0.37
 [1.0.36]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.35...v1.0.36
 [1.0.35]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.34...v1.0.35
 [1.0.34]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.33...v1.0.34

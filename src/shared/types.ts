@@ -527,7 +527,9 @@ export type WebviewToExtensionMessage =
   // History pagination
   | { type: "requestMoreHistory"; sessionId: string; offset: number }
   // Session list pagination
-  | { type: "requestMoreSessions"; offset: number }
+  | { type: "requestMoreSessions"; offset: number; selectedSessionId?: string }
+  // Session search
+  | { type: "searchSessions"; query: string; offset?: number; selectedSessionId?: string }
   // Prompt history navigation (arrow up/down)
   | { type: "requestPromptHistory"; offset?: number }
   // Workspace file listing for @ mentions

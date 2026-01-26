@@ -20,6 +20,7 @@ const DEFAULT_SESSION_STATS: SessionStats = {
 export const useSessionStore = defineStore('session', () => {
   const currentSessionId = ref<string | null>(null);
   const selectedSessionId = ref<string | null>(null);
+  const selectedSessionName = ref<string | null>(null);
   const currentResumedSessionId = ref<string | null>(null);
   const storedSessions = ref<StoredSession[]>([]);
 
@@ -51,8 +52,9 @@ export const useSessionStore = defineStore('session', () => {
     currentSessionId.value = id;
   }
 
-  function setSelectedSession(id: string | null) {
+  function setSelectedSession(id: string | null, name?: string | null) {
     selectedSessionId.value = id;
+    selectedSessionName.value = name ?? null;
   }
 
   function setResumedSession(id: string | null) {
@@ -68,7 +70,9 @@ export const useSessionStore = defineStore('session', () => {
     if (isFirstPage) {
       storedSessions.value = sessions;
     } else {
-      storedSessions.value = [...storedSessions.value, ...sessions];
+      const existingIds = new Set(storedSessions.value.map(s => s.id));
+      const newSessions = sessions.filter(s => !existingIds.has(s.id));
+      storedSessions.value = [...storedSessions.value, ...newSessions];
     }
     hasMoreSessions.value = hasMore;
     nextSessionsOffset.value = nextOffset;
@@ -161,6 +165,7 @@ export const useSessionStore = defineStore('session', () => {
   function $reset() {
     currentSessionId.value = null;
     selectedSessionId.value = null;
+    selectedSessionName.value = null;
     currentResumedSessionId.value = null;
     storedSessions.value = [];
     hasMoreSessions.value = false;
@@ -178,6 +183,7 @@ export const useSessionStore = defineStore('session', () => {
   return {
     currentSessionId,
     selectedSessionId,
+    selectedSessionName,
     currentResumedSessionId,
     storedSessions,
     hasMoreSessions,

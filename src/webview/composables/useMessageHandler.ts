@@ -223,8 +223,11 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
 
         case "sessionStarted":
           sessionStore.setCurrentSession(message.sessionId);
-          sessionStore.setSelectedSession(message.sessionId);
-          setState({ ...getState(), sessionId: message.sessionId });
+          // Only set selected if different - don't overwrite user's selection (which includes the name)
+          if (sessionStore.selectedSessionId !== message.sessionId) {
+            sessionStore.setSelectedSession(message.sessionId);
+            setState({ ...getState(), sessionId: message.sessionId });
+          }
           break;
 
         case "storedSessions": {
@@ -247,7 +250,11 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
           taskStore.$reset();
           sessionStore.clearSessionData();
           sessionStore.setCurrentSession(null);
-          sessionStore.setSelectedSession(null);
+          // Only clear selected if not resuming another session (user switching sessions)
+          if (!sessionStore.currentResumedSessionId) {
+            sessionStore.setSelectedSession(null);
+            setState({ ...getState(), sessionId: undefined, sessionName: undefined });
+          }
           sessionStore.setResumedSession(null);
           uiStore.setTasksPanelCollapsed(true);
           if (message.pendingMessage) {
@@ -803,7 +810,11 @@ export function useMessageHandler(options: MessageHandlerOptions): void {
       });
     });
 
-    const savedState = getState<{ sessionId?: string }>();
+    const savedState = getState<{ sessionId?: string; sessionName?: string }>();
+    if (savedState?.sessionId) {
+      sessionStore.setSelectedSession(savedState.sessionId, savedState.sessionName ?? null);
+      sessionStore.setResumedSession(savedState.sessionId);
+    }
     postMessage({ type: "ready", savedSessionId: savedState?.sessionId });
 
     nextTick(() => {

@@ -9,6 +9,17 @@ Ultrathink step-by-step before implementing. For complex problems:
 3. Implement the solution
 4. Review for potential issues
 
+## Task Management
+
+Always use the Tasks tool to organize and track work:
+
+1. Create tasks using `TaskCreate` to break down the problem into discrete, trackable units
+2. Update task status with `TaskUpdate` as you progress (pending → in_progress → completed)
+3. Use `TaskList` to review overall progress and identify next steps
+4. Fetch full task details with `TaskGet` before starting work on a task
+
+This ensures visibility into progress and helps maintain focus on one task at a time.
+
 ## Requirement Gathering
 
 Before implementing any solution, use the AskUserQuestion tool to fully understand the user's intent:

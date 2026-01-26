@@ -34,7 +34,8 @@ export class StorageManager {
 
   async getStoredSessions(
     offset: number = 0,
-    limit: number = SESSIONS_PAGE_SIZE
+    limit: number = SESSIONS_PAGE_SIZE,
+    selectedSessionId?: string
   ): Promise<{ sessions: StoredSession[]; hasMore: boolean; nextOffset: number }> {
     if (!this.allSessionsCache) {
       this.allSessionsCache = await listSessions(this.workspacePath);
@@ -43,6 +44,40 @@ export class StorageManager {
     const total = this.allSessionsCache.length;
     const sessions = this.allSessionsCache.slice(offset, offset + limit);
     const hasMore = offset + limit < total;
+    const nextOffset = offset + sessions.length;
+
+    if (selectedSessionId && !sessions.some((s) => s.id === selectedSessionId)) {
+      const selectedSession = this.allSessionsCache.find((s) => s.id === selectedSessionId);
+      if (selectedSession) {
+        sessions.push(selectedSession);
+      }
+    }
+
+    return { sessions, hasMore, nextOffset };
+  }
+
+  async searchSessions(
+    query: string,
+    offset: number = 0,
+    selectedSessionId?: string
+  ): Promise<{ sessions: StoredSession[]; hasMore: boolean; nextOffset: number }> {
+    if (!this.allSessionsCache) {
+      this.allSessionsCache = await listSessions(this.workspacePath);
+    }
+
+    if (!query.trim()) {
+      return this.getStoredSessions(offset, SESSIONS_PAGE_SIZE, selectedSessionId);
+    }
+
+    const normalizedQuery = query.toLowerCase().trim();
+    const allMatches = this.allSessionsCache.filter((session) => {
+      const displayName = session.customTitle || session.preview;
+      return displayName.toLowerCase().includes(normalizedQuery);
+    });
+
+    const total = allMatches.length;
+    const sessions = allMatches.slice(offset, offset + SESSIONS_PAGE_SIZE);
+    const hasMore = offset + SESSIONS_PAGE_SIZE < total;
     const nextOffset = offset + sessions.length;
 
     return { sessions, hasMore, nextOffset };

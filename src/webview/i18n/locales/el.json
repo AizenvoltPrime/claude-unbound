@@ -114,7 +114,10 @@
     "enterNewName": "Εισάγετε νέο όνομα...",
     "loadMore": "Φόρτωση περισσότερων",
     "scrollToBottom": "Κύλιση στο κάτω μέρος",
-    "loadingHistory": "Φόρτωση ιστορικού..."
+    "loadingHistory": "Φόρτωση ιστορικού...",
+    "searchPlaceholder": "Αναζήτηση συνεδριών...",
+    "noSearchResults": "Δεν βρέθηκαν συνεδρίες",
+    "noSessions": "Δεν υπάρχουν συνεδρίες"
   },
   "deleteSession": {
     "title": "Διαγραφή Συνεδρίας",

@@ -114,7 +114,10 @@
     "enterNewName": "Enter new name...",
     "loadMore": "Load more sessions",
     "scrollToBottom": "Scroll to bottom",
-    "loadingHistory": "Loading history..."
+    "loadingHistory": "Loading history...",
+    "searchPlaceholder": "Search sessions...",
+    "noSearchResults": "No sessions found",
+    "noSessions": "No sessions yet"
   },
   "deleteSession": {
     "title": "Delete Session",

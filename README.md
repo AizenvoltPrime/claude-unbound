@@ -38,7 +38,7 @@
 - **IDE Context**: Automatically include the active file or selected code in your message (toggleable in input bar)
 - **Slash Commands**: Type `/` for built-in commands (`/clear`, `/compact`, `/rewind`, etc.) and custom commands from `.claude/commands/`
 - **Prompt History**: Navigate previous prompts with arrow keys (shell-style)
-- **Session Management**: Create, rename, resume, and delete sessions with confirmation
+- **Session Management**: Create, rename, resume, delete, and search sessions with confirmation
 - **Panel Persistence**: Panels and active sessions survive VS Code restarts
 - **Multi-Panel Sync**: Prompt history syncs across all open panels instantly
 - **Context Stats**: Live tracking of token usage, cache activity, context window %, and session cost

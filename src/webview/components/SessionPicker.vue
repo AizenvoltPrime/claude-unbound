@@ -1,0 +1,341 @@
+<script setup lang="ts">
+import { ref, computed, nextTick, watch, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { onKeyStroke } from '@vueuse/core';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  IconClipboard,
+  IconCheck,
+  IconXMark,
+  IconPencil,
+  IconTrash,
+  IconChevronUp,
+  IconChevronDown,
+  IconSearch,
+} from '@/components/icons';
+import DeleteSessionModal from './DeleteSessionModal.vue';
+import type { StoredSession } from '@shared/types';
+
+const props = defineProps<{
+  sessions: StoredSession[];
+  selectedSessionId: string | null;
+  selectedSessionName: string | null;
+  hasMore: boolean;
+  loading: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: 'select', sessionId: string): void;
+  (e: 'rename', sessionId: string, newName: string): void;
+  (e: 'delete', sessionId: string): void;
+  (e: 'loadMore'): void;
+  (e: 'search', query: string, offset?: number): void;
+  (e: 'open'): void;
+}>();
+
+const { t } = useI18n();
+
+const isOpen = ref(false);
+const searchQuery = ref('');
+const searchDebounceTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
+const renamingSessionId = ref<string | null>(null);
+const renameInputValue = ref('');
+const renameInputRef = ref<HTMLInputElement | null>(null);
+const deletingSessionId = ref<string | null>(null);
+const sessionsListRef = ref<HTMLElement | null>(null);
+const awaitingSelectedSession = ref(false);
+const searchOffset = ref(0);
+
+function toggle() {
+  isOpen.value = !isOpen.value;
+  if (!isOpen.value) {
+    searchQuery.value = '';
+    renamingSessionId.value = null;
+    awaitingSelectedSession.value = false;
+  } else {
+    const selectedInArray = props.selectedSessionId && props.sessions.some(s => s.id === props.selectedSessionId);
+    if (selectedInArray) {
+      scrollToSelectedSession();
+    } else if (props.selectedSessionId) {
+      awaitingSelectedSession.value = true;
+      emit('open');
+    }
+  }
+}
+
+function scrollToSelectedSession() {
+  if (!props.selectedSessionId) return;
+  nextTick(() => {
+    const selectedElement = sessionsListRef.value?.querySelector(
+      `[data-session-id="${props.selectedSessionId}"]`
+    );
+    selectedElement?.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+watch(() => props.sessions, () => {
+  if (awaitingSelectedSession.value && props.selectedSessionId) {
+    const selectedInArray = props.sessions.some(s => s.id === props.selectedSessionId);
+    if (selectedInArray) {
+      awaitingSelectedSession.value = false;
+      scrollToSelectedSession();
+    }
+  }
+});
+
+function close() {
+  isOpen.value = false;
+  searchQuery.value = '';
+  renamingSessionId.value = null;
+}
+
+function handleSearchInput() {
+  if (searchDebounceTimeout.value) {
+    clearTimeout(searchDebounceTimeout.value);
+  }
+
+  searchDebounceTimeout.value = setTimeout(() => {
+    searchOffset.value = 0;
+    emit('search', searchQuery.value, 0);
+  }, 300);
+}
+
+function clearSearch() {
+  searchQuery.value = '';
+  searchOffset.value = 0;
+  emit('search', '', 0);
+}
+
+function handleScroll(event: Event) {
+  const container = event.target as HTMLElement;
+  if (!container) return;
+
+  const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+  if (scrollBottom < 50 && props.hasMore && !props.loading) {
+    if (searchQuery.value.trim()) {
+      searchOffset.value = props.sessions.length;
+      emit('search', searchQuery.value, searchOffset.value);
+    } else {
+      emit('loadMore');
+    }
+  }
+}
+
+function handleSelect(sessionId: string) {
+  emit('select', sessionId);
+  close();
+}
+
+function startRename(sessionId: string, currentName: string) {
+  renamingSessionId.value = sessionId;
+  renameInputValue.value = currentName;
+  nextTick(() => {
+    renameInputRef.value?.focus();
+    renameInputRef.value?.select();
+  });
+}
+
+function submitRename() {
+  if (renamingSessionId.value && renameInputValue.value.trim()) {
+    emit('rename', renamingSessionId.value, renameInputValue.value.trim());
+    renamingSessionId.value = null;
+  }
+}
+
+function cancelRename() {
+  renamingSessionId.value = null;
+}
+
+function startDelete(sessionId: string) {
+  deletingSessionId.value = sessionId;
+}
+
+function confirmDelete() {
+  if (deletingSessionId.value) {
+    emit('delete', deletingSessionId.value);
+    deletingSessionId.value = null;
+  }
+}
+
+function cancelDelete() {
+  deletingSessionId.value = null;
+}
+
+function getDisplayName(session: StoredSession): string {
+  return session.customTitle || session.preview;
+}
+
+function formatTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return t('time.justNow');
+  if (diffMins < 60) return t('time.minutesAgo', { n: diffMins });
+  if (diffHours < 24) return t('time.hoursAgo', { n: diffHours });
+  if (diffDays < 7) return t('time.daysAgo', { n: diffDays });
+  return date.toLocaleDateString();
+}
+
+function getDeletingSessionName(): string {
+  if (!deletingSessionId.value) return '';
+  const session = props.sessions.find(s => s.id === deletingSessionId.value);
+  return session ? getDisplayName(session) : '';
+}
+
+onKeyStroke('Escape', () => {
+  if (isOpen.value && !renamingSessionId.value && !deletingSessionId.value) {
+    close();
+  }
+});
+
+onUnmounted(() => {
+  if (searchDebounceTimeout.value) {
+    clearTimeout(searchDebounceTimeout.value);
+  }
+});
+</script>
+
+<template>
+  <div class="px-3 py-2 border-b border-border/30 bg-card">
+    <!-- Trigger button -->
+    <Button
+      variant="outline"
+      class="w-full h-auto justify-start text-xs text-primary hover:text-foreground p-2"
+      @click="toggle"
+    >
+      <IconClipboard :size="14" class="shrink-0" />
+      <span v-if="selectedSessionName" class="flex-1 text-left truncate text-foreground">
+        {{ selectedSessionName }}
+      </span>
+      <span v-else class="flex-1 text-left text-muted-foreground">
+        {{ t('session.selectSession', { n: sessions.length }) }}
+      </span>
+      <component :is="isOpen ? IconChevronUp : IconChevronDown" :size="12" class="text-muted-foreground shrink-0" />
+    </Button>
+
+    <!-- Dropdown panel -->
+    <div
+      v-if="isOpen"
+      class="mt-2 border border-border/30 rounded bg-background"
+    >
+      <!-- Search input -->
+      <div class="p-2 border-b border-border/30">
+        <div class="relative">
+          <IconSearch :size="14" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            v-model="searchQuery"
+            type="text"
+            :placeholder="t('session.searchPlaceholder')"
+            class="h-8 pl-8 pr-8 text-xs"
+            @input="handleSearchInput"
+          />
+          <Button
+            v-if="searchQuery"
+            variant="ghost"
+            size="icon-sm"
+            class="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+            @click="clearSearch"
+          >
+            <IconXMark :size="12" />
+          </Button>
+        </div>
+      </div>
+
+      <!-- Sessions list -->
+      <div ref="sessionsListRef" class="max-h-52 overflow-y-auto" @scroll="handleScroll">
+        <!-- Empty state -->
+        <div
+          v-if="sessions.length === 0"
+          class="p-4 text-center text-xs text-muted-foreground"
+        >
+          {{ searchQuery ? t('session.noSearchResults') : t('session.noSessions') }}
+        </div>
+
+        <!-- Session items -->
+        <div v-for="session in sessions" :key="session.id" :data-session-id="session.id" class="group relative">
+          <!-- Rename mode -->
+          <div v-if="renamingSessionId === session.id" class="flex items-center gap-2 p-2 rounded bg-muted">
+            <input
+              ref="renameInputRef"
+              v-model="renameInputValue"
+              type="text"
+              class="flex-1 px-2 py-1 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:border-primary"
+              :placeholder="t('session.enterNewName')"
+              @keyup.enter="submitRename"
+              @keyup.escape="cancelRename"
+            />
+            <Button size="sm" class="h-6 px-2" @click="submitRename"><IconCheck :size="14" /></Button>
+            <Button variant="ghost" size="sm" class="h-6 px-2" @click="cancelRename"><IconXMark :size="14" /></Button>
+          </div>
+
+          <!-- Normal display mode -->
+          <div v-else class="flex items-center">
+            <Button
+              variant="ghost"
+              class="flex-1 h-auto justify-start text-left p-2 text-xs text-foreground"
+              :class="[
+                selectedSessionId === session.id
+                  ? 'bg-primary/20 border-l-2 border-primary'
+                  : ''
+              ]"
+              @click="handleSelect(session.id)"
+            >
+              <div class="w-full">
+                <div class="font-medium truncate flex items-center gap-1">
+                  <IconCheck v-if="selectedSessionId === session.id" :size="12" class="text-primary shrink-0" />
+                  {{ getDisplayName(session) }}
+                </div>
+                <div class="text-muted-foreground" :class="{ 'ml-4': selectedSessionId === session.id }">
+                  {{ formatTime(session.timestamp) }}
+                </div>
+              </div>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary hover:bg-muted ml-2"
+              :title="t('session.renameSession')"
+              @click.stop="startRename(session.id, getDisplayName(session))"
+            ><IconPencil :size="12" /></Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              class="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive hover:bg-destructive/20"
+              :title="t('session.deleteSession')"
+              @click.stop="startDelete(session.id)"
+            ><IconTrash :size="12" /></Button>
+          </div>
+        </div>
+
+        <!-- Load more -->
+        <div v-if="!searchQuery && (hasMore || loading)" class="text-center py-2">
+          <Button
+            v-if="!loading"
+            variant="link"
+            size="sm"
+            class="text-xs text-primary hover:text-foreground flex items-center gap-1"
+            @click="$emit('loadMore')"
+          >
+            <IconChevronDown :size="12" /> {{ t('session.loadMore') }}
+          </Button>
+          <div v-else class="text-xs text-muted-foreground animate-pulse">
+            {{ t('common.loading') }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete confirmation modal -->
+    <DeleteSessionModal
+      :visible="!!deletingSessionId"
+      :session-name="getDeletingSessionName()"
+      @confirm="confirmDelete"
+      @cancel="cancelDelete"
+    />
+  </div>
+</template>

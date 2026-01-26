@@ -8,17 +8,12 @@ export const useUIStore = defineStore('ui', () => {
   const showSettingsPanel = ref(false);
   const showMcpPanel = ref(false);
   const showPluginPanel = ref(false);
-  const showSessionPicker = ref(false);
   const currentRunningTool = ref<string | null>(null);
   const showRewindTypeModal = ref(false);
   const showRewindBrowser = ref(false);
   const rewindHistoryItems = ref<RewindHistoryItem[]>([]);
   const rewindHistoryLoading = ref(false);
   const selectedRewindItem = ref<RewindHistoryItem | null>(null);
-  const renamingSessionId = ref<string | null>(null);
-  const renameInputValue = ref('');
-  const deletingSessionId = ref<string | null>(null);
-  const showDeleteModal = ref(false);
   const tasksPanelCollapsed = ref(false);
   const ideContext = ref<IdeContextDisplayInfo | null>(null);
   const ideContextEnabled = ref(true);
@@ -63,18 +58,6 @@ export const useUIStore = defineStore('ui', () => {
     showPluginPanel.value = false;
   }
 
-  function openSessionPicker() {
-    showSessionPicker.value = true;
-  }
-
-  function toggleSessionPicker() {
-    showSessionPicker.value = !showSessionPicker.value;
-  }
-
-  function closeSessionPicker() {
-    showSessionPicker.value = false;
-  }
-
   function closeRewindTypeModal() {
     showRewindTypeModal.value = false;
   }
@@ -111,26 +94,6 @@ export const useUIStore = defineStore('ui', () => {
     selectedRewindItem.value = null;
   }
 
-  function startRename(sessionId: string, currentName: string) {
-    renamingSessionId.value = sessionId;
-    renameInputValue.value = currentName;
-  }
-
-  function cancelRename() {
-    renamingSessionId.value = null;
-    renameInputValue.value = '';
-  }
-
-  function startDelete(sessionId: string) {
-    deletingSessionId.value = sessionId;
-    showDeleteModal.value = true;
-  }
-
-  function cancelDelete() {
-    deletingSessionId.value = null;
-    showDeleteModal.value = false;
-  }
-
   function setTasksPanelCollapsed(collapsed: boolean) {
     tasksPanelCollapsed.value = collapsed;
   }
@@ -149,17 +112,12 @@ export const useUIStore = defineStore('ui', () => {
     showSettingsPanel.value = false;
     showMcpPanel.value = false;
     showPluginPanel.value = false;
-    showSessionPicker.value = false;
     currentRunningTool.value = null;
     showRewindTypeModal.value = false;
     showRewindBrowser.value = false;
     rewindHistoryItems.value = [];
     rewindHistoryLoading.value = false;
     selectedRewindItem.value = null;
-    renamingSessionId.value = null;
-    renameInputValue.value = '';
-    deletingSessionId.value = null;
-    showDeleteModal.value = false;
     tasksPanelCollapsed.value = false;
     ideContext.value = null;
     ideContextEnabled.value = true;
@@ -171,17 +129,12 @@ export const useUIStore = defineStore('ui', () => {
     showSettingsPanel,
     showMcpPanel,
     showPluginPanel,
-    showSessionPicker,
     currentRunningTool,
     showRewindTypeModal,
     showRewindBrowser,
     rewindHistoryItems,
     rewindHistoryLoading,
     selectedRewindItem,
-    renamingSessionId,
-    renameInputValue,
-    deletingSessionId,
-    showDeleteModal,
     setProcessing,
     setIsAtBottom,
     setCurrentRunningTool,
@@ -191,9 +144,6 @@ export const useUIStore = defineStore('ui', () => {
     closeMcpPanel,
     openPluginPanel,
     closePluginPanel,
-    openSessionPicker,
-    toggleSessionPicker,
-    closeSessionPicker,
     closeRewindTypeModal,
     openRewindBrowser,
     closeRewindBrowser,
@@ -201,10 +151,6 @@ export const useUIStore = defineStore('ui', () => {
     selectRewindItem,
     cancelTypeSelection,
     cancelRewind,
-    startRename,
-    cancelRename,
-    startDelete,
-    cancelDelete,
     tasksPanelCollapsed,
     setTasksPanelCollapsed,
     ideContext,

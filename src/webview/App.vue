@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick, computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { initLocaleMessaging } from '@/i18n';
 import { onKeyStroke, useIntersectionObserver } from '@vueuse/core';
@@ -21,7 +21,7 @@ import StatusBar from './components/StatusBar.vue';
 import BudgetWarning from './components/BudgetWarning.vue';
 import RewindBrowser from './components/RewindBrowser.vue';
 import RewindConfirmModal from './components/RewindConfirmModal.vue';
-import DeleteSessionModal from './components/DeleteSessionModal.vue';
+import SessionPicker from './components/SessionPicker.vue';
 import PermissionPrompt from './components/PermissionPrompt.vue';
 import QuestionPrompt from './components/QuestionPrompt.vue';
 import PlanApprovalOverlay from './components/PlanApprovalOverlay.vue';
@@ -49,21 +49,13 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   IconGear,
-  IconClipboard,
-  IconCheck,
-  IconXMark,
-  IconPencil,
-  IconTrash,
-  IconChevronUp,
   IconChevronDown,
   IconFileText,
   IconLink,
 } from '@/components/icons';
 import type {
-  StoredSession,
   PermissionMode,
   RewindOption,
-  RewindHistoryItem,
   UserContentBlock,
   ProviderProfile,
 } from '@shared/types';
@@ -80,17 +72,12 @@ const {
   showSettingsPanel,
   showMcpPanel,
   showPluginPanel,
-  showSessionPicker,
   currentRunningTool,
   showRewindTypeModal,
   showRewindBrowser,
   rewindHistoryItems,
   rewindHistoryLoading,
   selectedRewindItem,
-  renamingSessionId,
-  renameInputValue,
-  deletingSessionId,
-  showDeleteModal,
   tasksPanelCollapsed,
 } = storeToRefs(uiStore);
 
@@ -111,6 +98,7 @@ const sessionStore = useSessionStore();
 const {
   currentSessionId,
   selectedSessionId,
+  selectedSessionName,
   currentResumedSessionId,
   storedSessions,
   hasMoreSessions,
@@ -149,8 +137,6 @@ const { viewingPlan } = storeToRefs(planViewStore);
 
 const messageContainerRef = ref<HTMLElement | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
-const renameInputRef = ref<HTMLInputElement | null>(null);
-const sessionPickerRef = ref<HTMLElement | null>(null);
 const historySentinelRef = ref<HTMLElement | null>(null);
 
 const shouldAutoScroll = computed(() => isProcessing.value || !!streamingMessageId.value);
@@ -184,8 +170,7 @@ useDoubleKeyStroke('Escape', () => {
       !showRewindBrowser.value &&
       !showSettingsPanel.value &&
       !showMcpPanel.value &&
-      !showPluginPanel.value &&
-      !showDeleteModal.value) {
+      !showPluginPanel.value) {
     openRewindFlow();
   }
 });
@@ -225,66 +210,54 @@ function handleCancel() {
   postMessage({ type: 'cancelSession' });
 }
 
-function handleResumeSession(sessionId: string) {
+
+function handleSessionSelect(sessionId: string) {
+  const session = storedSessions.value.find(s => s.id === sessionId);
+  const sessionName = session ? (session.customTitle || session.preview) : null;
   streamingStore.$reset();
   sessionStore.clearSessionData();
-
   sessionStore.setResumedSession(sessionId);
-  sessionStore.setSelectedSession(sessionId);
+  sessionStore.setSelectedSession(sessionId, sessionName);
   postMessage({ type: 'resumeSession', sessionId });
-  uiStore.closeSessionPicker();
-
-  setState({ ...getState(), sessionId });
+  setState({ ...getState(), sessionId, sessionName });
 }
 
-onKeyStroke('Escape', () => {
-  if (showSessionPicker.value && !renamingSessionId.value) {
-    uiStore.closeSessionPicker();
+function handleSessionRename(sessionId: string, newName: string) {
+  if (selectedSessionId.value === sessionId) {
+    sessionStore.setSelectedSession(sessionId, newName);
   }
-});
-
-function toggleSessionPicker() {
-  uiStore.toggleSessionPicker();
+  postMessage({ type: 'renameSession', sessionId, newName });
 }
 
-function startRenameSession(sessionId: string, currentName: string) {
-  uiStore.startRename(sessionId, currentName);
-  nextTick(() => {
-    renameInputRef.value?.focus();
-    renameInputRef.value?.select();
+function handleSessionDelete(sessionId: string) {
+  postMessage({ type: 'deleteSession', sessionId });
+}
+
+function handleSessionLoadMore() {
+  if (!hasMoreSessions.value || loadingMoreSessions.value) return;
+  sessionStore.setLoadingMoreSessions(true);
+  postMessage({
+    type: 'requestMoreSessions',
+    offset: nextSessionsOffset.value,
+    selectedSessionId: selectedSessionId.value ?? undefined,
   });
 }
 
-function submitRenameSession() {
-  if (renamingSessionId.value && renameInputValue.value.trim()) {
-    postMessage({
-      type: 'renameSession',
-      sessionId: renamingSessionId.value,
-      newName: renameInputValue.value.trim(),
-    });
-    uiStore.cancelRename();
+function handleSessionSearch(query: string, offset: number = 0) {
+  if (query.trim()) {
+    if (offset > 0) {
+      sessionStore.setLoadingMoreSessions(true);
+    }
+    postMessage({ type: 'searchSessions', query, offset, selectedSessionId: selectedSessionId.value ?? undefined });
+  } else {
+    sessionStore.setLoadingMoreSessions(true);
+    postMessage({ type: 'requestMoreSessions', offset: 0, selectedSessionId: selectedSessionId.value ?? undefined });
   }
 }
 
-function cancelRenameSession() {
-  uiStore.cancelRename();
-}
-
-function startDeleteSession(sessionId: string) {
-  uiStore.startDelete(sessionId);
-}
-
-function cancelDeleteSession() {
-  uiStore.cancelDelete();
-}
-
-function confirmDeleteSession() {
-  if (deletingSessionId.value) {
-    postMessage({
-      type: 'deleteSession',
-      sessionId: deletingSessionId.value,
-    });
-    uiStore.cancelDelete();
+function handleSessionPickerOpen() {
+  if (selectedSessionId.value) {
+    postMessage({ type: 'requestMoreSessions', offset: 0, selectedSessionId: selectedSessionId.value });
   }
 }
 
@@ -316,46 +289,6 @@ function scrollToBottom() {
   }
 }
 
-function loadMoreSessions() {
-  if (!hasMoreSessions.value || loadingMoreSessions.value) {
-    return;
-  }
-
-  sessionStore.setLoadingMoreSessions(true);
-  postMessage({
-    type: 'requestMoreSessions',
-    offset: nextSessionsOffset.value,
-  });
-}
-
-function handleSessionPickerScroll(event: Event) {
-  const container = event.target as HTMLElement;
-  if (!container) return;
-
-  const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-  if (scrollBottom < 50 && hasMoreSessions.value && !loadingMoreSessions.value) {
-    loadMoreSessions();
-  }
-}
-
-function getSessionDisplayName(session: StoredSession): string {
-  return session.customTitle || session.preview;
-}
-
-function formatSessionTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return t('time.justNow');
-  if (diffMins < 60) return t('time.minutesAgo', { n: diffMins });
-  if (diffHours < 24) return t('time.hoursAgo', { n: diffHours });
-  if (diffDays < 7) return t('time.daysAgo', { n: diffDays });
-  return date.toLocaleDateString();
-}
 
 function handleSetModel(model: string) {
   settingsStore.setModel(model);
@@ -681,103 +614,20 @@ const rewindMessagePreview = computed(() => {
     <!-- Subagents Indicator (running and recently completed) -->
     <SubagentIndicator :subagents="subagents" @expand="subagentStore.expandSubagent" />
 
-    <!-- Session picker dropdown (select-box style) -->
-    <div v-if="storedSessions.length > 0" class="px-3 py-2 border-b border-border/30 bg-card">
-      <Button
-        variant="outline"
-        class="w-full h-auto justify-start text-xs text-primary hover:text-foreground p-2"
-        @click="toggleSessionPicker"
-      >
-        <IconClipboard :size="14" class="shrink-0" />
-        <span v-if="selectedSession" class="flex-1 text-left truncate text-foreground">
-          {{ getSessionDisplayName(selectedSession) }}
-        </span>
-        <span v-else class="flex-1 text-left text-muted-foreground">
-          {{ t('session.selectSession', { n: storedSessions.length }) }}
-        </span>
-        <component :is="showSessionPicker ? IconChevronUp : IconChevronDown" :size="12" class="text-muted-foreground shrink-0" />
-      </Button>
-
-      <div
-        v-if="showSessionPicker"
-        ref="sessionPickerRef"
-        class="mt-2 space-y-1 max-h-64 overflow-y-auto border border-border/30 rounded bg-background"
-        @scroll="handleSessionPickerScroll"
-      >
-        <div
-          v-for="session in storedSessions"
-          :key="session.id"
-          class="group relative"
-        >
-          <!-- Rename input mode -->
-          <div v-if="renamingSessionId === session.id" class="flex items-center gap-2 p-2 rounded bg-muted">
-            <input
-              ref="renameInputRef"
-              v-model="renameInputValue"
-              type="text"
-              class="flex-1 px-2 py-1 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:border-primary"
-              placeholder="Enter new name..."
-              @keyup.enter="submitRenameSession"
-              @keyup.escape="cancelRenameSession"
-            />
-            <Button size="sm" class="h-6 px-2" @click="submitRenameSession"><IconCheck :size="14" /></Button>
-            <Button variant="ghost" size="sm" class="h-6 px-2" @click="cancelRenameSession"><IconXMark :size="14" /></Button>
-          </div>
-          <!-- Normal display mode -->
-          <div v-else class="flex items-center">
-            <Button
-              variant="ghost"
-              class="flex-1 h-auto justify-start text-left p-2 text-xs text-foreground"
-              :class="[
-                selectedSessionId === session.id
-                  ? 'bg-primary/20 border-l-2 border-primary'
-                  : ''
-              ]"
-              @click="handleResumeSession(session.id)"
-            >
-              <div class="w-full">
-                <div class="font-medium truncate flex items-center gap-1">
-                  <IconCheck v-if="selectedSessionId === session.id" :size="12" class="text-primary shrink-0" />
-                  {{ getSessionDisplayName(session) }}
-                </div>
-                <div class="text-muted-foreground" :class="{ 'ml-4': selectedSessionId === session.id }">
-                  {{ formatSessionTime(session.timestamp) }}
-                </div>
-              </div>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              class="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary hover:bg-muted ml-2"
-              title="Rename session"
-              @click.stop="startRenameSession(session.id, getSessionDisplayName(session))"
-            ><IconPencil :size="12" /></Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              class="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive hover:bg-destructive/20"
-              title="Delete session"
-              @click.stop="startDeleteSession(session.id)"
-            ><IconTrash :size="12" /></Button>
-          </div>
-        </div>
-        <!-- Load more indicator -->
-        <div v-if="hasMoreSessions || loadingMoreSessions" class="text-center py-2">
-          <Button
-            v-if="!loadingMoreSessions"
-            variant="link"
-            size="sm"
-            class="text-xs text-primary hover:text-foreground flex items-center gap-1"
-            @click="loadMoreSessions"
-          >
-            <IconChevronDown :size="12" /> Load more sessions
-          </Button>
-          <div v-else class="text-xs text-muted-foreground animate-pulse">
-            Loading...
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Session picker dropdown -->
+    <SessionPicker
+      :sessions="storedSessions"
+      :selected-session-id="selectedSessionId"
+      :selected-session-name="selectedSessionName"
+      :has-more="hasMoreSessions"
+      :loading="loadingMoreSessions"
+      @select="handleSessionSelect"
+      @rename="handleSessionRename"
+      @delete="handleSessionDelete"
+      @load-more="handleSessionLoadMore"
+      @search="handleSessionSearch"
+      @open="handleSessionPickerOpen"
+    />
 
     <!-- Message area wrapper (relative positioning for scroll-to-bottom button) -->
     <div class="relative flex-1 min-h-0">
@@ -958,14 +808,6 @@ const rewindMessagePreview = computed(() => {
       :is-loading="rewindHistoryLoading"
       @select="uiStore.selectRewindItem"
       @close="uiStore.closeRewindBrowser"
-    />
-
-    <!-- Delete Session Confirmation Modal -->
-    <DeleteSessionModal
-      :visible="showDeleteModal"
-      :session-name="deletingSessionId ? getSessionDisplayName(storedSessions.find(s => s.id === deletingSessionId) || { id: '', timestamp: 0, preview: '' }) : ''"
-      @confirm="confirmDeleteSession"
-      @cancel="cancelDeleteSession"
     />
 
     <!-- Subagent Overlay (full-screen) -->

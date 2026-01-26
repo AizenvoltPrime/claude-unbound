@@ -35,14 +35,46 @@ export function createHistoryHandlers(deps: HandlerDependencies): Partial<Handle
 
     requestMoreSessions: async (msg, ctx) => {
       if (msg.type !== "requestMoreSessions") return;
-      const { sessions, hasMore, nextOffset } = await storageManager.getStoredSessions(msg.offset);
+      const { sessions, hasMore, nextOffset } = await storageManager.getStoredSessions(
+        msg.offset,
+        undefined,
+        msg.selectedSessionId
+      );
       postMessage(ctx.panel, {
         type: "storedSessions",
         sessions,
         hasMore,
         nextOffset,
-        isFirstPage: false,
+        isFirstPage: msg.offset === 0,
       });
+    },
+
+    searchSessions: async (msg, ctx) => {
+      if (msg.type !== "searchSessions") return;
+      const offset = msg.offset ?? 0;
+      try {
+        const { sessions, hasMore, nextOffset } = await storageManager.searchSessions(
+          msg.query,
+          offset,
+          msg.selectedSessionId
+        );
+        postMessage(ctx.panel, {
+          type: "storedSessions",
+          sessions,
+          hasMore,
+          nextOffset,
+          isFirstPage: offset === 0,
+        });
+      } catch (err) {
+        log("[MessageRouter] Error searching sessions:", err);
+        postMessage(ctx.panel, {
+          type: "storedSessions",
+          sessions: [],
+          hasMore: false,
+          nextOffset: 0,
+          isFirstPage: true,
+        });
+      }
     },
 
     requestPromptHistory: async (msg, ctx) => {
