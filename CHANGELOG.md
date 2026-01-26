@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.38] - 2026-01-26
+
+### Changed
+
+- **Modularized Hook Handlers**: Extracted ~250 lines of SDK hook configuration from `QueryManager` into dedicated `hook-handlers.ts` module. Hooks are now organized by domain (tool, lifecycle, user, subagent) with dependency injection for improved testability. Follows the established `claude-session/` modular pattern.
+
 ## [1.0.37] - 2026-01-26
 
 ### Added
@@ -342,6 +348,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.38]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.37...v1.0.38
 [1.0.37]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.36...v1.0.37
 [1.0.36]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.35...v1.0.36
 [1.0.35]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.34...v1.0.35

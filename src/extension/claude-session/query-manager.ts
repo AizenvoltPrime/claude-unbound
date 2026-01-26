@@ -1,26 +1,15 @@
 import * as vscode from "vscode";
-import { log } from "../logger";
-import { persistInjectedMessage, findLastMessageInCurrentTurn, persistSubagentCorrelation, getSessionMetadata } from "../session";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { extractTextFromContent, hasImageContent } from "../../shared/utils";
-import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, ContentInput } from "./types";
+import { log } from "../logger";
+import { getSessionMetadata } from "../session";
+import { extractTextFromContent } from "../../shared/utils";
+import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, ContentInput, HookDependencies } from "./types";
 import type { ToolManager } from "./tool-manager";
 import type { StreamingManager } from "./streaming-manager";
 import type { AccountInfo, ModelInfo, SlashCommandInfo, McpServerStatusInfo, PermissionMode, SandboxConfig, PluginConfig } from "../../shared/types";
-import type {
-  PreToolUseHookInput,
-  PostToolUseHookInput,
-  PostToolUseFailureHookInput,
-  NotificationHookInput,
-  UserPromptSubmitHookInput,
-  SessionStartHookInput,
-  SessionEndHookInput,
-  SubagentStartHookInput,
-  SubagentStopHookInput,
-  PreCompactHookInput,
-} from "@anthropic-ai/claude-agent-sdk";
+import { buildHooksConfig } from "./hook-handlers";
 
 let queryFn: typeof import("@anthropic-ai/claude-agent-sdk").query | undefined;
 
@@ -234,7 +223,7 @@ export class QueryManager {
       settingSources: ["user", "project", "local"],
       systemPrompt: { type: "preset", preset: "claude_code" },
       tools: { type: "preset", preset: "claude_code" },
-      hooks: this.buildHooks(),
+      hooks: buildHooksConfig(this.getHookDependencies()),
     };
 
     if (resumeSessionId) {
@@ -300,264 +289,21 @@ export class QueryManager {
     }
   }
 
-  /** Build hooks configuration for the query */
-  private buildHooks() {
+  private getHookDependencies(): HookDependencies {
     return {
-      PreToolUse: [
-        {
-          hooks: [
-            async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-              const p = params as PreToolUseHookInput;
-              this.toolManager.handlePreToolUse(p.tool_name, toolUseId, p.tool_input);
-              return {};
-            },
-          ],
-        },
-      ],
-      PostToolUse: [
-        {
-          hooks: [
-            async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-              const p = params as PostToolUseHookInput;
-              const id = toolUseId ?? p.tool_use_id;
-              this.toolManager.handlePostToolUse(p.tool_name, id, p.tool_response);
-
-              if (this._pendingPlanBind) {
-                const sessionId = this.streamingManager.sessionId;
-                if (sessionId) {
-                  const planContent = this._pendingPlanBind;
-                  this._pendingPlanBind = null;
-                  this.bindPlanWhenSlugAvailable(sessionId, planContent);
-                }
-              }
-
-              if (this._queuedMessages.length > 0) {
-                const queueHasImages = this._queuedMessages.some((m) => hasImageContent(m.content));
-
-                if (queueHasImages) {
-                  log("[QueryManager] PostToolUse: queued messages contain images, deferring to turn-end flush");
-                  return {};
-                }
-
-                const queued = this._queuedMessages.splice(0);
-                const context = queued.map((m) => `[User interjection]: ${extractTextFromContent(m.content, "")}`).join("\n\n");
-                log("[QueryManager] PostToolUse: injecting queued messages as additionalContext");
-
-                const sessionId = this.streamingManager.sessionId;
-                let parentUuid = this.streamingManager.lastUserMessageId;
-
-                if (sessionId) {
-                  const lastMsgUuid = await findLastMessageInCurrentTurn(this.options.cwd, sessionId);
-                  if (lastMsgUuid) {
-                    parentUuid = lastMsgUuid;
-                  }
-                }
-
-                for (const msg of queued) {
-                  if (sessionId) {
-                    try {
-                      await persistInjectedMessage({
-                        workspacePath: this.options.cwd,
-                        sessionId,
-                        content: msg.content,
-                        parentUuid,
-                        uuid: msg.id ?? undefined,
-                      });
-                      if (msg.id) {
-                        parentUuid = msg.id;
-                      }
-                    } catch (err) {
-                      log("[QueryManager] Failed to persist injected message:", err);
-                    }
-                  }
-
-                  if (msg.id) {
-                    this.callbacks.onMessage({ type: "queueProcessed", messageId: msg.id });
-                  }
-                }
-
-                return {
-                  hookSpecificOutput: {
-                    hookEventName: "PostToolUse",
-                    additionalContext: context,
-                  },
-                };
-              }
-              return {};
-            },
-          ],
-        },
-      ],
-      PostToolUseFailure: [
-        {
-          hooks: [
-            async (params: unknown, toolUseId: string | undefined): Promise<Record<string, unknown>> => {
-              const p = params as PostToolUseFailureHookInput;
-              const id = toolUseId ?? p.tool_use_id;
-              this.toolManager.handlePostToolUseFailure(p.tool_name, id, p.error, p.is_interrupt);
-              return {};
-            },
-          ],
-        },
-      ],
-      Notification: [
-        {
-          hooks: [
-            async (params: unknown): Promise<Record<string, unknown>> => {
-              const p = params as NotificationHookInput;
-              if (p.message) {
-                this.callbacks.onMessage({
-                  type: "notification",
-                  message: p.message,
-                  notificationType: p.notification_type || "info",
-                } as import("../../shared/types").ExtensionToWebviewMessage);
-              }
-              return {};
-            },
-          ],
-        },
-      ],
-      SessionStart: [
-        {
-          hooks: [
-            async (params: unknown): Promise<Record<string, unknown>> => {
-              const p = params as SessionStartHookInput;
-              this.callbacks.onMessage({
-                type: "sessionStart",
-                source: p.source || "startup",
-              });
-              return {};
-            },
-          ],
-        },
-      ],
-      SessionEnd: [
-        {
-          hooks: [
-            async (params: unknown): Promise<Record<string, unknown>> => {
-              const p = params as SessionEndHookInput;
-              this.callbacks.onMessage({
-                type: "sessionEnd",
-                reason: p.reason || "completed",
-              });
-              return {};
-            },
-          ],
-        },
-      ],
-      UserPromptSubmit: [
-        {
-          hooks: [
-            async (params: unknown): Promise<Record<string, unknown>> => {
-              const p = params as UserPromptSubmitHookInput;
-              if (this.options.permissionHandler.getPermissionMode() === "plan") {
-                const planModeInstruction =
-                  "<MANDATORY_INSTRUCTION>PLAN MODE ACTIVE: You MUST call EnterPlanMode immediately as your first action. No other tools or responses allowed until you enter plan mode.</MANDATORY_INSTRUCTION>";
-
-                return {
-                  hookSpecificOutput: {
-                    hookEventName: "UserPromptSubmit",
-                    additionalContext: planModeInstruction,
-                  },
-                };
-              }
-              return {};
-            },
-          ],
-        },
-      ],
-      SubagentStart: [
-        {
-          hooks: [
-            async (params: unknown): Promise<Record<string, unknown>> => {
-              const p = params as SubagentStartHookInput;
-              if (p.agent_id) {
-                // Pass agentId to correlate - enables event-driven model discovery in ToolManager
-                const toolUseId = this.toolManager.correlateSubagentStart(p.agent_id);
-                const sessionId = this.streamingManager.sessionId;
-
-                if (toolUseId && sessionId) {
-                  persistSubagentCorrelation(this.options.cwd, sessionId, toolUseId, p.agent_id).catch(err => {
-                    log("[QueryManager] Failed to persist subagent correlation: %O", err);
-                  });
-                }
-
-                this.callbacks.onMessage({
-                  type: "subagentStart",
-                  agentId: p.agent_id,
-                  agentType: p.agent_type || "unknown",
-                  toolUseId: toolUseId ?? undefined,
-                });
-              }
-              return {};
-            },
-          ],
-        },
-      ],
-      SubagentStop: [
-        {
-          hooks: [
-            async (params: unknown): Promise<Record<string, unknown>> => {
-              const p = params as SubagentStopHookInput;
-              if (p.agent_id) {
-                this.callbacks.onMessage({
-                  type: "subagentStop",
-                  agentId: p.agent_id,
-                });
-              }
-              return {};
-            },
-          ],
-        },
-      ],
-      Stop: [
-        {
-          hooks: [
-            async (): Promise<Record<string, unknown>> => {
-              if (this._pendingPlanBind) {
-                const content = this._pendingPlanBind;
-                this._pendingPlanBind = null;
-
-                const sessionId = this.streamingManager.sessionId;
-                if (!sessionId) {
-                  return {};
-                }
-
-                const metadata = await getSessionMetadata(this.options.cwd, sessionId);
-                const slug = metadata?.slug;
-                if (!slug || slug.includes("..") || slug.includes("/") || slug.includes("\\")) {
-                  return {};
-                }
-
-                const slugPath = path.join(os.homedir(), ".claude", "plans", `${slug}.md`);
-                try {
-                  await fs.mkdir(path.dirname(slugPath), { recursive: true });
-                  await fs.writeFile(slugPath, content);
-                  log("[QueryManager] Stop hook: Wrote plan file to %s", slugPath);
-                  return { systemMessage: `A plan file has been bound to this session. Plan file path: ${slugPath}` };
-                } catch {
-                  return {};
-                }
-              }
-              return {};
-            },
-          ],
-        },
-      ],
-      PreCompact: [
-        {
-          hooks: [
-            async (params: unknown): Promise<Record<string, unknown>> => {
-              const p = params as PreCompactHookInput;
-              this.callbacks.onMessage({
-                type: "preCompact",
-                trigger: p.trigger || "auto",
-              });
-              return {};
-            },
-          ],
-        },
-      ],
+      toolManager: this.toolManager,
+      streamingManager: this.streamingManager,
+      callbacks: this.callbacks,
+      options: this.options,
+      getPendingPlanBind: () => this._pendingPlanBind,
+      clearPendingPlanBind: () => {
+        const content = this._pendingPlanBind;
+        this._pendingPlanBind = null;
+        return content;
+      },
+      getQueuedMessages: () => this._queuedMessages,
+      spliceQueuedMessages: () => this._queuedMessages.splice(0),
+      bindPlanWhenSlugAvailable: (sessionId, content) => this.bindPlanWhenSlugAvailable(sessionId, content),
     };
   }
 

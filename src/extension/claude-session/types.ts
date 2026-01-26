@@ -7,6 +7,8 @@ import type {
   ImageBlock,
   UserContentBlock,
 } from '../../shared/types';
+import type { ToolManager } from './tool-manager';
+import type { StreamingManager } from './streaming-manager';
 
 /** Type for the Query object returned by the SDK */
 export type Query = ReturnType<typeof import('@anthropic-ai/claude-agent-sdk').query>;
@@ -101,4 +103,23 @@ export function createEmptyStreamingContent(): StreamingContent {
     activeBlockType: null,
     activeToolId: null,
   };
+}
+
+/** Queued message awaiting injection at tool boundary */
+export interface QueuedMessage {
+  id: string | null;
+  content: ContentInput;
+}
+
+/** Dependencies for hook handler creation */
+export interface HookDependencies {
+  toolManager: ToolManager;
+  streamingManager: StreamingManager;
+  callbacks: MessageCallbacks;
+  options: SessionOptions;
+  getPendingPlanBind: () => string | null;
+  clearPendingPlanBind: () => string | null;
+  getQueuedMessages: () => QueuedMessage[];
+  spliceQueuedMessages: () => QueuedMessage[];
+  bindPlanWhenSlugAvailable: (sessionId: string, content: string) => void;
 }
