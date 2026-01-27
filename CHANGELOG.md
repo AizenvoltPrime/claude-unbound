@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.43] - 2026-01-27
+
+### Changed
+
+- **Modularized useMessageHandler**: Refactored monolithic `useMessageHandler.ts` (820 lines) into a modular `message-handler/` directory following the established `message-router/` pattern from the extension side. Handlers are now organized by domain (streaming, tools, permissions, sessions, settings, history, subagents, queue, UI) with a registry-based dispatch system. Uses factory pattern with `Partial<HandlerRegistry>` for type-safe composition.
+
 ## [1.0.42] - 2026-01-27
 
 ### Fixed
@@ -372,6 +378,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.43]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.42...v1.0.43
 [1.0.42]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.41...v1.0.42
 [1.0.41]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.40...v1.0.41
 [1.0.40]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.39...v1.0.40

@@ -37,7 +37,7 @@ npm run package       # Package for distribution
 │                      Webview (Vue 3 + Pinia)                │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  App.vue ─── Pinia Stores ─── Components            │   │
-│  │  useMessageHandler (composable) handles all events  │   │
+│  │  message-handler/ (composable) handles all events   │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -55,7 +55,7 @@ npm run package       # Package for distribution
 | `src/extension/session/`               | Session persistence module (see Session Storage below)    |
 | `src/extension/PluginService.ts`       | Discovers Claude Code plugins from registry and project   |
 | `src/extension/CustomAgentService.ts`  | Discovers custom agents from project/user/plugin sources  |
-| `src/shared/types.ts`                  | All TypeScript types for extension↔webview communication  |
+| `src/shared/types/`                    | Modular type definitions (see Shared Types below)         |
 
 ### ClaudeSession Module (`claude-session/`)
 
@@ -65,11 +65,28 @@ The SDK integration is modularized into focused managers wired together via depe
 | ----------------------- | ---------------------------------------------------------------- |
 | `index.ts`              | Thin facade exposing public API, wires managers together         |
 | `query-manager.ts`      | SDK lifecycle, streaming query creation, model/permission config |
-| `streaming-manager.ts`  | Message processing, content accumulation, turn management        |
+| `streaming-manager/`    | Message processing module (see StreamingManager Module below)    |
 | `tool-manager.ts`       | Permission handling, tool use correlation, result tracking       |
 | `checkpoint-manager.ts` | File checkpointing, rewind operations, cost tracking             |
 | `types.ts`              | Interfaces, agent definitions (`AGENT_DEFINITIONS`)              |
 | `utils.ts`              | Shared utility functions                                         |
+
+### StreamingManager Module (`streaming-manager/`)
+
+Message processing is modularized into domain-specific processors:
+
+| File                                  | Responsibility                                            |
+| ------------------------------------- | --------------------------------------------------------- |
+| `index.ts`                            | Public facade (`StreamingManager`), wires processors      |
+| `types.ts`                            | Processor interfaces, message types                       |
+| `state.ts`                            | `StreamingState` class for turn/content accumulation      |
+| `utils.ts`                            | Pure helper functions (token extraction, content parsing) |
+| `processor-registry.ts`               | Combines all processors into unified registry             |
+| `processors/assistant-processor.ts`   | Assistant message start, streaming deltas                 |
+| `processors/stream-event-processor.ts`| Thinking/text content block deltas                        |
+| `processors/system-processor.ts`      | System messages, errors                                   |
+| `processors/user-processor.ts`        | User message display, replay                              |
+| `processors/result-processor.ts`      | Tool results, final responses                             |
 
 ### ChatPanel Module (`chat-panel/`)
 
@@ -107,6 +124,26 @@ Webview↔extension message routing is modularized into domain-specific handlers
 | `handlers/workspace-handlers.ts`| File operations, plans, slash commands, agents                |
 | `handlers/provider-handlers.ts` | Provider profile CRUD operations                              |
 
+### MessageHandler Module (`message-handler/`)
+
+Webview message handling is modularized into domain-specific handlers (mirrors `message-router/` pattern):
+
+| File                              | Responsibility                                            |
+| --------------------------------- | --------------------------------------------------------- |
+| `index.ts`                        | Public facade (`useMessageHandler`), registry dispatch    |
+| `types.ts`                        | HandlerContext, HandlerRegistry, ScrollBehavior types     |
+| `utils.ts`                        | Shared utilities (feedback extraction, history conversion)|
+| `handler-registry.ts`             | Combines all handlers into unified registry               |
+| `handlers/streaming-handlers.ts`  | userMessage, assistant, partial, done, processing, error  |
+| `handlers/tool-handlers.ts`       | toolStreaming, toolPending, toolCompleted, toolFailed     |
+| `handlers/permission-handlers.ts` | requestPermission, requestQuestion, plan/skill approvals  |
+| `handlers/session-handlers.ts`    | sessionStarted, sessionCleared, sessionCancelled          |
+| `handlers/settings-handlers.ts`   | accountInfo, models, MCP servers, plugins, budget         |
+| `handlers/history-handlers.ts`    | userReplay, assistantReplay, historyChunk, rewind/compact |
+| `handlers/subagent-handlers.ts`   | subagentStart, subagentStop, model/messages updates       |
+| `handlers/queue-handlers.ts`      | messageQueued, queueProcessed, queueCancelled             |
+| `handlers/ui-handlers.ts`         | notification, panelFocused, languageChange, tokenUsage    |
+
 ### Webview State (Pinia Stores)
 
 | Store                | Responsibility                                                 |
@@ -124,7 +161,7 @@ Webview↔extension message routing is modularized into domain-specific handlers
 1. User types in ChatInput → `postMessage({ type: 'sendMessage', content })`
 2. ChatPanelProvider receives → calls `ClaudeSession.sendMessage()`
 3. ClaudeSession streams SDK responses → converts to `ExtensionToWebviewMessage`
-4. `useMessageHandler` composable dispatches to appropriate Pinia stores
+4. `message-handler/` composable dispatches to appropriate Pinia stores
 
 ### Build Targets
 
@@ -165,6 +202,23 @@ Configured in both tsconfig.json and vite.config.ts:
 | `acceptEdits`       | Auto-approves Edit/Write, prompts for Bash              |
 | `bypassPermissions` | Auto-approves all tools                                 |
 | `plan`              | Read-only mode, no tool execution                       |
+
+## Shared Types (`src/shared/types/`)
+
+Type definitions are organized by domain:
+
+| File              | Purpose                                                |
+| ----------------- | ------------------------------------------------------ |
+| `constants.ts`    | Shared constants (model tiers, permission modes)       |
+| `content.ts`      | Content block types, history message structures        |
+| `mcp.ts`          | MCP server configuration and status types              |
+| `plugins.ts`      | Plugin definitions and state                           |
+| `commands.ts`     | Slash command and skill types                          |
+| `permissions.ts`  | Tool permission request/response types                 |
+| `settings.ts`     | Settings structures (model, thinking, providers)       |
+| `session.ts`      | Session metadata, chat message, tool call types        |
+| `subagents.ts`    | Subagent state and message types                       |
+| `messages.ts`     | Extension↔Webview message discriminated unions         |
 
 ## Session Storage
 

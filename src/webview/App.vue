@@ -30,7 +30,7 @@ import EnterPlanModePrompt from "./components/EnterPlanModePrompt.vue";
 import SkillApprovalPrompt from "./components/SkillApprovalPrompt.vue";
 import TaskListCard from "./components/TaskListCard.vue";
 import { useVSCode } from "./composables/useVSCode";
-import { useMessageHandler } from "./composables/useMessageHandler";
+import { useMessageHandler } from "./composables/message-handler";
 import { useDoubleKeyStroke } from "./composables/useDoubleKeyStroke";
 import { useAutoScroll } from "./composables/useAutoScroll";
 import {
