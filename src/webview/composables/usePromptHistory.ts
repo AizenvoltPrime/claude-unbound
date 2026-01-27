@@ -1,6 +1,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useVSCode } from './useVSCode';
-import type { ExtensionToWebviewMessage } from '@shared/types';
+import type { ExtensionToWebviewMessage } from '@shared/types/messages';
 
 const MAX_LOCAL_HISTORY_SIZE = 500;
 const PREFETCH_THRESHOLD = 25;

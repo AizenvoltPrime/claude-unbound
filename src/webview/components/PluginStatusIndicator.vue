@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { PluginStatusInfo } from '@shared/types';
+import type { PluginStatusInfo } from '@shared/types/plugins';
 import { Button } from '@/components/ui/button';
 import { IconCheck, IconExclamation, IconPuzzle } from '@/components/icons';
 

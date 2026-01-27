@@ -2,7 +2,8 @@
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { setLocale, i18n } from '@/i18n';
-import { DEFAULT_THINKING_TOKENS, type ExtensionSettings, type ModelInfo, type PermissionMode, type ProviderProfile } from '@shared/types';
+import { DEFAULT_THINKING_TOKENS } from '@shared/types/constants';
+import type { ExtensionSettings, ModelInfo, PermissionMode, ProviderProfile } from '@shared/types/settings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

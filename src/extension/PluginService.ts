@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import * as vscode from "vscode";
-import type { PluginInfo } from "../shared/types";
+import type { PluginInfo } from "../shared/types/plugins";
 import { log } from "./logger";
 
 const PLUGINS_FOLDER = ".claude/plugins";

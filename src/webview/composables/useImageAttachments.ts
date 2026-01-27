@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import type { ImageBlock } from '@shared/types';
+import type { ImageBlock } from '@shared/types/content';
 import { i18n } from '@/i18n';
 
 export interface ImageAttachment {

@@ -10,7 +10,7 @@ import {
   AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 import { IconWarning } from '@/components/icons';
-import type { RewindOption } from '@shared/types';
+import type { RewindOption } from '@shared/types/session';
 
 const { t } = useI18n();
 

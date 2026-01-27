@@ -48,7 +48,9 @@ import { usePlanViewStore } from "./stores/usePlanViewStore";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { IconGear, IconChevronDown, IconFileText, IconLink } from "@/components/icons";
-import type { PermissionMode, RewindOption, UserContentBlock, ProviderProfile } from "@shared/types";
+import type { PermissionMode, ProviderProfile } from "@shared/types/settings";
+import type { RewindOption } from "@shared/types/session";
+import type { UserContentBlock } from "@shared/types/content";
 
 const { postMessage, setState, getState } = useVSCode();
 const { t } = useI18n();

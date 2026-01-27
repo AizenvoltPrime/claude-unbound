@@ -1,6 +1,7 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
-import type { ChatMessage, ToolCall, ContentBlock, QueuedMessage, UserContentBlock } from "@shared/types";
+import type { ChatMessage, ToolCall, QueuedMessage } from "@shared/types/session";
+import type { ContentBlock, UserContentBlock } from "@shared/types/content";
 
 export interface ToolStatusEntry {
   status: ToolCall["status"];

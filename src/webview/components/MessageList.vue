@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
-import type { ChatMessage, CompactMarker as CompactMarkerType, SubagentState, ToolCall, ContentBlock, ImageBlock } from "@shared/types";
+import type { ChatMessage, CompactMarker as CompactMarkerType, ToolCall } from "@shared/types/session";
+import type { SubagentState } from "@shared/types/subagents";
+import type { ContentBlock, ImageBlock } from "@shared/types/content";
 
 import type { ExpandedDiff } from "@/stores/useDiffStore";
 import ToolCallCard from "./ToolCallCard.vue";

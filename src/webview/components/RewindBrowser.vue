@@ -2,7 +2,7 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { IconSearch, IconFile, IconWarning } from '@/components/icons';
-import type { RewindHistoryItem } from '@shared/types';
+import type { RewindHistoryItem } from '@shared/types/session';
 
 const { t } = useI18n();
 

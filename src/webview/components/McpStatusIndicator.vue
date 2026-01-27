@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { McpServerStatusInfo } from '@shared/types';
+import type { McpServerStatusInfo } from '@shared/types/mcp';
 import { Button } from '@/components/ui/button';
 import { IconCheck, IconExclamation } from '@/components/icons';
 

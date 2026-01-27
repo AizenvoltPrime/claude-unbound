@@ -4,7 +4,8 @@ import { SlashCommandService } from "../SlashCommandService";
 import { CustomAgentService } from "../CustomAgentService";
 import { BUILTIN_SLASH_COMMANDS } from "../../shared/slashCommands";
 import { listWorkspaceFiles, type FileResult } from "../ripgrep";
-import type { ExtensionToWebviewMessage, SlashCommandItem, WorkspaceFileInfo, CustomAgentInfo } from "../../shared/types";
+import type { ExtensionToWebviewMessage } from "../../shared/types/messages";
+import type { SlashCommandItem, WorkspaceFileInfo, CustomAgentInfo } from "../../shared/types/commands";
 import { log } from "../logger";
 
 export interface WorkspaceManagerConfig {

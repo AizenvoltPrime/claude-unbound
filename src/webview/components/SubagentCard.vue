@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { SubagentState } from '@shared/types';
+import type { SubagentState } from '@shared/types/subagents';
 import { formatModelDisplayName } from '@shared/utils';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

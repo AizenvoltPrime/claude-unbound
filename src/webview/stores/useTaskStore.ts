@@ -1,6 +1,6 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
-import type { Task } from "@shared/types";
+import type { Task } from "@shared/types/subagents";
 
 export const useTaskStore = defineStore("task", () => {
   const tasks = ref<Task[]>([]);

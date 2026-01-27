@@ -2,7 +2,9 @@ import * as vscode from "vscode";
 import { ClaudeSession } from "../claude-session";
 import { PermissionHandler } from "../PermissionHandler";
 import { ensureSessionDir } from "../session";
-import type { ExtensionToWebviewMessage, McpServerConfig, PluginConfig } from "../../shared/types";
+import type { ExtensionToWebviewMessage } from "../../shared/types/messages";
+import type { McpServerConfig } from "../../shared/types/mcp";
+import type { PluginConfig } from "../../shared/types/plugins";
 
 export interface SessionManagerConfig {
   workspacePath: string;

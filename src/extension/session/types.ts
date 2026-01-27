@@ -1,4 +1,4 @@
-import type { StoredSession } from '@shared/types';
+import type { StoredSession } from '@shared/types/session';
 
 export const EXTENSION_VERSION = '2.0.76';
 

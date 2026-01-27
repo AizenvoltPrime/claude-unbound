@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import type { HandlerDependencies, HandlerRegistry } from "../types";
-import type { UserContentBlock } from "../../../../shared/types";
+import type { UserContentBlock } from "../../../../shared/types/content";
 import { createQueuedMessage } from "../../queue-manager";
 import { extractTextFromContent, hasImageContent } from "../../../../shared/utils";
 import { log } from "../../../logger";

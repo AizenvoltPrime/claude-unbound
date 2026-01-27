@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { SessionStats } from '@shared/types';
+import type { SessionStats } from '@shared/types/session';
 import { IconArrowDown, IconArrowUp, IconChartBar, IconDatabase, IconFile } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 

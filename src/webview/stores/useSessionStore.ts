@@ -1,11 +1,6 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
-import type {
-  StoredSession,
-  FileEntry,
-  CompactMarker,
-  SessionStats,
-} from '@shared/types';
+import type { StoredSession, FileEntry, CompactMarker, SessionStats } from '@shared/types/session';
 
 const DEFAULT_SESSION_STATS: SessionStats = {
   totalCostUsd: 0,

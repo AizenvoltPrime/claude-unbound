@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { SubagentState, ContentBlock, ToolCall, ChatMessage } from '@shared/types';
+import type { SubagentState } from '@shared/types/subagents';
+import type { ChatMessage, ToolCall } from '@shared/types/session';
+import type { ContentBlock } from '@shared/types/content';
 import { formatModelDisplayName } from '@shared/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

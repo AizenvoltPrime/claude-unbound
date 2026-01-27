@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import type { FileEntry } from '@shared/types';
+import type { FileEntry } from '@shared/types/session';
 
 const { t } = useI18n();
 

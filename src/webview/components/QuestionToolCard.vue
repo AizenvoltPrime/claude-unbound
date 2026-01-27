@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { ToolCall, Question } from '@shared/types';
+import type { ToolCall } from '@shared/types/session';
+import type { Question } from '@shared/types/permissions';
 
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import {

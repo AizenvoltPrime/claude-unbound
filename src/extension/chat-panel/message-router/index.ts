@@ -3,7 +3,7 @@ import type { StorageManager } from "../storage-manager";
 import type { HistoryManager } from "../history-manager";
 import type { SettingsManager } from "../settings-manager";
 import type { WorkspaceManager } from "../workspace-manager";
-import type { WebviewToExtensionMessage, ExtensionToWebviewMessage } from "../../../shared/types";
+import type { WebviewToExtensionMessage, ExtensionToWebviewMessage } from "../../../shared/types/messages";
 import type { PanelInstance } from "../types";
 import type { HandlerContext, HandlerRegistry } from "./types";
 import { createHandlerRegistry } from "./handler-registry";

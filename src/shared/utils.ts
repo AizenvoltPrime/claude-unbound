@@ -1,4 +1,4 @@
-import type { UserContentBlock, TextBlock } from "./types";
+import type { UserContentBlock, TextBlock } from "./types/content";
 
 /**
  * Strips ASCII control characters from a string, preserving normal whitespace.

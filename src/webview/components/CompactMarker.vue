@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { CompactMarker as CompactMarkerType } from '@shared/types';
+import type { CompactMarker as CompactMarkerType } from '@shared/types/session';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { IconChevronDown, IconChevronUp } from '@/components/icons';
 import MarkdownRenderer from './MarkdownRenderer.vue';

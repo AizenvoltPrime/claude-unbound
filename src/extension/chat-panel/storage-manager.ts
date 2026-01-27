@@ -8,7 +8,7 @@ import {
   extractPromptHistory,
   type StoredSession,
 } from "../session";
-import type { ExtensionToWebviewMessage } from "../../shared/types";
+import type { ExtensionToWebviewMessage } from "../../shared/types/messages";
 import { SESSIONS_PAGE_SIZE, type PanelInstance } from "./types";
 
 export interface StorageManagerConfig {

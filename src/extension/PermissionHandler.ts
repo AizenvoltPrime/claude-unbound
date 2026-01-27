@@ -1,7 +1,10 @@
 import * as vscode from 'vscode';
 import { DiffManager } from './DiffManager';
 import { loadSkillDescription } from './skills/utils';
-import type { FileEditInput, FileWriteInput, ExtensionToWebviewMessage, PermissionMode, Question } from '../shared/types';
+import type { FileEditInput, FileWriteInput } from '../shared/types/content';
+import type { ExtensionToWebviewMessage } from '../shared/types/messages';
+import type { PermissionMode } from '../shared/types/settings';
+import type { Question } from '../shared/types/permissions';
 
 export interface PermissionResult {
   behavior: 'allow' | 'deny';

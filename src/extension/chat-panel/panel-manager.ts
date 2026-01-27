@@ -2,7 +2,8 @@ import * as vscode from "vscode";
 import { PermissionHandler } from "../PermissionHandler";
 import { IdeContextManager } from "./ide-context-manager";
 import type { ClaudeSession } from "../claude-session";
-import type { ExtensionToWebviewMessage, WebviewToExtensionMessage, StoredSession } from "../../shared/types";
+import type { ExtensionToWebviewMessage, WebviewToExtensionMessage } from "../../shared/types/messages";
+import type { StoredSession } from "../../shared/types/session";
 import type { PanelInstance } from "./types";
 
 export interface PanelManagerConfig {

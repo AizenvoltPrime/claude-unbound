@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { ToolCall } from '@shared/types';
+import type { ToolCall } from '@shared/types/session';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import {
   IconSparkles,

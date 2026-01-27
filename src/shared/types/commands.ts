@@ -1,0 +1,106 @@
+export interface SlashCommandInfo {
+  name: string;
+  description: string;
+  argumentHint: string;
+}
+
+export interface CustomSlashCommandInfo {
+  name: string;
+  description: string;
+  argumentHint?: string;
+  filePath: string;
+  source: "project" | "user";
+  namespace?: string;
+}
+
+export interface PluginSlashCommandInfo {
+  name: string;
+  description: string;
+  argumentHint?: string;
+  filePath: string;
+  source: "plugin";
+  pluginName: string;
+  pluginFullId: string;
+}
+
+export interface BuiltinSlashCommandInfo {
+  name: string;
+  description: string;
+  argumentHint?: string;
+  source: "builtin";
+}
+
+export interface SkillInfo {
+  name: string;
+  description: string;
+  filePath: string;
+  source: "project" | "user";
+}
+
+export interface PluginSkillInfo {
+  name: string;
+  description: string;
+  filePath: string;
+  source: "plugin";
+  pluginName: string;
+  pluginFullId: string;
+}
+
+export type SlashCommandItem =
+  | CustomSlashCommandInfo
+  | PluginSlashCommandInfo
+  | BuiltinSlashCommandInfo
+  | SkillInfo
+  | PluginSkillInfo;
+
+export interface AgentDefinition {
+  description: string;
+  prompt: string;
+  tools?: string[];
+  disallowedTools?: string[];
+  model?: "sonnet" | "opus" | "haiku" | "inherit";
+}
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+}
+
+export interface CustomAgentInfo {
+  name: string;
+  description: string;
+  source: "user" | "project";
+  model?: string;
+  tools?: string[];
+}
+
+export interface PluginAgentInfo {
+  name: string;
+  description: string;
+  source: "plugin";
+  pluginName: string;
+  pluginFullId: string;
+  model?: string;
+  tools?: string[];
+}
+
+export interface WorkspaceFileInfo {
+  relativePath: string;
+  isDirectory: boolean;
+}
+
+export type AtMentionItem =
+  | { type: "file"; data: WorkspaceFileInfo }
+  | { type: "builtin-agent"; data: AgentConfig }
+  | { type: "custom-agent"; data: CustomAgentInfo }
+  | { type: "plugin-agent"; data: PluginAgentInfo };
+
+export const AVAILABLE_AGENTS: AgentConfig[] = [
+  { id: "general-purpose", name: "General Purpose", description: "General-purpose coding assistant", icon: "🤖" },
+  { id: "statusline-setup", name: "Statusline Setup", description: "Configure status line settings", icon: "⚙️" },
+  { id: "Explore", name: "Explore", description: "Fast codebase exploration", icon: "🗺️" },
+  { id: "Plan", name: "Plan", description: "Software architecture planning", icon: "📋" },
+  { id: "claude-code-guide", name: "Claude Code Guide", description: "Help with Claude Code usage", icon: "📖" },
+];

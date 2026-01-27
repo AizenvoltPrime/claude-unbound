@@ -1,9 +1,4 @@
-import type {
-  ContentBlock,
-  TextBlock,
-  ToolUseBlock,
-  ThinkingBlock,
-} from '../../shared/types';
+import type { ContentBlock, TextBlock, ToolUseBlock, ThinkingBlock } from '../../shared/types/content';
 
 /** SDK error message when abort is triggered - used for semantic error filtering */
 export const SDK_USER_ABORT_MESSAGE = 'Claude Code process aborted by user';

@@ -1,4 +1,5 @@
-import type { QueuedMessage, UserContentBlock } from '../../shared/types';
+import type { QueuedMessage } from '../../shared/types/session';
+import type { UserContentBlock } from '../../shared/types/content';
 
 /**
  * Factory for creating queued message objects.

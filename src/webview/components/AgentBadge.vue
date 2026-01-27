@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, type Component } from 'vue';
-import type { SubagentState } from '@shared/types';
+import type { SubagentState } from '@shared/types/subagents';
 import { Badge } from '@/components/ui/badge';
 import { usePhraseCycler } from '../composables/usePhraseCycler';
 import { AGENT_PHRASES } from '../data/wittyPhrases';

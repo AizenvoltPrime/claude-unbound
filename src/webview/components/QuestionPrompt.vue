@@ -5,7 +5,7 @@ import { ListboxRoot, ListboxItem, ListboxContent } from 'reka-ui';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useQuestionStore } from '@/stores/useQuestionStore';
-import type { Question } from '@shared/types';
+import type { Question } from '@shared/types/permissions';
 
 const { t } = useI18n();
 

@@ -2,12 +2,14 @@ import { log } from '../logger';
 import { persistQueuedMessage } from '../session';
 import { extractTextFromContent } from '../../shared/utils';
 import type { SessionOptions, MessageCallbacks, RewindOption, ContentInput } from './types';
-import type { McpServerConfig, PluginConfig } from '../../shared/types';
+import type { McpServerConfig, McpServerStatusInfo } from '../../shared/types/mcp';
+import type { PluginConfig } from '../../shared/types/plugins';
 import { ToolManager } from './tool-manager';
 import { StreamingManager, type CheckpointTracker } from './streaming-manager';
 import { CheckpointManager } from './checkpoint-manager';
 import { QueryManager } from './query-manager';
-import type { PermissionMode, ModelInfo, SlashCommandInfo, McpServerStatusInfo } from '../../shared/types';
+import type { PermissionMode, ModelInfo } from '../../shared/types/settings';
+import type { SlashCommandInfo } from '../../shared/types/commands';
 
 export { SessionOptions } from './types';
 

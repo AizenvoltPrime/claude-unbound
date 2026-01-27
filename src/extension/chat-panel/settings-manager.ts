@@ -4,7 +4,10 @@ import * as fs from "fs";
 import type { ClaudeSession } from "../claude-session";
 import type { PermissionHandler } from "../PermissionHandler";
 import type { PluginService } from "../PluginService";
-import type { ExtensionToWebviewMessage, McpServerConfig, McpServerStatusInfo, PluginConfig, PluginStatusInfo, ExtensionSettings, PermissionMode, ProviderProfile } from "../../shared/types";
+import type { ExtensionToWebviewMessage } from "../../shared/types/messages";
+import type { McpServerConfig, McpServerStatusInfo } from "../../shared/types/mcp";
+import type { PluginConfig, PluginStatusInfo } from "../../shared/types/plugins";
+import type { ExtensionSettings, PermissionMode, ProviderProfile } from "../../shared/types/settings";
 import { log } from "../logger";
 import {
   getClaudeSettingsPath,

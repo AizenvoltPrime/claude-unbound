@@ -3,7 +3,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { IconFile, IconFolder, IconLoader, IconRobot } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
-import type { AtMentionItem } from '@shared/types';
+import type { AtMentionItem } from '@shared/types/commands';
 import { escapeHtml } from '@shared/utils';
 
 const { t } = useI18n();

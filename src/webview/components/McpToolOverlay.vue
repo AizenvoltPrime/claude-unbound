@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { ToolCall } from '@shared/types';
+import type { ToolCall } from '@shared/types/session';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {

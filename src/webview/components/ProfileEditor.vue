@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { ProviderProfile } from '@shared/types';
+import type { ProviderProfile } from '@shared/types/settings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

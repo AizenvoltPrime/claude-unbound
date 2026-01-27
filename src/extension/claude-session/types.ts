@@ -1,12 +1,8 @@
 import type { PermissionHandler } from '../PermissionHandler';
-import type {
-  ExtensionToWebviewMessage,
-  McpServerConfig,
-  PluginConfig,
-  ContentBlock,
-  ImageBlock,
-  UserContentBlock,
-} from '../../shared/types';
+import type { ExtensionToWebviewMessage } from '../../shared/types/messages';
+import type { McpServerConfig } from '../../shared/types/mcp';
+import type { PluginConfig } from '../../shared/types/plugins';
+import type { ContentBlock, ImageBlock, UserContentBlock } from '../../shared/types/content';
 import type { ToolManager } from './tool-manager';
 import type { StreamingManager } from './streaming-manager';
 
@@ -36,7 +32,7 @@ export interface PendingAssistantMessage {
   id: string;
   model: string;
   stopReason: string | null;
-  content: import('../../shared/types').ContentBlock[];
+  content: import('../../shared/types/content').ContentBlock[];
   sessionId: string;
   parentToolUseId: string | null;
 }

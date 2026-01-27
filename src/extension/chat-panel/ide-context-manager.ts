@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import type { IdeContextDisplayInfo, UserContentBlock } from "../../shared/types";
+import type { IdeContextDisplayInfo } from "../../shared/types/session";
+import type { UserContentBlock } from "../../shared/types/content";
 
 interface SelectionContext {
   type: "selection";

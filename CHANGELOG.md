@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.40] - 2026-01-27
+
+### Changed
+
+- **Modularized Shared Types**: Refactored monolithic `src/shared/types.ts` (839 lines) into 10 focused domain modules in `src/shared/types/`. Types are now organized by domain: constants, content, mcp, plugins, commands, permissions, settings, session, subagents, and messages. Updated 55+ files across webview and extension to use domain-specific imports. No barrel re-export - explicit dependencies only.
+
 ## [1.0.39] - 2026-01-27
 
 ### Fixed
@@ -354,6 +360,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.40]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.39...v1.0.40
 [1.0.39]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.38...v1.0.39
 [1.0.38]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.37...v1.0.38
 [1.0.37]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.36...v1.0.37

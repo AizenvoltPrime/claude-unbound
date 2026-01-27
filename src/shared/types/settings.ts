@@ -1,0 +1,53 @@
+export type PermissionMode = "default" | "acceptEdits" | "plan";
+
+export interface SandboxConfig {
+  enabled: boolean;
+  autoAllowBashIfSandboxed?: boolean;
+  allowUnsandboxedCommands?: boolean;
+  networkAllowedDomains?: string[];
+  networkAllowLocalBinding?: boolean;
+}
+
+export interface ProviderProfile {
+  name: string;
+  env: Record<string, string>;
+}
+
+export interface SessionSettings {
+  model?: string;
+  permissionMode: PermissionMode;
+  maxThinkingTokens?: number | null;
+}
+
+export interface ExtensionSettings {
+  model: string;
+  maxTurns: number;
+  maxBudgetUsd: number | null;
+  maxThinkingTokens: number | null;
+  betasEnabled: string[];
+  permissionMode: PermissionMode;
+  defaultPermissionMode: PermissionMode;
+  enableFileCheckpointing: boolean;
+  sandbox: SandboxConfig;
+  dangerouslySkipPermissions: boolean;
+}
+
+export interface ModelInfo {
+  value: string;
+  displayName: string;
+  description: string;
+}
+
+export interface AccountInfo {
+  email?: string;
+  organization?: string;
+  subscriptionType?: string;
+  apiKeySource?: string;
+  model?: string;
+}
+
+export interface BudgetWarningInfo {
+  currentSpend: number;
+  limit: number;
+  percentUsed: number;
+}

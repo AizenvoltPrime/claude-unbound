@@ -1,14 +1,8 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, type Ref } from 'vue';
 import { Fzf, byLengthAsc } from 'fzf';
 import { useVSCode } from './useVSCode';
-import type {
-  ExtensionToWebviewMessage,
-  WorkspaceFileInfo,
-  CustomAgentInfo,
-  PluginAgentInfo,
-  AtMentionItem,
-} from '@shared/types';
-import { AVAILABLE_AGENTS } from '@shared/types';
+import type { ExtensionToWebviewMessage } from '@shared/types/messages';
+import { AVAILABLE_AGENTS, type WorkspaceFileInfo, type CustomAgentInfo, type PluginAgentInfo, type AtMentionItem } from '@shared/types/commands';
 
 const MAX_VISIBLE_ITEMS = 10;
 

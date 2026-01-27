@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import * as vscode from "vscode";
-import type { CustomAgentInfo, PluginAgentInfo } from "../shared/types";
+import type { CustomAgentInfo, PluginAgentInfo } from "../shared/types/commands";
 import { log } from "./logger";
 
 const AGENTS_FOLDER = ".claude/agents";

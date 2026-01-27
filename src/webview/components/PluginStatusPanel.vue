@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PluginStatusInfo } from '@shared/types';
+import type { PluginStatusInfo } from '@shared/types/plugins';
 import type { Component } from 'vue';
 import { onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';

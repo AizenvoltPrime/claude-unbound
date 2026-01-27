@@ -1,0 +1,205 @@
+import type { UserContentBlock, ContentBlock, HistoryToolCall, HistoryMessage, HistoryAgentMessage } from './content';
+import type { McpServerStatusInfo } from './mcp';
+import type { PluginStatusInfo } from './plugins';
+import type { SlashCommandInfo, SlashCommandItem, CustomAgentInfo, PluginAgentInfo, WorkspaceFileInfo } from './commands';
+import type { Question } from './permissions';
+import type { PermissionMode, ProviderProfile, ExtensionSettings, ModelInfo, AccountInfo } from './settings';
+import type {
+  SystemInitData,
+  QueuedMessage,
+  IdeContextDisplayInfo,
+  MessageCheckpoint,
+  ContextUsageData,
+  RewindHistoryItem,
+  RewindOption,
+  AssistantMessage,
+  PartialMessage,
+  ResultMessage,
+  StoredSession,
+} from './session';
+import type { Task } from './subagents';
+
+export type WebviewToExtensionMessage =
+  | { type: "log"; message: string }
+  | { type: "sendMessage"; content: string | UserContentBlock[]; agentId?: string; includeIdeContext?: boolean }
+  | { type: "cancelSession" }
+  | { type: "resumeSession"; sessionId: string }
+  | {
+      type: "approveEdit";
+      toolUseId: string;
+      approved: boolean;
+      customMessage?: string;
+      acceptAll?: boolean;
+      parentToolUseId?: string;
+    }
+  | { type: "ready"; savedSessionId?: string }
+  | { type: "requestModels" }
+  | { type: "setModel"; model: string }
+  | { type: "setMaxThinkingTokens"; tokens: number | null }
+  | { type: "setBudgetLimit"; budgetUsd: number | null }
+  | { type: "toggleBeta"; beta: string; enabled: boolean }
+  | { type: "setPermissionMode"; mode: PermissionMode }
+  | { type: "setDefaultPermissionMode"; mode: PermissionMode }
+  | { type: "setDangerouslySkipPermissions"; enabled: boolean }
+  | { type: "rewindToMessage"; userMessageId: string; option: RewindOption; promptContent?: string }
+  | { type: "requestRewindHistory" }
+  | { type: "clearSession" }
+  | { type: "interrupt" }
+  | { type: "requestMcpStatus" }
+  | { type: "requestSupportedCommands" }
+  | { type: "openSettings" }
+  | { type: "renameSession"; sessionId: string; newName: string }
+  | { type: "deleteSession"; sessionId: string }
+  | { type: "openSessionLog" }
+  | { type: "openSessionPlan" }
+  | { type: "bindPlanToSession" }
+  | { type: "openAgentLog"; agentId: string }
+  | { type: "requestMoreHistory"; sessionId: string; offset: number }
+  | { type: "requestMoreSessions"; offset: number; selectedSessionId?: string }
+  | { type: "searchSessions"; query: string; offset?: number; selectedSessionId?: string }
+  | { type: "requestPromptHistory"; offset?: number }
+  | { type: "requestWorkspaceFiles" }
+  | { type: "openFile"; filePath: string; line?: number }
+  | { type: "requestCustomSlashCommands" }
+  | { type: "requestCustomAgents" }
+  | { type: "queueMessage"; content: string | UserContentBlock[] }
+  | { type: "cancelQueuedMessage"; messageId: string }
+  | { type: "toggleMcpServer"; serverName: string; enabled: boolean }
+  | { type: "togglePlugin"; pluginFullId: string; enabled: boolean }
+  | { type: "requestPluginStatus" }
+  | { type: "answerQuestion"; toolUseId: string; answers: Record<string, string> | null }
+  | {
+      type: "approvePlan";
+      toolUseId: string;
+      approved: boolean;
+      approvalMode?: "acceptEdits" | "manual";
+      feedback?: string;
+      clearContext?: boolean;
+      planContent?: string;
+    }
+  | {
+      type: "approveEnterPlanMode";
+      toolUseId: string;
+      approved: boolean;
+      customMessage?: string;
+    }
+  | {
+      type: "approveSkill";
+      toolUseId: string;
+      approved: boolean;
+      approvalMode?: "acceptEdits" | "manual";
+      customMessage?: string;
+    }
+  | { type: "setLanguagePreference"; locale: string }
+  | { type: "createProviderProfile"; profile: ProviderProfile }
+  | { type: "updateProviderProfile"; originalName: string; profile: ProviderProfile }
+  | { type: "deleteProviderProfile"; profileName: string }
+  | { type: "setActiveProviderProfile"; profileName: string | null }
+  | { type: "setDefaultProviderProfile"; profileName: string | null }
+  | { type: "requestProviderProfiles" };
+
+export type ExtensionToWebviewMessage =
+  | { type: "assistant"; data: AssistantMessage; parentToolUseId?: string | null }
+  | { type: "partial"; data: PartialMessage; parentToolUseId?: string | null }
+  | { type: "done"; data: ResultMessage }
+  | { type: "userMessage"; content: string; contentBlocks?: UserContentBlock[]; correlationId: string }
+  | { type: "userMessageIdAssigned"; sdkMessageId: string; correlationId: string }
+  | { type: "toolPending"; toolUseId: string; toolName: string; input: unknown; parentToolUseId?: string | null }
+  | { type: "error"; message: string }
+  | { type: "sessionStarted"; sessionId: string }
+  | { type: "processing"; isProcessing: boolean }
+  | { type: "storedSessions"; sessions: StoredSession[]; hasMore?: boolean; nextOffset?: number; isFirstPage?: boolean }
+  | { type: "sessionCleared"; pendingMessage?: { content: string; correlationId: string } }
+  | { type: "conversationCleared" }
+  | { type: "sessionRenamed"; sessionId: string; newName: string }
+  | { type: "sessionDeleted"; sessionId: string }
+  | { type: "notification"; message: string; notificationType: string }
+  | { type: "accountInfo"; data: AccountInfo }
+  | { type: "availableModels"; models: ModelInfo[] }
+  | { type: "systemInit"; data: SystemInitData }
+  | { type: "settingsUpdate"; settings: ExtensionSettings }
+  | { type: "supportedCommands"; commands: SlashCommandInfo[] }
+  | { type: "budgetWarning"; currentSpend: number; limit: number; percentUsed: number }
+  | { type: "budgetExceeded"; finalSpend: number; limit: number }
+  | { type: "mcpServerStatus"; servers: McpServerStatusInfo[] }
+  | { type: "checkpointInfo"; checkpoints: MessageCheckpoint[] }
+  | { type: "rewindComplete"; rewindToMessageId: string; option: RewindOption; promptContent?: string; fileRewindWarning?: string }
+  | { type: "rewindError"; message: string }
+  | { type: "toolStreaming"; messageId: string; tool: { id: string; name: string; input: Record<string, unknown> }; contentBlocks: ContentBlock[]; parentToolUseId?: string | null }
+  | { type: "toolCompleted"; toolUseId: string; toolName: string; result: string; parentToolUseId?: string | null }
+  | { type: "toolFailed"; toolUseId: string; toolName: string; error: string; isInterrupt?: boolean; parentToolUseId?: string | null }
+  | { type: "toolAbandoned"; toolUseId: string; toolName: string; parentToolUseId?: string | null }
+  | { type: "toolMetadata"; toolUseId: string; metadata: Record<string, unknown> }
+  | { type: "subagentStart"; agentId: string; agentType: string; toolUseId?: string }
+  | { type: "subagentStop"; agentId: string }
+  | { type: "subagentModelUpdate"; taskToolId: string; model: string }
+  | { type: "subagentMessagesUpdate"; taskToolId: string; messages: HistoryAgentMessage[] }
+  | { type: "sessionCancelled" }
+  | { type: "sessionStart"; source: "startup" | "resume" | "clear" | "compact" }
+  | { type: "sessionEnd"; reason: string }
+  | { type: "preCompact"; trigger: "manual" | "auto" }
+  | { type: "compactBoundary"; preTokens: number; postTokens?: number; trigger: "manual" | "auto"; summary?: string; timestamp?: number; isHistorical?: boolean }
+  | { type: "compactSummary"; summary: string }
+  | { type: "tasksUpdate"; tasks: Task[] }
+  | { type: "contextUsage"; data: ContextUsageData }
+  | { type: "tokenUsageUpdate"; inputTokens: number; cacheCreationTokens: number; cacheReadTokens: number }
+  | { type: "rewindHistory"; prompts: RewindHistoryItem[] }
+  | { type: "userReplay"; content: string; contentBlocks?: ContentBlock[]; isSynthetic?: boolean; sdkMessageId?: string; isInjected?: boolean }
+  | { type: "assistantReplay"; content: string; thinking?: string; tools?: HistoryToolCall[] }
+  | { type: "errorReplay"; content: string }
+  | { type: "historyChunk"; messages: HistoryMessage[]; hasMore: boolean; nextOffset: number }
+  | { type: "promptHistory"; history: string[]; hasMore: boolean }
+  | { type: "promptHistoryPush"; entry: string }
+  | { type: "panelFocused" }
+  | { type: "workspaceFiles"; files: WorkspaceFileInfo[] }
+  | {
+      type: "requestPermission";
+      toolUseId: string;
+      toolName: "Write" | "Edit" | "Bash";
+      toolInput: Record<string, unknown>;
+      filePath?: string;
+      originalContent?: string;
+      proposedContent?: string;
+      command?: string;
+      parentToolUseId?: string | null;
+      editLineNumber?: number;
+    }
+  | { type: "permissionAutoResolved"; toolUseId: string; parentToolUseId?: string | null }
+  | { type: "customSlashCommands"; commands: SlashCommandItem[] }
+  | { type: "customAgents"; agents: CustomAgentInfo[]; pluginAgents: PluginAgentInfo[] }
+  | { type: "messageQueued"; message: QueuedMessage }
+  | { type: "queueProcessed"; messageId: string }
+  | { type: "queueBatchProcessed"; messageIds: string[]; combinedContent: string; contentBlocks?: UserContentBlock[] }
+  | { type: "queueCancelled"; messageId: string }
+  | { type: "flushedMessagesAssigned"; queueMessageIds: string[]; sdkMessageId: string }
+  | { type: "mcpConfigUpdate"; servers: McpServerStatusInfo[] }
+  | { type: "pluginConfigUpdate"; plugins: PluginStatusInfo[] }
+  | { type: "pluginStatus"; plugins: PluginStatusInfo[] }
+  | { type: "requestQuestion"; toolUseId: string; questions: Question[]; parentToolUseId?: string | null }
+  | { type: "ideContextUpdate"; context: IdeContextDisplayInfo | null }
+  | {
+      type: "requestPlanApproval";
+      toolUseId: string;
+      planContent: string;
+      parentToolUseId?: string | null;
+    }
+  | {
+      type: "requestEnterPlanMode";
+      toolUseId: string;
+      parentToolUseId?: string | null;
+    }
+  | {
+      type: "requestSkillApproval";
+      toolUseId: string;
+      skillName: string;
+      skillDescription?: string;
+      parentToolUseId?: string | null;
+    }
+  | {
+      type: "interruptRecovery";
+      correlationId: string;
+      promptContent: string;
+    }
+  | { type: "languageChange"; locale: string }
+  | { type: "showPlanContent"; content: string; filePath: string }
+  | { type: "providerProfilesUpdate"; profiles: ProviderProfile[]; activeProfile: string | null; defaultProfile: string | null };

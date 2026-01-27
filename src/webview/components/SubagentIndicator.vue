@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { SubagentState } from '@shared/types';
+import type { SubagentState } from '@shared/types/subagents';
 import AgentBadge from './AgentBadge.vue';
 
 const { t } = useI18n();

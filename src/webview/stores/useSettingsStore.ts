@@ -1,15 +1,9 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import {
-  DEFAULT_THINKING_TOKENS,
-  type ExtensionSettings,
-  type ModelInfo,
-  type AccountInfo,
-  type McpServerStatusInfo,
-  type PluginStatusInfo,
-  type PermissionMode,
-  type ProviderProfile,
-} from '@shared/types';
+import { DEFAULT_THINKING_TOKENS } from '@shared/types/constants';
+import type { ExtensionSettings, ModelInfo, AccountInfo, PermissionMode, ProviderProfile } from '@shared/types/settings';
+import type { McpServerStatusInfo } from '@shared/types/mcp';
+import type { PluginStatusInfo } from '@shared/types/plugins';
 
 const DEFAULT_SETTINGS: ExtensionSettings = {
   model: '',

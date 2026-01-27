@@ -2,7 +2,7 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { IconLoader, IconTerminal } from '@/components/icons';
-import type { SlashCommandItem } from '@shared/types';
+import type { SlashCommandItem } from '@shared/types/commands';
 import { escapeHtml } from '@shared/utils';
 
 const { t } = useI18n();

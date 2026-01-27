@@ -12,13 +12,9 @@ import { useQuestionStore } from "@/stores/useQuestionStore";
 import { usePlanViewStore } from "@/stores/usePlanViewStore";
 import { useTaskStore } from "@/stores/useTaskStore";
 import { applyLocale, i18n } from "@/i18n";
-import {
-  FEEDBACK_MARKER,
-  type ChatMessage,
-  type ToolCall,
-  type HistoryMessage,
-  type HistoryToolCall,
-} from "@shared/types";
+import { FEEDBACK_MARKER } from "@shared/types/constants";
+import type { ChatMessage, ToolCall } from "@shared/types/session";
+import type { HistoryMessage, HistoryToolCall } from "@shared/types/content";
 
 function extractUserDenialFeedback(errorMessage: string): string | undefined {
   if (!errorMessage.includes(FEEDBACK_MARKER)) return undefined;

@@ -5,7 +5,7 @@ import { IconClipboard } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { IconChevronDown, IconChevronUp } from '@/components/icons';
-import type { Task } from '@shared/types';
+import type { Task } from '@shared/types/subagents';
 
 const { t } = useI18n();
 

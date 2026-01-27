@@ -12,7 +12,10 @@ import {
   SDK_USER_ABORT_MESSAGE,
 } from "./utils";
 import type { ToolManager } from "./tool-manager";
-import type { SystemInitData, AccountInfo, PluginInfo, ToolUseBlock } from "../../shared/types";
+import type { SystemInitData } from "../../shared/types/session";
+import type { AccountInfo } from "../../shared/types/settings";
+import type { PluginInfo } from "../../shared/types/plugins";
+import type { ToolUseBlock } from "../../shared/types/content";
 
 /** Callback interface for checkpoint tracking */
 export interface CheckpointTracker {

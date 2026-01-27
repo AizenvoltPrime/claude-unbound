@@ -8,7 +8,10 @@ import { extractTextFromContent } from "../../shared/utils";
 import type { Query, SessionOptions, StreamingInputController, MessageCallbacks, ContentInput, HookDependencies } from "./types";
 import type { ToolManager } from "./tool-manager";
 import type { StreamingManager } from "./streaming-manager";
-import type { AccountInfo, ModelInfo, SlashCommandInfo, McpServerStatusInfo, PermissionMode, SandboxConfig, PluginConfig } from "../../shared/types";
+import type { AccountInfo, ModelInfo, PermissionMode, SandboxConfig } from "../../shared/types/settings";
+import type { SlashCommandInfo } from "../../shared/types/commands";
+import type { McpServerStatusInfo } from "../../shared/types/mcp";
+import type { PluginConfig } from "../../shared/types/plugins";
 import { buildHooksConfig } from "./hook-handlers";
 
 let queryFn: typeof import("@anthropic-ai/claude-agent-sdk").query | undefined;
@@ -24,7 +27,7 @@ async function loadSDK() {
 /** Callbacks for SDK hooks */
 export interface HookCallbacks {
   onFlush: () => void;
-  onMessage: (message: import("../../shared/types").ExtensionToWebviewMessage) => void;
+  onMessage: (message: import("../../shared/types/messages").ExtensionToWebviewMessage) => void;
 }
 
 /**
@@ -410,7 +413,7 @@ export class QueryManager {
       return (contents as string[]).join("\n\n");
     }
 
-    const blocks: import("../../shared/types").UserContentBlock[] = [];
+    const blocks: import("../../shared/types/content").UserContentBlock[] = [];
     for (let i = 0; i < contents.length; i++) {
       const content = contents[i];
       if (typeof content === "string") {
@@ -477,7 +480,7 @@ export class QueryManager {
    * Update MCP servers configuration.
    * Called when user toggles MCP servers in the UI.
    */
-  setMcpServers(mcpServers: Record<string, import("../../shared/types").McpServerConfig>): void {
+  setMcpServers(mcpServers: Record<string, import("../../shared/types/mcp").McpServerConfig>): void {
     this.options.mcpServers = mcpServers;
   }
 

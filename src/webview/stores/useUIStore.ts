@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { RewindHistoryItem, IdeContextDisplayInfo } from '@shared/types';
+import type { RewindHistoryItem, IdeContextDisplayInfo } from '@shared/types/session';
 
 export const useUIStore = defineStore('ui', () => {
   const isProcessing = ref(false);

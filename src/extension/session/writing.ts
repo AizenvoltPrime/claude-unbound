@@ -6,7 +6,7 @@ import type { PersistUserMessageOptions, PersistPartialAssistantOptions, Persist
 import { EXTENSION_VERSION, INTERRUPT_MARKER } from './types';
 import { getSessionDir, getSessionFilePath, isValidSessionId, buildSessionFilePath } from './paths';
 import { readSessionFileLines, parseSessionEntry } from './parsing';
-import type { UserContentBlock } from '../../shared/types';
+import type { UserContentBlock } from '../../shared/types/content';
 
 export async function initializeSession(workspacePath: string, sessionId: string): Promise<void> {
   const sessionDir = await getSessionDir(workspacePath);

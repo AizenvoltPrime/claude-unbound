@@ -1,7 +1,8 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, type Ref } from 'vue';
 import { Fzf, byLengthAsc } from 'fzf';
 import { useVSCode } from './useVSCode';
-import type { ExtensionToWebviewMessage, SlashCommandItem } from '@shared/types';
+import type { ExtensionToWebviewMessage } from '@shared/types/messages';
+import type { SlashCommandItem } from '@shared/types/commands';
 
 const MAX_FILTERED_ITEMS = 50;
 

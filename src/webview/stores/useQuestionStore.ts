@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
-import type { PendingQuestionInfo, Question } from '@shared/types';
+import type { PendingQuestionInfo, Question } from '@shared/types/permissions';
 
 export const useQuestionStore = defineStore('question', () => {
   const pendingQuestion = ref<PendingQuestionInfo | null>(null);

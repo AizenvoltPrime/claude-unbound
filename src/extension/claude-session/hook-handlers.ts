@@ -256,7 +256,7 @@ function createUserHooks(deps: HookDependencies): Pick<HooksConfig, 'UserPromptS
                 type: "notification",
                 message: p.message,
                 notificationType: p.notification_type || "info",
-              } as import("../../shared/types").ExtensionToWebviewMessage);
+              } as import("../../shared/types/messages").ExtensionToWebviewMessage);
             }
             return {};
           },

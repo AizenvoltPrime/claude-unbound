@@ -12,14 +12,10 @@ import {
   type JsonlContentBlock,
   type ClaudeSessionEntry,
 } from "../session";
-import {
-  FEEDBACK_MARKER,
-  type ExtensionToWebviewMessage,
-  type HistoryMessage,
-  type HistoryToolCall,
-  type RewindHistoryItem,
-  type ContentBlock,
-} from "../../shared/types";
+import { FEEDBACK_MARKER } from "../../shared/types/constants";
+import type { ExtensionToWebviewMessage } from "../../shared/types/messages";
+import type { HistoryMessage, HistoryToolCall, ContentBlock } from "../../shared/types/content";
+import type { RewindHistoryItem } from "../../shared/types/session";
 import { HISTORY_PAGE_SIZE } from "./types";
 import { log } from "../logger";
 

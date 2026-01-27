@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { IconChartBar, IconChevronDown, IconChevronUp } from '@/components/icons';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import type { ContextUsageData } from '@shared/types';
+import type { ContextUsageData } from '@shared/types/session';
 
 const { t } = useI18n();
 

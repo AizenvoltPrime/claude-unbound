@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { PermissionMode, UserContentBlock } from '@shared/types';
+import type { PermissionMode } from '@shared/types/settings';
+import type { UserContentBlock } from '@shared/types/content';
 import { Button } from '@/components/ui/button';
 import {
   IconPencil,

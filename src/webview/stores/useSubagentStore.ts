@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
-import type { ChatMessage, ToolCall, SubagentState, SubagentResult, HistoryAgentMessage, HistoryToolCall, ContentBlock, ToolUseBlock, TextBlock, ThinkingBlock } from '@shared/types';
+import type { ChatMessage, ToolCall } from '@shared/types/session';
+import type { SubagentState, SubagentResult } from '@shared/types/subagents';
+import type { HistoryAgentMessage, HistoryToolCall, ContentBlock, ToolUseBlock, TextBlock, ThinkingBlock } from '@shared/types/content';
 
 export interface StreamingSubagentMessage {
   sdkMessageId: string;

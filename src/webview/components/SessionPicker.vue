@@ -15,7 +15,7 @@ import {
   IconSearch,
 } from '@/components/icons';
 import DeleteSessionModal from './DeleteSessionModal.vue';
-import type { StoredSession } from '@shared/types';
+import type { StoredSession } from '@shared/types/session';
 
 const props = defineProps<{
   sessions: StoredSession[];

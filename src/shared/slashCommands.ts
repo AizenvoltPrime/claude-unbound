@@ -1,4 +1,4 @@
-import type { BuiltinSlashCommandInfo } from './types';
+import type { BuiltinSlashCommandInfo } from './types/commands';
 
 export const BUILTIN_SLASH_COMMANDS: BuiltinSlashCommandInfo[] = [
   { name: 'clear', description: 'Clear conversation history', source: 'builtin' },

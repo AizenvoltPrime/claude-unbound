@@ -2,12 +2,9 @@ import type * as vscode from "vscode";
 import type { ClaudeSession } from "../claude-session";
 import type { PermissionHandler } from "../PermissionHandler";
 import type { IdeContextManager } from "./ide-context-manager";
-import type {
-  McpServerConfig,
-  HistoryMessage,
-  RewindHistoryItem,
-  StoredSession,
-} from "../../shared/types";
+import type { McpServerConfig } from "../../shared/types/mcp";
+import type { HistoryMessage } from "../../shared/types/content";
+import type { RewindHistoryItem, StoredSession } from "../../shared/types/session";
 
 export const SESSIONS_PAGE_SIZE = 20;
 export const HISTORY_PAGE_SIZE = 30;
