@@ -2,6 +2,12 @@
 
 All notable changes to Damocles will be documented in this file.
 
+## [1.0.47] - 2026-01-28
+
+### Changed
+
+- **Updated Taglines**: Updated README and translations with new project tagline.
+
 ## [1.0.46] - 2026-01-27
 
 ### Changed
@@ -396,6 +402,7 @@ All notable changes to Damocles will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.47]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.46...v1.0.47
 [1.0.46]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.45...v1.0.46
 [1.0.45]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.44...v1.0.45
 [1.0.44]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.43...v1.0.44

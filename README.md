@@ -1,7 +1,7 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/AizenvoltPrime/damocles/main/resources/icon.png" alt="Damocles" width="128">
   <h1>Damocles</h1>
-  <p>Unleash the full power of Claude AI as your VS Code coding assistant.</p>
+  <p>A powerful AI coding assistant, just keep in mind that just because something works doesn't mean it's good.</p>
 </div>
 
 ## Screenshots
@@ -223,8 +223,8 @@ When you activate a profile, the session automatically restarts with the new pro
 
 ## Configuration
 
-| Setting                                | Description                                                                  | Default   |
-| -------------------------------------- | ---------------------------------------------------------------------------- | --------- |
+| Setting                          | Description                                                                  | Default   |
+| -------------------------------- | ---------------------------------------------------------------------------- | --------- |
 | `damocles.permissionMode`        | How to handle tool permissions (`default`, `acceptEdits`, `plan`)            | `default` |
 | `damocles.maxTurns`              | Maximum conversation turns per session                                       | `100`     |
 | `damocles.maxIndexedFiles`       | Maximum files to index for @ mention autocomplete                            | `5000`    |
