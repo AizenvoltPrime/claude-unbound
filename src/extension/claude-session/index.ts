@@ -5,7 +5,7 @@ import type { SessionOptions, MessageCallbacks, RewindOption, ContentInput } fro
 import type { McpServerConfig, McpServerStatusInfo } from '../../shared/types/mcp';
 import type { PluginConfig } from '../../shared/types/plugins';
 import { ToolManager } from './tool-manager';
-import { StreamingManager, type CheckpointTracker } from './streaming-manager';
+import { StreamingManager, type CheckpointTracker } from './streaming-manager/index';
 import { CheckpointManager } from './checkpoint-manager';
 import { QueryManager } from './query-manager';
 import type { PermissionMode, ModelInfo } from '../../shared/types/settings';

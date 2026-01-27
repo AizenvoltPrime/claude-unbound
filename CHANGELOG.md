@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.41] - 2026-01-27
+
+### Changed
+
+- **Modularized StreamingManager**: Refactored monolithic `streaming-manager.ts` (785 lines) into a modular `streaming-manager/` directory following the established `message-router/` pattern. Message processors are now organized by type (assistant, stream-event, system, user, result) with centralized state management in `StreamingState` class. Uses factory pattern for processors with dependency injection. Pure helper functions extracted to `utils.ts`.
+
 ## [1.0.40] - 2026-01-27
 
 ### Changed
@@ -360,6 +366,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.41]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.40...v1.0.41
 [1.0.40]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.39...v1.0.40
 [1.0.39]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.38...v1.0.39
 [1.0.38]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.37...v1.0.38
