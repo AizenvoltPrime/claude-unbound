@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.44] - 2026-01-27
+
+### Fixed
+
+- **Dot-Namespaced Commands Not Discovered**: Fixed slash commands with dots in their names (e.g., `speckit.plan`, `speckit.analyze`) being silently filtered out during discovery. The `VALID_COMMAND_NAME` regex now allows dots as namespace separators while still preventing malformed names like `.hidden`, `trailing.`, or `double..dot`.
+
 ## [1.0.43] - 2026-01-27
 
 ### Changed
@@ -378,6 +384,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.44]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.43...v1.0.44
 [1.0.43]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.42...v1.0.43
 [1.0.42]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.41...v1.0.42
 [1.0.41]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.40...v1.0.41

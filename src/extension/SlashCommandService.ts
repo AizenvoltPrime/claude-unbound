@@ -10,7 +10,7 @@ const SKILLS_FOLDER = ".claude/skills";
 const SKILL_FILE = "SKILL.md";
 const PLUGINS_FOLDER = ".claude/plugins";
 const INSTALLED_PLUGINS_FILE = "installed_plugins.json";
-const VALID_COMMAND_NAME = /^[a-zA-Z0-9_-]+$/;
+const VALID_COMMAND_NAME = /^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*$/;
 
 interface ParsedMarkdownFile {
   description: string;
