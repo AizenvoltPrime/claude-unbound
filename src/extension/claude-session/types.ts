@@ -1,4 +1,4 @@
-import type { PermissionHandler } from '../PermissionHandler';
+import type { PermissionHandler } from '../permission-handler';
 import type { ExtensionToWebviewMessage } from '../../shared/types/messages';
 import type { McpServerConfig } from '../../shared/types/mcp';
 import type { PluginConfig } from '../../shared/types/plugins';

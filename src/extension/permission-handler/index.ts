@@ -1,0 +1,190 @@
+import * as vscode from 'vscode';
+import { DiffManager } from '../DiffManager';
+import { PermissionState } from './state';
+import { ApprovalManager } from './managers/approval-manager';
+import { QuestionManager } from './managers/question-manager';
+import { PlanManager } from './managers/plan-manager';
+import { SkillManager } from './managers/skill-manager';
+import { SubagentManager } from './managers/subagent-manager';
+import type { ExtensionToWebviewMessage } from '../../shared/types/messages';
+import type { PermissionMode } from '../../shared/types/settings';
+import type { PermissionResult, CanUseToolContext } from './types';
+
+export type { PermissionResult, CanUseToolContext };
+
+export class PermissionHandler {
+  private state: PermissionState;
+  private diffManager: DiffManager;
+  private approvalManager: ApprovalManager;
+  private questionManager: QuestionManager;
+  private planManager: PlanManager;
+  private skillManager: SkillManager;
+  private subagentManager: SubagentManager;
+
+  constructor(_extensionUri: vscode.Uri) {
+    this.state = new PermissionState();
+    this.diffManager = new DiffManager();
+
+    const getPostMessage = () => this.state.postMessageToWebview;
+
+    this.approvalManager = new ApprovalManager(
+      this.state,
+      this.diffManager,
+      getPostMessage
+    );
+    this.questionManager = new QuestionManager(
+      this.state,
+      getPostMessage
+    );
+    this.planManager = new PlanManager(
+      this.state,
+      getPostMessage
+    );
+    this.skillManager = new SkillManager(
+      this.state,
+      getPostMessage
+    );
+    this.subagentManager = new SubagentManager(
+      this.state,
+      this.diffManager,
+      getPostMessage
+    );
+
+    const config = vscode.workspace.getConfiguration('claude-unbound');
+    this.state.permissionMode = config.get<PermissionMode>('permissionMode', 'default');
+  }
+
+  setPermissionMode(mode: PermissionMode): void {
+    this.state.permissionMode = mode;
+  }
+
+  getPermissionMode(): PermissionMode {
+    return this.state.permissionMode;
+  }
+
+  setDangerouslySkipPermissions(enabled: boolean): void {
+    this.state.dangerouslySkipPermissions = enabled;
+  }
+
+  getDangerouslySkipPermissions(): boolean {
+    return this.state.dangerouslySkipPermissions;
+  }
+
+  setPostMessage(fn: (msg: ExtensionToWebviewMessage) => void): void {
+    this.state.postMessageToWebview = fn;
+  }
+
+  preApproveSkill(skillName: string): void {
+    this.skillManager.preApproveSkill(skillName);
+  }
+
+  revokeSkillPreApproval(skillName: string): void {
+    this.skillManager.revokeSkillPreApproval(skillName);
+  }
+
+  autoApproveSubagent(parentToolUseId: string): void {
+    this.subagentManager.autoApproveSubagent(parentToolUseId);
+  }
+
+  clearSubagentAutoApprovals(): void {
+    this.subagentManager.clearSubagentAutoApprovals();
+  }
+
+  async canUseTool(
+    toolName: string,
+    input: Record<string, unknown>,
+    context: CanUseToolContext
+  ): Promise<PermissionResult> {
+    if (toolName === 'EnterPlanMode') {
+      return this.planManager.handleEnterPlanMode(context, input);
+    }
+
+    if (toolName === 'ExitPlanMode' && this.state.permissionMode === 'plan') {
+      return this.planManager.handleExitPlanMode(input, context);
+    }
+
+    if (toolName === 'Edit' || toolName === 'Write') {
+      return this.approvalManager.handleFilePermission(toolName, input, context);
+    }
+
+    if (toolName === 'Bash') {
+      return this.approvalManager.handleBashPermission(input, context);
+    }
+
+    if (toolName === 'AskUserQuestion') {
+      return this.questionManager.handleQuestion(input, context);
+    }
+
+    const readOnlyTools = ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'LSP'];
+    if (readOnlyTools.includes(toolName)) {
+      return { behavior: 'allow', updatedInput: input };
+    }
+
+    if (toolName.startsWith('mcp__')) {
+      return { behavior: 'allow', updatedInput: input };
+    }
+
+    if (toolName === 'Skill') {
+      return this.skillManager.handleSkillApproval(input, context);
+    }
+
+    if (this.state.dangerouslySkipPermissions) {
+      return { behavior: 'allow', updatedInput: input };
+    }
+
+    const allowLabel = vscode.l10n.t("Allow");
+    const denyLabel = vscode.l10n.t("Deny");
+    const result = await vscode.window.showInformationMessage(
+      vscode.l10n.t("Claude wants to use the \"{0}\" tool. Allow?", toolName),
+      { modal: true },
+      allowLabel,
+      denyLabel
+    );
+
+    if (result === allowLabel) {
+      return { behavior: 'allow', updatedInput: input };
+    }
+
+    return {
+      behavior: 'deny',
+      message: `User denied permission for ${toolName}`,
+    };
+  }
+
+  async resolveApproval(toolUseId: string, approved: boolean, options?: { customMessage?: string }): Promise<void> {
+    return this.approvalManager.resolveApproval(toolUseId, approved, options);
+  }
+
+  resolveQuestion(toolUseId: string, answers: Record<string, string> | null): void {
+    this.questionManager.resolveQuestion(toolUseId, answers);
+  }
+
+  resolvePlanApproval(
+    toolUseId: string,
+    approved: boolean,
+    options?: { approvalMode?: 'acceptEdits' | 'manual'; feedback?: string }
+  ): void {
+    this.planManager.resolvePlanApproval(toolUseId, approved, options);
+  }
+
+  resolveEnterPlanApproval(
+    toolUseId: string,
+    approved: boolean,
+    options?: { customMessage?: string }
+  ): void {
+    this.planManager.resolveEnterPlanApproval(toolUseId, approved, options);
+  }
+
+  resolveSkillApproval(
+    toolUseId: string,
+    approved: boolean,
+    options?: { approvalMode?: 'acceptEdits' | 'manual'; customMessage?: string }
+  ): void {
+    this.skillManager.resolveSkillApproval(toolUseId, approved, options);
+  }
+
+  async dispose(): Promise<void> {
+    this.state.clearAll();
+    await this.diffManager.dispose();
+  }
+}

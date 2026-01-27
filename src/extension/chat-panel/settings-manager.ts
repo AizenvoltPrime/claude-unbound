@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 import type { ClaudeSession } from "../claude-session";
-import type { PermissionHandler } from "../PermissionHandler";
+import type { PermissionHandler } from "../permission-handler";
 import type { PluginService } from "../PluginService";
 import type { ExtensionToWebviewMessage } from "../../shared/types/messages";
 import type { McpServerConfig, McpServerStatusInfo } from "../../shared/types/mcp";

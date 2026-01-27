@@ -1,5 +1,5 @@
 import { log } from '../logger';
-import type { PermissionHandler } from '../PermissionHandler';
+import type { PermissionHandler } from '../permission-handler';
 import type { MessageCallbacks, StreamedToolInfo, ToolPermissionResult } from './types';
 import { serializeToolResult } from './utils';
 import { readAgentData } from '../session';

@@ -48,7 +48,7 @@ npm run package       # Package for distribution
 | -------------------------------------- | --------------------------------------------------------- |
 | `src/extension/claude-session/`        | Claude Agent SDK integration (see module breakdown below) |
 | `src/extension/chat-panel/`            | Webview panel management (see module breakdown below)     |
-| `src/extension/PermissionHandler.ts`   | Intercepts Edit/Write tools, shows diff for approval      |
+| `src/extension/permission-handler/`    | Tool permission handling (see module breakdown below)     |
 | `src/extension/DiffManager.ts`         | Manages concurrent diff views for file changes            |
 | `src/extension/SlashCommandService.ts` | Discovers and executes custom slash commands              |
 | `src/extension/ripgrep.ts`             | Fast workspace file listing for @ mention autocomplete    |
@@ -87,6 +87,22 @@ Message processing is modularized into domain-specific processors:
 | `processors/system-processor.ts`      | System messages, errors                                   |
 | `processors/user-processor.ts`        | User message display, replay                              |
 | `processors/result-processor.ts`      | Tool results, final responses                             |
+
+### PermissionHandler Module (`permission-handler/`)
+
+Tool permission handling is modularized into domain-specific managers:
+
+| File                              | Responsibility                                              |
+| --------------------------------- | ----------------------------------------------------------- |
+| `index.ts`                        | Public facade (`PermissionHandler`), wires managers         |
+| `types.ts`                        | Permission interfaces, pending approval types               |
+| `state.ts`                        | `PermissionState` class for pending approvals/questions     |
+| `utils.ts`                        | Pure helper functions (deny/allow result builders)          |
+| `managers/approval-manager.ts`    | Edit/Write/Bash permission prompts, diff view coordination  |
+| `managers/question-manager.ts`    | AskUserQuestion tool handling                               |
+| `managers/plan-manager.ts`        | EnterPlanMode/ExitPlanMode approval flows                   |
+| `managers/skill-manager.ts`       | Skill approval, pre-approval tracking                       |
+| `managers/subagent-manager.ts`    | Subagent auto-approval for nested tool calls                |
 
 ### ChatPanel Module (`chat-panel/`)
 

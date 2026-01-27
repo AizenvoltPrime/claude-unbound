@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ClaudeSession } from "../claude-session";
-import { PermissionHandler } from "../PermissionHandler";
+import { PermissionHandler } from "../permission-handler";
 import { ensureSessionDir } from "../session";
 import type { ExtensionToWebviewMessage } from "../../shared/types/messages";
 import type { McpServerConfig } from "../../shared/types/mcp";

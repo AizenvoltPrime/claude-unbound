@@ -1,0 +1,97 @@
+import type {
+  PendingApproval,
+  PendingQuestion,
+  PendingPlanApproval,
+  PendingEnterPlanApproval,
+  PendingSkillApproval,
+  PostMessageFn,
+  PermissionMode,
+} from './types';
+
+export class PermissionState {
+  pendingApprovals = new Map<string, PendingApproval>();
+  pendingQuestions = new Map<string, PendingQuestion>();
+  pendingPlanApprovals = new Map<string, PendingPlanApproval>();
+  pendingEnterPlanApprovals = new Map<string, PendingEnterPlanApproval>();
+  pendingSkillApprovals = new Map<string, PendingSkillApproval>();
+  autoApprovedSkills = new Set<string>();
+  autoApprovedSubagents = new Set<string>();
+  postMessageToWebview: PostMessageFn | null = null;
+  permissionMode: PermissionMode = 'default';
+  dangerouslySkipPermissions = false;
+
+  addPendingApproval(toolUseId: string, approval: PendingApproval): void {
+    this.pendingApprovals.set(toolUseId, approval);
+  }
+
+  removePendingApproval(toolUseId: string): PendingApproval | undefined {
+    const approval = this.pendingApprovals.get(toolUseId);
+    this.pendingApprovals.delete(toolUseId);
+    return approval;
+  }
+
+  addPendingQuestion(toolUseId: string, question: PendingQuestion): void {
+    this.pendingQuestions.set(toolUseId, question);
+  }
+
+  removePendingQuestion(toolUseId: string): PendingQuestion | undefined {
+    const question = this.pendingQuestions.get(toolUseId);
+    this.pendingQuestions.delete(toolUseId);
+    return question;
+  }
+
+  addPendingPlanApproval(toolUseId: string, approval: PendingPlanApproval): void {
+    this.pendingPlanApprovals.set(toolUseId, approval);
+  }
+
+  removePendingPlanApproval(toolUseId: string): PendingPlanApproval | undefined {
+    const approval = this.pendingPlanApprovals.get(toolUseId);
+    this.pendingPlanApprovals.delete(toolUseId);
+    return approval;
+  }
+
+  addPendingEnterPlanApproval(toolUseId: string, approval: PendingEnterPlanApproval): void {
+    this.pendingEnterPlanApprovals.set(toolUseId, approval);
+  }
+
+  removePendingEnterPlanApproval(toolUseId: string): PendingEnterPlanApproval | undefined {
+    const approval = this.pendingEnterPlanApprovals.get(toolUseId);
+    this.pendingEnterPlanApprovals.delete(toolUseId);
+    return approval;
+  }
+
+  addPendingSkillApproval(toolUseId: string, approval: PendingSkillApproval): void {
+    this.pendingSkillApprovals.set(toolUseId, approval);
+  }
+
+  removePendingSkillApproval(toolUseId: string): PendingSkillApproval | undefined {
+    const approval = this.pendingSkillApprovals.get(toolUseId);
+    this.pendingSkillApprovals.delete(toolUseId);
+    return approval;
+  }
+
+  clearAll(): void {
+    const cleanupMap = <T extends { cleanup: () => void; resolve: (result: { approved: false }) => void }>(
+      map: Map<string, T>
+    ) => {
+      for (const [, pending] of map) {
+        try {
+          pending.cleanup();
+          pending.resolve({ approved: false });
+        } catch {
+          // Ignore cleanup errors to ensure all maps are processed
+        }
+      }
+      map.clear();
+    };
+
+    cleanupMap(this.pendingApprovals);
+    cleanupMap(this.pendingQuestions);
+    cleanupMap(this.pendingPlanApprovals);
+    cleanupMap(this.pendingEnterPlanApprovals);
+    cleanupMap(this.pendingSkillApprovals);
+
+    this.autoApprovedSkills.clear();
+    this.autoApprovedSubagents.clear();
+  }
+}

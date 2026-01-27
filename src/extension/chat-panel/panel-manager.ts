@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { PermissionHandler } from "../PermissionHandler";
+import { PermissionHandler } from "../permission-handler";
 import { IdeContextManager } from "./ide-context-manager";
 import type { ClaudeSession } from "../claude-session";
 import type { ExtensionToWebviewMessage, WebviewToExtensionMessage } from "../../shared/types/messages";

@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.45] - 2026-01-27
+
+### Changed
+
+- **Modularized PermissionHandler**: Refactored monolithic `PermissionHandler.ts` (685 lines) into a modular `permission-handler/` directory following the established architectural patterns. Managers are now organized by domain (approval, question, plan, skill, subagent) with centralized state management in `PermissionState` class. Uses dependency injection for manager wiring. Pure helper functions extracted to `utils.ts`.
+
 ## [1.0.44] - 2026-01-27
 
 ### Fixed
@@ -384,6 +390,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.45]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.44...v1.0.45
 [1.0.44]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.43...v1.0.44
 [1.0.43]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.42...v1.0.43
 [1.0.42]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.41...v1.0.42
