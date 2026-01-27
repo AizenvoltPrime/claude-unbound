@@ -40,6 +40,8 @@ export class SlashCommandService {
   private pluginWatcher: vscode.FileSystemWatcher | null = null;
   private projectSkillWatcher: vscode.FileSystemWatcher | null = null;
   private userSkillWatcher: vscode.FileSystemWatcher | null = null;
+  private projectSkillDirWatcher: vscode.FileSystemWatcher | null = null;
+  private userSkillDirWatcher: vscode.FileSystemWatcher | null = null;
   private commandDebounceTimer: NodeJS.Timeout | null = null;
   private pluginDebounceTimer: NodeJS.Timeout | null = null;
   private skillDebounceTimer: NodeJS.Timeout | null = null;
@@ -119,12 +121,25 @@ export class SlashCommandService {
     this.projectSkillWatcher.onDidChange(invalidateSkillCache);
     this.projectSkillWatcher.onDidDelete(invalidateSkillCache);
 
+    const projectSkillDirPattern = new vscode.RelativePattern(
+      this.workspacePath,
+      `${SKILLS_FOLDER}/*`
+    );
+    this.projectSkillDirWatcher = vscode.workspace.createFileSystemWatcher(projectSkillDirPattern);
+    this.projectSkillDirWatcher.onDidCreate(invalidateSkillCache);
+    this.projectSkillDirWatcher.onDidDelete(invalidateSkillCache);
+
     const userSkillsPath = path.join(os.homedir(), SKILLS_FOLDER);
     const userSkillPattern = `${userSkillsPath.replace(/\\/g, "/")}/**/${SKILL_FILE}`;
     this.userSkillWatcher = vscode.workspace.createFileSystemWatcher(userSkillPattern);
     this.userSkillWatcher.onDidCreate(invalidateSkillCache);
     this.userSkillWatcher.onDidChange(invalidateSkillCache);
     this.userSkillWatcher.onDidDelete(invalidateSkillCache);
+
+    const userSkillDirPattern = `${userSkillsPath.replace(/\\/g, "/")}/*`;
+    this.userSkillDirWatcher = vscode.workspace.createFileSystemWatcher(userSkillDirPattern);
+    this.userSkillDirWatcher.onDidCreate(invalidateSkillCache);
+    this.userSkillDirWatcher.onDidDelete(invalidateSkillCache);
   }
 
   async getCommands(): Promise<CustomSlashCommandInfo[]> {
@@ -548,6 +563,14 @@ export class SlashCommandService {
     if (this.userSkillWatcher) {
       this.userSkillWatcher.dispose();
       this.userSkillWatcher = null;
+    }
+    if (this.projectSkillDirWatcher) {
+      this.projectSkillDirWatcher.dispose();
+      this.projectSkillDirWatcher = null;
+    }
+    if (this.userSkillDirWatcher) {
+      this.userSkillDirWatcher.dispose();
+      this.userSkillDirWatcher = null;
     }
     if (this.commandDebounceTimer) {
       clearTimeout(this.commandDebounceTimer);

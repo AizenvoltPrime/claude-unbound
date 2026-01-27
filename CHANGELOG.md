@@ -2,6 +2,12 @@
 
 All notable changes to Claude Unbound will be documented in this file.
 
+## [1.0.42] - 2026-01-27
+
+### Fixed
+
+- **Skills Not Refreshing Without Restart**: Fixed new skills in `.claude/skills/` not appearing in `/` autocomplete until VS Code restart. Added directory watchers alongside file watchers to detect when new skill folders are created. This is the VS Code-recommended dual-watcher pattern for glob patterns with exact filenames.
+
 ## [1.0.41] - 2026-01-27
 
 ### Changed
@@ -366,6 +372,7 @@ All notable changes to Claude Unbound will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.42]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.41...v1.0.42
 [1.0.41]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.40...v1.0.41
 [1.0.40]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.39...v1.0.40
 [1.0.39]: https://github.com/AizenvoltPrime/claude-unbound/compare/v1.0.38...v1.0.39
