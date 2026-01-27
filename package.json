@@ -1,19 +1,19 @@
 {
-  "name": "claude-unbound",
+  "name": "damocles",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.0.45",
+  "version": "1.0.46",
   "publisher": "Aizenvolt",
   "icon": "resources/icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AizenvoltPrime/claude-unbound.git"
+    "url": "https://github.com/AizenvoltPrime/damocles.git"
   },
   "bugs": {
-    "url": "https://github.com/AizenvoltPrime/claude-unbound/issues"
+    "url": "https://github.com/AizenvoltPrime/damocles/issues"
   },
-  "homepage": "https://github.com/AizenvoltPrime/claude-unbound#readme",
+  "homepage": "https://github.com/AizenvoltPrime/damocles#readme",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -27,47 +27,47 @@
     "assistant",
     "anthropic",
     "coding",
-    "unbound"
+    "damocles"
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onWebviewPanel:claude-unbound.chat"
+    "onWebviewPanel:damocles.chat"
   ],
   "main": "./dist/extension.js",
   "l10n": "./l10n",
   "contributes": {
     "commands": [
       {
-        "command": "claude-unbound.openChat",
+        "command": "damocles.openChat",
         "title": "%command.openChat.title%",
-        "category": "Claude Unbound",
+        "category": "Damocles",
         "icon": {
           "light": "resources/icon.png",
           "dark": "resources/icon.png"
         }
       },
       {
-        "command": "claude-unbound.newSession",
+        "command": "damocles.newSession",
         "title": "%command.newSession.title%",
-        "category": "Claude Unbound"
+        "category": "Damocles"
       },
       {
-        "command": "claude-unbound.cancelSession",
+        "command": "damocles.cancelSession",
         "title": "%command.cancelSession.title%",
-        "category": "Claude Unbound"
+        "category": "Damocles"
       }
     ],
     "menus": {
       "editor/title": [
         {
-          "command": "claude-unbound.openChat",
+          "command": "damocles.openChat",
           "group": "navigation"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "claude-unbound.openChat",
+        "command": "damocles.openChat",
         "key": "ctrl+shift+u",
         "mac": "cmd+shift+u"
       }
@@ -75,7 +75,7 @@
     "configuration": {
       "title": "%configuration.title%",
       "properties": {
-        "claude-unbound.permissionMode": {
+        "damocles.permissionMode": {
           "type": "string",
           "default": "default",
           "enum": [
@@ -90,19 +90,19 @@
           ],
           "description": "%configuration.permissionMode.description%"
         },
-        "claude-unbound.maxTurns": {
+        "damocles.maxTurns": {
           "type": "number",
           "default": 100,
           "minimum": 1,
           "maximum": 200,
           "description": "%configuration.maxTurns.description%"
         },
-        "claude-unbound.model": {
+        "damocles.model": {
           "type": "string",
           "default": "",
           "description": "%configuration.model.description%"
         },
-        "claude-unbound.maxBudgetUsd": {
+        "damocles.maxBudgetUsd": {
           "type": [
             "number",
             "null"
@@ -111,7 +111,7 @@
           "minimum": 0,
           "description": "%configuration.maxBudgetUsd.description%"
         },
-        "claude-unbound.maxThinkingTokens": {
+        "damocles.maxThinkingTokens": {
           "type": [
             "number",
             "null"
@@ -121,7 +121,7 @@
           "maximum": 63999,
           "description": "%configuration.maxThinkingTokens.description%"
         },
-        "claude-unbound.betasEnabled": {
+        "damocles.betasEnabled": {
           "type": "array",
           "items": {
             "type": "string",
@@ -132,19 +132,19 @@
           "default": [],
           "description": "%configuration.betasEnabled.description%"
         },
-        "claude-unbound.enableFileCheckpointing": {
+        "damocles.enableFileCheckpointing": {
           "type": "boolean",
           "default": true,
           "description": "%configuration.enableFileCheckpointing.description%"
         },
-        "claude-unbound.maxIndexedFiles": {
+        "damocles.maxIndexedFiles": {
           "type": "number",
           "default": 5000,
           "minimum": 100,
           "maximum": 50000,
           "description": "%configuration.maxIndexedFiles.description%"
         },
-        "claude-unbound.sandbox": {
+        "damocles.sandbox": {
           "type": "object",
           "default": {
             "enabled": false
@@ -181,7 +181,7 @@
             }
           }
         },
-        "claude-unbound.providerProfiles": {
+        "damocles.providerProfiles": {
           "type": "array",
           "default": [],
           "scope": "window",
@@ -207,7 +207,7 @@
           },
           "description": "%configuration.providerProfiles.description%"
         },
-        "claude-unbound.activeProviderProfile": {
+        "damocles.activeProviderProfile": {
           "type": [
             "string",
             "null"

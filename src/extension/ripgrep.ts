@@ -58,7 +58,7 @@ export async function listWorkspaceFiles(
   workspacePath: string,
   limit?: number
 ): Promise<FileResult[]> {
-  const effectiveLimit = limit ?? vscode.workspace.getConfiguration("claude-unbound").get<number>("maxIndexedFiles", 5000);
+  const effectiveLimit = limit ?? vscode.workspace.getConfiguration("damocles").get<number>("maxIndexedFiles", 5000);
   const rgPath = await getRipgrepPath(vscode.env.appRoot);
 
   if (!rgPath) {

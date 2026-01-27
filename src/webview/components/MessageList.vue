@@ -157,7 +157,7 @@ function getTrailingStreamingText(message: ChatMessage): string {
   <div class="p-4 space-y-4 bg-background" :class="messages.length === 0 && !hasMarkersToShow() ? 'flex flex-col justify-center' : ''">
     <!-- Welcome message - only show when no messages AND no compact markers -->
     <div v-if="messages.length === 0 && !hasMarkersToShow()" class="text-center w-full px-4">
-      <img :src="logoUri" alt="Claude Unbound" class="w-16 h-16 mx-auto mb-4" />
+      <img :src="logoUri" alt="Damocles" class="w-16 h-16 mx-auto mb-4" />
       <p class="text-xl mb-2 text-foreground font-medium">{{ t('welcome.title') }}</p>
       <p class="text-sm text-muted-foreground">
         {{ t('welcome.message') }}

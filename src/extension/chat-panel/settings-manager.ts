@@ -115,7 +115,7 @@ export class SettingsManager {
   private activeProviderProfile: string | null = null;
   private perPanelActiveProfile: Map<string, string | null> = new Map();
   private profilesLoaded = false;
-  private static readonly PROFILE_SECRET_PREFIX = "claude-unbound.profile:";
+  private static readonly PROFILE_SECRET_PREFIX = "damocles.profile:";
 
   constructor(config: SettingsManagerConfig) {
     this.postMessage = config.postMessage;
@@ -218,7 +218,7 @@ export class SettingsManager {
   }
 
   async sendCurrentSettings(panel: vscode.WebviewPanel, permissionHandler: PermissionHandler): Promise<void> {
-    const config = vscode.workspace.getConfiguration("claude-unbound");
+    const config = vscode.workspace.getConfiguration("damocles");
     const model = config.get<string>("model", "");
     const betasEnabled = config.get<string[]>("betasEnabled", []);
 
@@ -355,14 +355,14 @@ export class SettingsManager {
   }
 
   async handleSetModel(session: ClaudeSession, model: string): Promise<void> {
-    await updateConfigAtEffectiveScope("claude-unbound", "model", model);
+    await updateConfigAtEffectiveScope("damocles", "model", model);
 
     if (!modelSupports1MContext(model)) {
-      const config = vscode.workspace.getConfiguration("claude-unbound");
+      const config = vscode.workspace.getConfiguration("damocles");
       const currentBetas = config.get<string[]>("betasEnabled", []);
       if (currentBetas.includes(CONTEXT_1M_BETA)) {
         const newBetas = currentBetas.filter(b => b !== CONTEXT_1M_BETA);
-        await updateConfigAtEffectiveScope("claude-unbound", "betasEnabled", newBetas);
+        await updateConfigAtEffectiveScope("damocles", "betasEnabled", newBetas);
       }
     }
 
@@ -370,16 +370,16 @@ export class SettingsManager {
   }
 
   async handleSetMaxThinkingTokens(session: ClaudeSession, tokens: number | null): Promise<void> {
-    await updateConfigAtEffectiveScope("claude-unbound", "maxThinkingTokens", tokens);
+    await updateConfigAtEffectiveScope("damocles", "maxThinkingTokens", tokens);
     await session.setMaxThinkingTokens(tokens);
   }
 
   async handleSetBudgetLimit(budgetUsd: number | null): Promise<void> {
-    await updateConfigAtEffectiveScope("claude-unbound", "maxBudgetUsd", budgetUsd);
+    await updateConfigAtEffectiveScope("damocles", "maxBudgetUsd", budgetUsd);
   }
 
   async handleToggleBeta(beta: string, enabled: boolean): Promise<void> {
-    const config = vscode.workspace.getConfiguration("claude-unbound");
+    const config = vscode.workspace.getConfiguration("damocles");
     const currentBetas = config.get<string[]>("betasEnabled", []);
 
     if (beta === CONTEXT_1M_BETA && enabled) {
@@ -392,7 +392,7 @@ export class SettingsManager {
     const newBetas = enabled
       ? (currentBetas.includes(beta) ? currentBetas : [...currentBetas, beta])
       : currentBetas.filter((b) => b !== beta);
-    await updateConfigAtEffectiveScope("claude-unbound", "betasEnabled", newBetas);
+    await updateConfigAtEffectiveScope("damocles", "betasEnabled", newBetas);
   }
 
   async handleSetPermissionMode(
@@ -405,7 +405,7 @@ export class SettingsManager {
   }
 
   async handleSetDefaultPermissionMode(mode: PermissionMode): Promise<void> {
-    await updateConfigAtEffectiveScope("claude-unbound", "permissionMode", mode);
+    await updateConfigAtEffectiveScope("damocles", "permissionMode", mode);
   }
 
   handleSetDangerouslySkipPermissions(permissionHandler: PermissionHandler, enabled: boolean): void {
@@ -417,7 +417,7 @@ export class SettingsManager {
       return;
     }
 
-    const config = vscode.workspace.getConfiguration("claude-unbound");
+    const config = vscode.workspace.getConfiguration("damocles");
     const storedProfiles = config.get<ProviderProfile[]>("providerProfiles", []);
     this.activeProviderProfile = config.get<string | null>("activeProviderProfile", null);
 
@@ -446,7 +446,7 @@ export class SettingsManager {
     // Store only name in VS Code settings (no env vars for security)
     this.providerProfiles = [...this.providerProfiles, profile];
     const profileNames = this.providerProfiles.map(p => ({ name: p.name }));
-    await updateConfigAtEffectiveScope("claude-unbound", "providerProfiles", profileNames);
+    await updateConfigAtEffectiveScope("damocles", "providerProfiles", profileNames);
     log("[SettingsManager] createProviderProfile:", profile.name);
   }
 
@@ -478,12 +478,12 @@ export class SettingsManager {
     ];
     // Store only names in VS Code settings
     const profileNames = this.providerProfiles.map(p => ({ name: p.name }));
-    await updateConfigAtEffectiveScope("claude-unbound", "providerProfiles", profileNames);
+    await updateConfigAtEffectiveScope("damocles", "providerProfiles", profileNames);
 
     const needsRestart = this.activeProviderProfile === originalName;
     if (needsRestart) {
       this.activeProviderProfile = profile.name;
-      await updateConfigAtEffectiveScope("claude-unbound", "activeProviderProfile", profile.name);
+      await updateConfigAtEffectiveScope("damocles", "activeProviderProfile", profile.name);
     }
 
     log("[SettingsManager] updateProviderProfile:", originalName, "->", profile.name);
@@ -503,12 +503,12 @@ export class SettingsManager {
     this.providerProfiles = this.providerProfiles.filter(p => p.name !== profileName);
     // Store only names in VS Code settings
     const profileNames = this.providerProfiles.map(p => ({ name: p.name }));
-    await updateConfigAtEffectiveScope("claude-unbound", "providerProfiles", profileNames);
+    await updateConfigAtEffectiveScope("damocles", "providerProfiles", profileNames);
 
     const needsRestart = this.activeProviderProfile === profileName;
     if (needsRestart) {
       this.activeProviderProfile = null;
-      await updateConfigAtEffectiveScope("claude-unbound", "activeProviderProfile", null);
+      await updateConfigAtEffectiveScope("damocles", "activeProviderProfile", null);
     }
 
     log("[SettingsManager] deleteProviderProfile:", profileName);
@@ -528,7 +528,7 @@ export class SettingsManager {
     }
 
     this.activeProviderProfile = profileName;
-    await updateConfigAtEffectiveScope("claude-unbound", "activeProviderProfile", profileName);
+    await updateConfigAtEffectiveScope("damocles", "activeProviderProfile", profileName);
     log("[SettingsManager] setActiveProviderProfile:", profileName);
     return true;
   }
@@ -602,7 +602,7 @@ export class SettingsManager {
     }
 
     this.activeProviderProfile = profileName;
-    await updateConfigAtEffectiveScope("claude-unbound", "activeProviderProfile", profileName);
+    await updateConfigAtEffectiveScope("damocles", "activeProviderProfile", profileName);
     log("[SettingsManager] setDefaultProviderProfile:", profileName);
   }
 }

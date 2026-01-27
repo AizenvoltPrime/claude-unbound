@@ -11,7 +11,7 @@ export function createWorkspaceHandlers(deps: HandlerDependencies): Partial<Hand
 
   return {
     openSettings: () => {
-      vscode.commands.executeCommand("workbench.action.openSettings", "claude-unbound");
+      vscode.commands.executeCommand("workbench.action.openSettings", "damocles");
     },
 
     openSessionLog: async (_msg, ctx) => {
@@ -128,7 +128,7 @@ export function createWorkspaceHandlers(deps: HandlerDependencies): Partial<Hand
           await fs.mkdir(path.dirname(slugPath), { recursive: true });
           await fs.writeFile(slugPath, content);
 
-          const config = vscode.workspace.getConfiguration("claude-unbound");
+          const config = vscode.workspace.getConfiguration("damocles");
           const previousThinkingTokens = config.get<number | null>("maxThinkingTokens", null);
           await ctx.session.setMaxThinkingTokens(null);
 
@@ -164,7 +164,7 @@ export function createWorkspaceHandlers(deps: HandlerDependencies): Partial<Hand
           }
 
           const previousMode = ctx.permissionHandler.getPermissionMode();
-          const config = vscode.workspace.getConfiguration("claude-unbound");
+          const config = vscode.workspace.getConfiguration("damocles");
           const previousThinkingTokens = config.get<number | null>("maxThinkingTokens", null);
 
           ctx.session.setPendingPlanBind(content);

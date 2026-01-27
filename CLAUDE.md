@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Claude Unbound is a VS Code extension that integrates Claude AI as a coding assistant using the Claude Agent SDK. It provides a webview-based chat interface with features like diff approval, tool visualization, session management, and MCP server support.
+Damocles is a VS Code extension that integrates Claude AI as a coding assistant using the Claude Agent SDK. It provides a webview-based chat interface with features like diff approval, tool visualization, session management, and MCP server support.
 
 ## Development Commands
 
@@ -199,7 +199,7 @@ The SDK is dynamically imported (ESM) since the extension uses CommonJS.
 ## Webview UI
 
 - **Component Library:** shadcn-vue (radix-vue based) in `src/webview/components/ui/`
-- **Styling:** Tailwind CSS with custom `unbound-*` color tokens
+- **Styling:** Tailwind CSS with shadcn-vue color tokens (mapped from VS Code theme variables)
 - **Icons:** Lucide icons via wrapper components in `src/webview/components/icons/`
 - **Code Highlighting:** Shiki with VS Code themes
 

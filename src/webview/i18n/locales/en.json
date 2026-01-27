@@ -369,7 +369,7 @@
     "wasExited": "Plan mode was exited"
   },
   "welcome": {
-    "title": "Welcome to Claude Unbound",
+    "title": "Welcome to Damocles",
     "message": "Unleash the full power of Claude AI. Ask anything about your code or let me help you build something new.",
     "undoChanges": "Undo file changes after this point",
     "sentMidStream": "↳ sent mid-stream",

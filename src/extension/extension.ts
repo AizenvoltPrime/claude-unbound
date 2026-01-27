@@ -36,7 +36,7 @@ async function fixSdkBinaryPermissions(extensionUri: vscode.Uri): Promise<void> 
 export async function activate(context: vscode.ExtensionContext) {
   const outputChannel = initLogger();
   context.subscriptions.push(outputChannel);
-  log("Claude Unbound extension activating...");
+  log("Damocles extension activating...");
   showLog();
 
   await fixSdkBinaryPermissions(context.extensionUri);
@@ -44,7 +44,7 @@ export async function activate(context: vscode.ExtensionContext) {
   chatPanelProvider = new ChatPanelProvider(context.extensionUri, context);
 
   context.subscriptions.push(
-    vscode.window.registerWebviewPanelSerializer("claude-unbound.chat", {
+    vscode.window.registerWebviewPanelSerializer("damocles.chat", {
       async deserializeWebviewPanel(panel: vscode.WebviewPanel, _state: unknown) {
         await chatPanelProvider?.restorePanel(panel);
       },
@@ -52,27 +52,27 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("claude-unbound.openChat", () => {
+    vscode.commands.registerCommand("damocles.openChat", () => {
       chatPanelProvider?.show();
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("claude-unbound.newSession", () => {
+    vscode.commands.registerCommand("damocles.newSession", () => {
       chatPanelProvider?.newSession();
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("claude-unbound.cancelSession", () => {
+    vscode.commands.registerCommand("damocles.cancelSession", () => {
       chatPanelProvider?.cancelSession();
     })
   );
 
-  log("Claude Unbound extension activated");
+  log("Damocles extension activated");
 }
 
 export function deactivate() {
   chatPanelProvider?.dispose();
-  log("Claude Unbound extension deactivated");
+  log("Damocles extension deactivated");
 }

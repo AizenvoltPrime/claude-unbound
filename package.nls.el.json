@@ -1,10 +1,10 @@
 {
-  "displayName": "Claude Unbound",
+  "displayName": "Damocles",
   "description": "Μια επέκταση VS Code που ενσωματώνει το Claude AI ως βοηθό κωδικοποίησης χρησιμοποιώντας το Agent SDK.",
   "command.openChat.title": "Άνοιγμα Συνομιλίας",
   "command.newSession.title": "Νέα Συνεδρία Συνομιλίας",
   "command.cancelSession.title": "Ακύρωση Τρέχοντος Αιτήματος",
-  "configuration.title": "Claude Unbound",
+  "configuration.title": "Damocles",
   "configuration.permissionMode.description": "Πώς να διαχειρίζεστε τις άδειες εργαλείων",
   "configuration.permissionMode.default": "Τυπική συμπεριφορά - ερωτήσεις για επικίνδυνες λειτουργίες",
   "configuration.permissionMode.acceptEdits": "Αυτόματη αποδοχή λειτουργιών επεξεργασίας αρχείων",

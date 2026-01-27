@@ -61,8 +61,8 @@ export class PanelManager {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      "claude-unbound.chat",
-      "Claude Unbound",
+      "damocles.chat",
+      "Damocles",
       { viewColumn: targetColumn, preserveFocus: false },
       {
         enableScripts: true,
@@ -144,7 +144,7 @@ export class PanelManager {
 
     panelDisposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration("claude-unbound")) {
+        if (e.affectsConfiguration("damocles")) {
           void this.sendCurrentSettings(panel, permissionHandler);
         }
       })
@@ -207,7 +207,7 @@ export class PanelManager {
       if (group.tabs.length === 0) continue;
       const allClaudePanels = group.tabs.every((tab) => {
         if (tab.input instanceof vscode.TabInputWebview) {
-          return tab.input.viewType.includes("claude-unbound.chat");
+          return tab.input.viewType.includes("damocles.chat");
         }
         return false;
       });
@@ -252,7 +252,7 @@ export class PanelManager {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' 'wasm-unsafe-eval'; font-src ${webview.cspSource}; img-src ${webview.cspSource} data:;">
   <link href="${styleUri}" rel="stylesheet">
-  <title>Claude Unbound</title>
+  <title>Damocles</title>
 </head>
 <body>
   <div id="app" data-logo-uri="${logoUri}"></div>

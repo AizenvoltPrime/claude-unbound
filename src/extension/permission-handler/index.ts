@@ -50,7 +50,7 @@ export class PermissionHandler {
       getPostMessage
     );
 
-    const config = vscode.workspace.getConfiguration('claude-unbound');
+    const config = vscode.workspace.getConfiguration('damocles');
     this.state.permissionMode = config.get<PermissionMode>('permissionMode', 'default');
   }
 

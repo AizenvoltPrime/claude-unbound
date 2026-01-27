@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/AizenvoltPrime/claude-unbound/main/resources/icon.png" alt="Claude Unbound" width="128">
-  <h1>Claude Unbound</h1>
+  <img src="https://raw.githubusercontent.com/AizenvoltPrime/damocles/main/resources/icon.png" alt="Damocles" width="128">
+  <h1>Damocles</h1>
   <p>Unleash the full power of Claude AI as your VS Code coding assistant.</p>
 </div>
 
@@ -70,7 +70,7 @@
 
 ## Usage
 
-- Click the Claude Unbound icon in the editor title bar (top right)
+- Click the Damocles icon in the editor title bar (top right)
 - Type your question or request in the chat input
 - Press Enter to send (Shift+Enter for new line)
 - Review any file changes in the diff view before approving
@@ -225,11 +225,11 @@ When you activate a profile, the session automatically restarts with the new pro
 
 | Setting                                | Description                                                                  | Default   |
 | -------------------------------------- | ---------------------------------------------------------------------------- | --------- |
-| `claude-unbound.permissionMode`        | How to handle tool permissions (`default`, `acceptEdits`, `plan`)            | `default` |
-| `claude-unbound.maxTurns`              | Maximum conversation turns per session                                       | `100`     |
-| `claude-unbound.maxIndexedFiles`       | Maximum files to index for @ mention autocomplete                            | `5000`    |
-| `claude-unbound.providerProfiles`      | Array of provider profile names (credentials stored securely in OS keychain) | `[]`      |
-| `claude-unbound.activeProviderProfile` | Currently active provider profile name                                       | `null`    |
+| `damocles.permissionMode`        | How to handle tool permissions (`default`, `acceptEdits`, `plan`)            | `default` |
+| `damocles.maxTurns`              | Maximum conversation turns per session                                       | `100`     |
+| `damocles.maxIndexedFiles`       | Maximum files to index for @ mention autocomplete                            | `5000`    |
+| `damocles.providerProfiles`      | Array of provider profile names (credentials stored securely in OS keychain) | `[]`      |
+| `damocles.activeProviderProfile` | Currently active provider profile name                                       | `null`    |
 
 ## Localization
 
@@ -250,13 +250,13 @@ To change the language, set VS Code's display language via **Configure Display L
 
 ## Authentication
 
-Claude Unbound uses the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/typescript), which uses Claude Code as its runtime. **The extension does not handle authentication directly** — it delegates entirely to Claude Code.
+Damocles uses the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/typescript), which uses Claude Code as its runtime. **The extension does not handle authentication directly** — it delegates entirely to Claude Code.
 
 ### How It Works
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Claude Unbound Extension                               │
+│  Damocles Extension                               │
 │         │                                               │
 │         ▼                                               │
 │  @anthropic-ai/claude-agent-sdk                         │
@@ -335,10 +335,10 @@ To create a distributable `.vsix` file:
 npm run build && npm run package
 ```
 
-This generates `claude-unbound-<version>.vsix` which can be installed via:
+This generates `damocles-<version>.vsix` which can be installed via:
 
 - **VS Code UI**: Extensions → `...` menu → "Install from VSIX..."
-- **Command line**: `code --install-extension claude-unbound-<version>.vsix`
+- **Command line**: `code --install-extension damocles-<version>.vsix`
 
 ## Architecture
 

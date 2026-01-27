@@ -168,7 +168,7 @@ export class QueryManager {
       },
     };
 
-    const config = vscode.workspace.getConfiguration("claude-unbound");
+    const config = vscode.workspace.getConfiguration("damocles");
     const maxTurns = config.get<number>("maxTurns", 100);
     const configuredModel = config.get<string>("model", "");
 
