@@ -1,0 +1,192 @@
+import * as vscode from "vscode";
+import type { ClaudeSession } from "../../claude-session";
+import type { PermissionHandler } from "../../permission-handler";
+import type { PluginService } from "../../PluginService";
+import type { McpServerConfig } from "../../../shared/types/mcp";
+import type { PluginConfig } from "../../../shared/types/plugins";
+import type { PermissionMode, ProviderProfile } from "../../../shared/types/settings";
+import { McpManager } from "./managers/mcp-manager";
+import { PluginManager } from "./managers/plugin-manager";
+import { ProviderManager } from "./managers/provider-manager";
+import { ConfigManager } from "./managers/config-manager";
+import type { SettingsManagerConfig } from "./types";
+
+export type { SettingsManagerConfig };
+
+export class SettingsManager {
+  private readonly mcpManager: McpManager;
+  private readonly pluginManager: PluginManager;
+  private readonly providerManager: ProviderManager;
+  private readonly configManager: ConfigManager;
+
+  constructor(config: SettingsManagerConfig) {
+    this.mcpManager = new McpManager(config.postMessage);
+    this.pluginManager = new PluginManager(config.postMessage);
+    this.providerManager = new ProviderManager(config.postMessage, config.secrets);
+    this.configManager = new ConfigManager(config.postMessage);
+  }
+
+  setOnMcpConfigChange(callback: () => void): void {
+    this.mcpManager.setOnConfigChange(callback);
+  }
+
+  setupMcpWatcher(workspacePath: string): void {
+    this.mcpManager.setupWatcher(workspacePath);
+  }
+
+  dispose(): void {
+    this.mcpManager.dispose();
+  }
+
+  async setServerEnabled(serverName: string, enabled: boolean): Promise<void> {
+    return this.mcpManager.setServerEnabled(serverName, enabled);
+  }
+
+  getEnabledMcpServers(): Record<string, McpServerConfig> {
+    return this.mcpManager.getEnabledServers();
+  }
+
+  getMcpServersForUI() {
+    return this.mcpManager.getServersForUI();
+  }
+
+  getMcpConfigLoaded(): boolean {
+    return this.mcpManager.getConfigLoaded();
+  }
+
+  async loadMcpConfig(): Promise<void> {
+    return this.mcpManager.loadConfig();
+  }
+
+  async sendMcpStatus(session: ClaudeSession, panel: vscode.WebviewPanel): Promise<void> {
+    return this.mcpManager.sendStatus(session, panel);
+  }
+
+  sendMcpConfig(panel: vscode.WebviewPanel): void {
+    this.mcpManager.sendConfig(panel);
+  }
+
+  async setPluginEnabled(pluginFullId: string, enabled: boolean): Promise<void> {
+    return this.pluginManager.setPluginEnabled(pluginFullId, enabled);
+  }
+
+  getEnabledPlugins(): PluginConfig[] {
+    return this.pluginManager.getEnabledPlugins();
+  }
+
+  getEnabledPluginIds(): Set<string> {
+    return this.pluginManager.getEnabledPluginIds();
+  }
+
+  getPluginsForUI() {
+    return this.pluginManager.getPluginsForUI();
+  }
+
+  getPluginConfigLoaded(): boolean {
+    return this.pluginManager.getConfigLoaded();
+  }
+
+  async loadPluginConfig(pluginService: PluginService): Promise<void> {
+    return this.pluginManager.loadConfig(pluginService);
+  }
+
+  sendPluginConfig(panel: vscode.WebviewPanel): void {
+    this.pluginManager.sendConfig(panel);
+  }
+
+  async loadProviderProfiles(): Promise<void> {
+    return this.providerManager.loadProfiles();
+  }
+
+  async createProviderProfile(profile: ProviderProfile): Promise<void> {
+    return this.providerManager.createProfile(profile);
+  }
+
+  async updateProviderProfile(originalName: string, profile: ProviderProfile): Promise<boolean> {
+    return this.providerManager.updateProfile(originalName, profile);
+  }
+
+  async deleteProviderProfile(profileName: string): Promise<boolean> {
+    return this.providerManager.deleteProfile(profileName);
+  }
+
+  async setActiveProviderProfile(profileName: string | null): Promise<boolean> {
+    return this.providerManager.setActiveProfile(profileName);
+  }
+
+  getActiveProviderEnv(): Record<string, string> | undefined {
+    return this.providerManager.getActiveEnv();
+  }
+
+  initPanelProfile(panelId: string): void {
+    this.providerManager.initPanelProfile(panelId);
+  }
+
+  cleanupPanelProfile(panelId: string): void {
+    this.providerManager.cleanupPanelProfile(panelId);
+  }
+
+  getActiveProviderProfileForPanel(panelId: string): string | null {
+    return this.providerManager.getActiveProfileForPanel(panelId);
+  }
+
+  setActiveProviderProfileForPanel(panelId: string, profileName: string | null): boolean {
+    return this.providerManager.setActiveProfileForPanel(panelId, profileName);
+  }
+
+  getActiveProviderEnvForPanel(panelId: string): Record<string, string> | undefined {
+    return this.providerManager.getActiveEnvForPanel(panelId);
+  }
+
+  sendProviderProfilesForPanel(panel: vscode.WebviewPanel, panelId: string): void {
+    this.providerManager.sendProfilesForPanel(panel, panelId);
+  }
+
+  async setDefaultProviderProfile(profileName: string | null): Promise<void> {
+    return this.providerManager.setDefaultProfile(profileName);
+  }
+
+  async sendCurrentSettings(panel: vscode.WebviewPanel, permissionHandler: PermissionHandler): Promise<void> {
+    return this.configManager.sendCurrentSettings(panel, permissionHandler);
+  }
+
+  async sendAvailableModels(session: ClaudeSession, panel: vscode.WebviewPanel): Promise<void> {
+    return this.configManager.sendAvailableModels(session, panel);
+  }
+
+  async sendSupportedCommands(session: ClaudeSession, panel: vscode.WebviewPanel): Promise<void> {
+    return this.configManager.sendSupportedCommands(session, panel);
+  }
+
+  async handleSetModel(session: ClaudeSession, model: string): Promise<void> {
+    return this.configManager.handleSetModel(session, model);
+  }
+
+  async handleSetMaxThinkingTokens(session: ClaudeSession, tokens: number | null): Promise<void> {
+    return this.configManager.handleSetMaxThinkingTokens(session, tokens);
+  }
+
+  async handleSetBudgetLimit(budgetUsd: number | null): Promise<void> {
+    return this.configManager.handleSetBudgetLimit(budgetUsd);
+  }
+
+  async handleToggleBeta(beta: string, enabled: boolean): Promise<void> {
+    return this.configManager.handleToggleBeta(beta, enabled);
+  }
+
+  async handleSetPermissionMode(
+    session: ClaudeSession,
+    permissionHandler: PermissionHandler,
+    mode: PermissionMode
+  ): Promise<void> {
+    return this.configManager.handleSetPermissionMode(session, permissionHandler, mode);
+  }
+
+  async handleSetDefaultPermissionMode(mode: PermissionMode): Promise<void> {
+    return this.configManager.handleSetDefaultPermissionMode(mode);
+  }
+
+  handleSetDangerouslySkipPermissions(permissionHandler: PermissionHandler, enabled: boolean): void {
+    this.configManager.handleSetDangerouslySkipPermissions(permissionHandler, enabled);
+  }
+}

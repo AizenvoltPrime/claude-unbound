@@ -2,6 +2,12 @@
 
 All notable changes to Damocles will be documented in this file.
 
+## [1.0.48] - 2026-01-28
+
+### Changed
+
+- **Modularized SettingsManager**: Refactored monolithic `settings-manager.ts` (608 lines) into a modular `settings-manager/` directory. Managers are now organized by domain (MCP servers, plugins, provider profiles, VS Code config) with each manager owning its internal state. Uses dependency injection for manager wiring in facade. Pure helper functions extracted to `utils.ts`. No centralized state class since domains are independent (unlike PermissionHandler which shares state).
+
 ## [1.0.47] - 2026-01-28
 
 ### Changed
@@ -402,6 +408,7 @@ All notable changes to Damocles will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.48]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.47...v1.0.48
 [1.0.47]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.46...v1.0.47
 [1.0.46]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.45...v1.0.46
 [1.0.45]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.44...v1.0.45

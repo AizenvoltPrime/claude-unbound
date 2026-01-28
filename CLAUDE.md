@@ -114,7 +114,7 @@ The webview panel management is modularized into focused managers:
 | `panel-manager.ts`       | Webview panel lifecycle, HTML generation, resource URIs              |
 | `message-router/`        | Modular message routing (see MessageRouter Module below)             |
 | `session-manager.ts`     | ClaudeSession lifecycle, coordinates with claude-session module      |
-| `settings-manager.ts`    | Model/thinking/permission settings, MCP server management            |
+| `settings-manager/`      | Settings management module (see SettingsManager Module below)        |
 | `history-manager.ts`     | Session list, history pagination, session CRUD operations            |
 | `storage-manager.ts`     | Checkpoint persistence, rewind operations                            |
 | `workspace-manager.ts`   | File indexing for @ mentions, workspace queries                      |
@@ -139,6 +139,20 @@ Webview↔extension message routing is modularized into domain-specific handlers
 | `handlers/history-handlers.ts`  | Rewind, history pagination, prompt history                    |
 | `handlers/workspace-handlers.ts`| File operations, plans, slash commands, agents                |
 | `handlers/provider-handlers.ts` | Provider profile CRUD operations                              |
+
+### SettingsManager Module (`settings-manager/`)
+
+Settings management is modularized into domain-specific managers, each owning its internal state:
+
+| File                          | Responsibility                                                |
+| ----------------------------- | ------------------------------------------------------------- |
+| `index.ts`                    | Thin facade (`SettingsManager`), wires managers together      |
+| `types.ts`                    | Internal interfaces (McpServerEntry, PluginEntry, PostMessageFn) |
+| `utils.ts`                    | Pure helper functions (config sync, model validation)         |
+| `managers/mcp-manager.ts`     | MCP server state, file watcher, enable/disable operations     |
+| `managers/plugin-manager.ts`  | Plugin state, enable/disable with lock pattern                |
+| `managers/provider-manager.ts`| Provider profile CRUD, per-panel tracking, SecretStorage      |
+| `managers/config-manager.ts`  | VS Code config operations (stateless), model/thinking/permissions |
 
 ### MessageHandler Module (`message-handler/`)
 
