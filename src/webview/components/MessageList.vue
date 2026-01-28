@@ -208,7 +208,7 @@ function getTrailingStreamingText(message: ChatMessage): string {
       <div v-else-if="message.role === 'error'" class="pl-4 text-error animate-message-enter">{{ t('common.error') }}: {{ message.content }}</div>
 
       <!-- Assistant message (including streaming) -->
-      <div v-else class="group relative space-y-3" :class="isStreamingMessage(message) ? 'animate-fade-in' : 'animate-message-enter'">
+      <div v-else class="relative space-y-3" :class="isStreamingMessage(message) ? 'animate-fade-in' : 'animate-message-enter'">
         <ThinkingIndicator
           v-if="message.thinking || message.thinkingContent || message.isPartial || message.thinkingDuration"
           :thinking="message.thinking || message.thinkingContent"
