@@ -8,6 +8,15 @@ export interface SandboxConfig {
   networkAllowLocalBinding?: boolean;
 }
 
+export interface AutoCompactConfig {
+  enabled: boolean;
+  warningThreshold: number;
+  softThreshold: number;
+  hardThreshold: number;
+}
+
+export type ContextWarningLevel = 'none' | 'warning' | 'soft' | 'critical';
+
 export interface ProviderProfile {
   name: string;
   env: Record<string, string>;
@@ -29,6 +38,7 @@ export interface ExtensionSettings {
   defaultPermissionMode: PermissionMode;
   enableFileCheckpointing: boolean;
   sandbox: SandboxConfig;
+  autoCompact: AutoCompactConfig;
   dangerouslySkipPermissions: boolean;
 }
 

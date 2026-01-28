@@ -8,10 +8,13 @@ import { ToolManager } from './tool-manager';
 import { StreamingManager, type CheckpointTracker } from './streaming-manager/index';
 import { CheckpointManager } from './checkpoint-manager';
 import { QueryManager } from './query-manager';
+import { ContextMonitor } from './context-monitor';
 import type { PermissionMode, ModelInfo } from '../../shared/types/settings';
 import type { SlashCommandInfo } from '../../shared/types/commands';
 
 export { SessionOptions } from './types';
+
+const POST_INTERRUPT_DELAY_MS = 100;
 
 /**
  * ClaudeSession coordinates the SDK interaction through focused managers.
@@ -32,6 +35,7 @@ export class ClaudeSession {
   private streamingManager: StreamingManager;
   private checkpointManager: CheckpointManager;
   private queryManager: QueryManager;
+  private contextMonitor: ContextMonitor;
   private options: SessionOptions;
 
   constructor(options: SessionOptions) {
@@ -45,9 +49,17 @@ export class ClaudeSession {
       },
     };
 
+    this.contextMonitor = new ContextMonitor({
+      onWarningLevelChange: (message) => options.onMessage(message),
+      onAutoCompactTrigger: () => this.injectCompactCommand(),
+    });
+
     const checkpointTracker: CheckpointTracker = {
       trackCheckpoint: (assistantId, userId) => this.checkpointManager.trackCheckpoint(assistantId, userId),
       updateCost: (cost) => this.checkpointManager.updateCost(cost),
+      updateTokenUsage: (inputTokens, contextWindowSize) => this.contextMonitor.updateTokenUsage(inputTokens, contextWindowSize),
+      setContextWindowSize: (size) => this.contextMonitor.setContextWindowSize(size),
+      onCompactComplete: () => this.contextMonitor.onCompactComplete(),
     };
 
     this.toolManager = new ToolManager(options.permissionHandler, callbacks, options.cwd);
@@ -247,6 +259,8 @@ export class ClaudeSession {
     this.streamingManager.resetStreaming();
     this.streamingManager.sessionId = null;
     this.checkpointManager.reset();
+    this.clearPendingCompactTimer();
+    this.contextMonitor.reset();
   }
 
   clear(): void {
@@ -256,6 +270,43 @@ export class ClaudeSession {
     this.streamingManager.resetStreaming();
     this.streamingManager.sessionId = null;
     this.checkpointManager.setResumeSession(null);
+    this.clearPendingCompactTimer();
+    this.contextMonitor.reset();
+  }
+
+  private pendingCompactTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private clearPendingCompactTimer(): void {
+    if (this.pendingCompactTimer) {
+      clearTimeout(this.pendingCompactTimer);
+      this.pendingCompactTimer = null;
+    }
+  }
+
+  private injectCompactCommand(): void {
+    log('[ClaudeSession] Auto-compact triggered, interrupting current stream');
+
+    // Interrupt first, then send /compact
+    this.interrupt().then(() => {
+      this.pendingCompactTimer = setTimeout(() => {
+        this.pendingCompactTimer = null;
+        this.sendMessage('/compact').catch(err => {
+          log('[ClaudeSession] Auto-compact sendMessage failed:', err);
+        });
+      }, POST_INTERRUPT_DELAY_MS);
+    }).catch(err => {
+      log('[ClaudeSession] Auto-compact interrupt failed:', err);
+    });
+  }
+
+  async cancelAutoCompact(): Promise<void> {
+    this.clearPendingCompactTimer();
+    this.contextMonitor.onCompactComplete();
+
+    if (this.streamingManager.isProcessing) {
+      await this.interrupt();
+      log('[ClaudeSession] Interrupted auto-compact in progress');
+    }
   }
 
   async interrupt(): Promise<void> {

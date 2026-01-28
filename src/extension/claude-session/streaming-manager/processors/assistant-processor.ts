@@ -31,18 +31,22 @@ export function createAssistantProcessor(deps: ProcessorDependencies): MessagePr
     const { callbacks, toolManager } = deps;
 
     if (!msg.isSidechain && msg.message.usage) {
-      state.lastAssistantUsage = {
-        input_tokens: msg.message.usage.input_tokens ?? 0,
-        output_tokens: msg.message.usage.output_tokens ?? 0,
-        cache_creation_input_tokens: msg.message.usage.cache_creation_input_tokens ?? 0,
-        cache_read_input_tokens: msg.message.usage.cache_read_input_tokens ?? 0,
-      };
+      const inputTokens = msg.message.usage.input_tokens ?? 0;
+      const cacheCreationTokens = msg.message.usage.cache_creation_input_tokens ?? 0;
+      const cacheReadTokens = msg.message.usage.cache_read_input_tokens ?? 0;
+      const totalContextTokens = inputTokens + cacheCreationTokens + cacheReadTokens;
+
+      state.lastContextTokens = totalContextTokens;
+
       callbacks.onMessage({
         type: 'tokenUsageUpdate',
-        inputTokens: state.lastAssistantUsage.input_tokens,
-        cacheCreationTokens: state.lastAssistantUsage.cache_creation_input_tokens,
-        cacheReadTokens: state.lastAssistantUsage.cache_read_input_tokens,
+        inputTokens,
+        cacheCreationTokens,
+        cacheReadTokens,
       });
+
+      // Check thresholds using stored context window size (updated by result-processor)
+      deps.checkpointTracker.updateTokenUsage(totalContextTokens);
     }
 
     if (state.sessionId !== msg.session_id) {

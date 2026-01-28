@@ -3,7 +3,7 @@ import type { McpServerStatusInfo } from './mcp';
 import type { PluginStatusInfo } from './plugins';
 import type { SlashCommandInfo, SlashCommandItem, CustomAgentInfo, PluginAgentInfo, WorkspaceFileInfo } from './commands';
 import type { Question } from './permissions';
-import type { PermissionMode, ProviderProfile, ExtensionSettings, ModelInfo, AccountInfo } from './settings';
+import type { PermissionMode, ProviderProfile, ExtensionSettings, ModelInfo, AccountInfo, ContextWarningLevel, AutoCompactConfig } from './settings';
 import type {
   SystemInitData,
   QueuedMessage,
@@ -23,6 +23,7 @@ export type WebviewToExtensionMessage =
   | { type: "log"; message: string }
   | { type: "sendMessage"; content: string | UserContentBlock[]; agentId?: string; includeIdeContext?: boolean }
   | { type: "cancelSession" }
+  | { type: "cancelAutoCompact" }
   | { type: "resumeSession"; sessionId: string }
   | {
       type: "approveEdit";
@@ -202,4 +203,8 @@ export type ExtensionToWebviewMessage =
     }
   | { type: "languageChange"; locale: string }
   | { type: "showPlanContent"; content: string; filePath: string }
-  | { type: "providerProfilesUpdate"; profiles: ProviderProfile[]; activeProfile: string | null; defaultProfile: string | null };
+  | { type: "providerProfilesUpdate"; profiles: ProviderProfile[]; activeProfile: string | null; defaultProfile: string | null }
+  | { type: "contextWarning"; level: ContextWarningLevel }
+  | { type: "autoCompactTriggering"; percentUsed: number }
+  | { type: "autoCompactComplete" }
+  | { type: "autoCompactConfigUpdate"; config: AutoCompactConfig };

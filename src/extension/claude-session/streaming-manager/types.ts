@@ -6,6 +6,9 @@ import type { StreamingState } from './state';
 export interface CheckpointTracker {
   trackCheckpoint(assistantMessageId: string, userMessageId: string): void;
   updateCost(cost: number): void;
+  updateTokenUsage(inputTokens: number, contextWindowSize?: number): void;
+  setContextWindowSize(size: number): void;
+  onCompactComplete(): void;
 }
 
 /** Callback for signaling turn completion */

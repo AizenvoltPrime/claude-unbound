@@ -72,7 +72,7 @@ function handleThinkingDelta(thinking: string, ctx: ProcessorContext, deps: Proc
   state.streamingContent.thinking += thinking;
   state.streamingContent.isThinking = true;
 
-  if (!state.streamingContent.hasStreamedTools) {
+  if (!state.streamingContent.hasStreamedTools || state.streamingContent.activeBlockType === 'thinking') {
     callbacks.onMessage({
       type: 'partial',
       data: {

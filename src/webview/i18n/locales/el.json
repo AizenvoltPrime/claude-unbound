@@ -265,6 +265,11 @@
     "title": "Χρήση Context",
     "model": "Μοντέλο",
     "total": "Σύνολο",
+    "warning": "Υψηλή χρήση context",
+    "soft": "Πολύ υψηλή χρήση context",
+    "critical": "Το context σχεδόν γεμάτο",
+    "autoCompacting": "Αυτόματη σύμπτυξη context...",
+    "compact": "Σύμπτυξη",
     "breakdown": {
       "systemPrompt": "Προτροπή Συστήματος",
       "systemTools": "Εργαλεία Συστήματος",

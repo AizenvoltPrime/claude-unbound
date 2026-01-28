@@ -58,6 +58,8 @@ function handleCompactBoundary(
     trigger: metadata.trigger,
   });
 
+  deps.checkpointTracker.onCompactComplete();
+
   const sessionId = ctx.state.sessionId;
   if (sessionId) {
     void readLatestCompactSummary(deps.cwd, sessionId)

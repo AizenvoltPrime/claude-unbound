@@ -51,5 +51,21 @@ export function createSettingsHandlers(): Partial<HandlerRegistry> {
     budgetExceeded: (msg, ctx) => {
       ctx.stores.settingsStore.setBudgetWarning(msg.finalSpend, msg.limit, true);
     },
+
+    contextWarning: (msg, ctx) => {
+      ctx.stores.settingsStore.setContextWarning(msg.level);
+    },
+
+    autoCompactTriggering: (_msg, ctx) => {
+      ctx.stores.settingsStore.setAutoCompactTriggered();
+    },
+
+    autoCompactComplete: (_msg, ctx) => {
+      ctx.stores.settingsStore.clearAutoCompactTriggered();
+    },
+
+    autoCompactConfigUpdate: (msg, ctx) => {
+      ctx.stores.settingsStore.updateAutoCompactConfig(msg.config);
+    },
   };
 }

@@ -2,6 +2,13 @@
 
 All notable changes to Damocles will be documented in this file.
 
+## [1.0.49] - 2026-01-28
+
+### Added
+
+- **Context Warning Banner**: Visual context usage monitoring with graduated threshold system. Shows warnings at `warningThreshold` (yellow), `softThreshold` (orange), and `hardThreshold` (red). Banner displays token count, percentage, and progress bar. Configurable via `damocles.autoCompact` settings.
+- **Auto-Compact** (opt-in): Automatic `/compact` injection when context reaches `hardThreshold`. Disabled by default — enable via `damocles.autoCompact.enabled`. Addresses the limitation where the SDK's built-in compaction at ~77% can fail when large tool results flood the context.
+
 ## [1.0.48] - 2026-01-28
 
 ### Changed
@@ -408,6 +415,7 @@ All notable changes to Damocles will be documented in this file.
 - Skills approval workflow
 - Localization (English, Greek)
 
+[1.0.49]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.48...v1.0.49
 [1.0.48]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.47...v1.0.48
 [1.0.47]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.46...v1.0.47
 [1.0.46]: https://github.com/AizenvoltPrime/damocles/compare/v1.0.45...v1.0.46

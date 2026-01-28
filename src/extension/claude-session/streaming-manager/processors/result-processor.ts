@@ -63,6 +63,9 @@ export function createResultProcessor(deps: ProcessorDependencies): MessageProce
       ? (Object.values(resultMsg.modelUsage)[0]?.contextWindow ?? 200000)
       : 200000;
 
+    // Update stored context window for next turn's threshold calculations
+    checkpointTracker.setContextWindowSize(contextWindowSize);
+
     callbacks.onMessage({
       type: 'done',
       data: {

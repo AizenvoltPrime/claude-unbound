@@ -54,6 +54,7 @@
 - **File Checkpointing**: Track file changes and rewind to any previous state with the Rewind Browser (`/rewind`)
 - **Task List**: Visual display of Claude's current tasks with status tracking, dependencies (`blockedBy`), and active form indicators
 - **Message Queue**: Send messages while Claude is working - they're injected at the next tool boundary
+- **Auto-Compact**: Automatic context compaction via configurable thresholds (`damocles.autoCompact`). Visual warnings at `warningThreshold`/`softThreshold`, auto-triggers `/compact` at `hardThreshold` to prevent context overflow
 - **MCP Server Management**: Enable/disable MCP servers from the UI with settings persisted to Claude config
 - **Hooks Support**: Claude Code hooks (shell commands that run on events like tool calls) work automatically
 - **Plugins Support**: Enable/disable Claude Code plugins from the UI - plugins can provide agents and slash commands
@@ -230,6 +231,10 @@ When you activate a profile, the session automatically restarts with the new pro
 | `damocles.maxIndexedFiles`       | Maximum files to index for @ mention autocomplete                            | `5000`    |
 | `damocles.providerProfiles`      | Array of provider profile names (credentials stored securely in OS keychain) | `[]`      |
 | `damocles.activeProviderProfile` | Currently active provider profile name                                       | `null`    |
+| `damocles.autoCompact.enabled`   | Enable automatic context compaction at hard threshold                        | `true`    |
+| `damocles.autoCompact.warningThreshold` | Show warning indicator at this % of context usage                     | `60`      |
+| `damocles.autoCompact.softThreshold`    | Show soft warning (red) at this % of context usage                    | `70`      |
+| `damocles.autoCompact.hardThreshold`    | Trigger automatic `/compact` at this % of context usage               | `75`      |
 
 ## Localization
 

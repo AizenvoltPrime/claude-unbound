@@ -106,5 +106,9 @@ export function createChatHandlers(deps: HandlerDependencies): Partial<HandlerRe
     interrupt: async (_msg, ctx) => {
       await ctx.session.interrupt();
     },
+
+    cancelAutoCompact: async (_msg, ctx) => {
+      await ctx.session.cancelAutoCompact();
+    },
   };
 }

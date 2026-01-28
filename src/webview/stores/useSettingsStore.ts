@@ -1,9 +1,16 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
 import { DEFAULT_THINKING_TOKENS } from '@shared/types/constants';
-import type { ExtensionSettings, ModelInfo, AccountInfo, PermissionMode, ProviderProfile } from '@shared/types/settings';
+import type { ExtensionSettings, ModelInfo, AccountInfo, PermissionMode, ProviderProfile, AutoCompactConfig, ContextWarningLevel } from '@shared/types/settings';
 import type { McpServerStatusInfo } from '@shared/types/mcp';
 import type { PluginStatusInfo } from '@shared/types/plugins';
+
+const DEFAULT_AUTO_COMPACT: AutoCompactConfig = {
+  enabled: false,
+  warningThreshold: 60,
+  softThreshold: 70,
+  hardThreshold: 75,
+};
 
 const DEFAULT_SETTINGS: ExtensionSettings = {
   model: '',
@@ -15,6 +22,7 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   defaultPermissionMode: 'default',
   enableFileCheckpointing: true,
   sandbox: { enabled: false },
+  autoCompact: DEFAULT_AUTO_COMPACT,
   dangerouslySkipPermissions: false,
 };
 
@@ -24,6 +32,11 @@ export interface BudgetWarningState {
   exceeded: boolean;
 }
 
+export interface ContextWarningState {
+  level: ContextWarningLevel;
+  autoCompactTriggered: boolean;
+}
+
 export const useSettingsStore = defineStore('settings', () => {
   const currentSettings = ref<ExtensionSettings>({ ...DEFAULT_SETTINGS });
   const availableModels = ref<ModelInfo[]>([]);
@@ -31,6 +44,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const mcpServers = ref<McpServerStatusInfo[]>([]);
   const plugins = ref<PluginStatusInfo[]>([]);
   const budgetWarning = ref<BudgetWarningState | null>(null);
+  const contextWarning = ref<ContextWarningState | null>(null);
   const providerProfiles = ref<ProviderProfile[]>([]);
   const activeProviderProfile = ref<string | null>(null);
   const defaultProviderProfile = ref<string | null>(null);
@@ -124,6 +138,37 @@ export const useSettingsStore = defineStore('settings', () => {
     budgetWarning.value = null;
   }
 
+  function setContextWarning(level: ContextWarningLevel) {
+    if (level === 'none') {
+      contextWarning.value = null;
+    } else {
+      contextWarning.value = {
+        level,
+        autoCompactTriggered: contextWarning.value?.autoCompactTriggered ?? false,
+      };
+    }
+  }
+
+  function setAutoCompactTriggered() {
+    if (contextWarning.value) {
+      contextWarning.value = { ...contextWarning.value, autoCompactTriggered: true };
+    }
+  }
+
+  function clearAutoCompactTriggered() {
+    if (contextWarning.value) {
+      contextWarning.value = { ...contextWarning.value, autoCompactTriggered: false };
+    }
+  }
+
+  function dismissContextWarning() {
+    contextWarning.value = null;
+  }
+
+  function updateAutoCompactConfig(config: AutoCompactConfig) {
+    currentSettings.value.autoCompact = config;
+  }
+
   function setProviderProfiles(profiles: ProviderProfile[], active: string | null, defaultProfile: string | null) {
     providerProfiles.value = profiles;
     activeProviderProfile.value = active;
@@ -137,6 +182,7 @@ export const useSettingsStore = defineStore('settings', () => {
     mcpServers.value = [];
     plugins.value = [];
     budgetWarning.value = null;
+    contextWarning.value = null;
     providerProfiles.value = [];
     activeProviderProfile.value = null;
     defaultProviderProfile.value = null;
@@ -149,6 +195,7 @@ export const useSettingsStore = defineStore('settings', () => {
     mcpServers,
     plugins,
     budgetWarning,
+    contextWarning,
     providerProfiles,
     activeProviderProfile,
     defaultProviderProfile,
@@ -168,6 +215,11 @@ export const useSettingsStore = defineStore('settings', () => {
     updatePluginStatuses,
     setBudgetWarning,
     dismissBudgetWarning,
+    setContextWarning,
+    setAutoCompactTriggered,
+    clearAutoCompactTriggered,
+    dismissContextWarning,
+    updateAutoCompactConfig,
     setProviderProfiles,
     $reset,
   };

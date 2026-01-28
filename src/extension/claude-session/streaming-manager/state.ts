@@ -1,6 +1,6 @@
 import type { MessageCallbacks, PendingAssistantMessage, StreamingContent } from '../types';
 import { createEmptyStreamingContent } from '../types';
-import type { TurnCompleteCallback, TokenUsage } from './types';
+import type { TurnCompleteCallback } from './types';
 
 /**
  * StreamingState manages all mutable state for streaming operations.
@@ -19,9 +19,17 @@ export class StreamingState {
   private _queryGeneration = 0;
   private _currentQueryGeneration = 0;
   private _onTurnEndFlush: (() => void) | null = null;
-  private _lastAssistantUsage: TokenUsage | null = null;
+  private _lastContextTokens = 0;
 
   constructor(private callbacks: MessageCallbacks) {}
+
+  get lastContextTokens(): number {
+    return this._lastContextTokens;
+  }
+
+  set lastContextTokens(value: number) {
+    this._lastContextTokens = value;
+  }
 
   get sessionId(): string | null {
     return this._sessionId;
@@ -105,14 +113,6 @@ export class StreamingState {
 
   set onTurnEndFlush(value: (() => void) | null) {
     this._onTurnEndFlush = value;
-  }
-
-  get lastAssistantUsage(): TokenUsage | null {
-    return this._lastAssistantUsage;
-  }
-
-  set lastAssistantUsage(value: TokenUsage | null) {
-    this._lastAssistantUsage = value;
   }
 
   get streamingText(): string {

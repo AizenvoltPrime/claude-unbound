@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import type { ClaudeSession } from "../../../claude-session";
 import type { PermissionHandler } from "../../../permission-handler";
-import type { ExtensionSettings, PermissionMode } from "../../../../shared/types/settings";
+import type { ExtensionSettings, PermissionMode, AutoCompactConfig } from "../../../../shared/types/settings";
 import type { PostMessageFn } from "../types";
 import { updateConfigAtEffectiveScope, CONTEXT_1M_BETA, modelSupports1MContext } from "../utils";
 
@@ -24,6 +24,13 @@ export class ConfigManager {
       return true;
     });
 
+    const defaultAutoCompact: AutoCompactConfig = {
+      enabled: true,
+      warningThreshold: 60,
+      softThreshold: 70,
+      hardThreshold: 75,
+    };
+
     const settings: ExtensionSettings = {
       model,
       maxTurns: config.get<number>("maxTurns", 100),
@@ -34,6 +41,7 @@ export class ConfigManager {
       defaultPermissionMode: config.get<PermissionMode>("permissionMode", "default"),
       enableFileCheckpointing: config.get<boolean>("enableFileCheckpointing", true),
       sandbox: config.get<{ enabled: boolean }>("sandbox", { enabled: false }),
+      autoCompact: config.get<AutoCompactConfig>("autoCompact", defaultAutoCompact),
       dangerouslySkipPermissions: permissionHandler.getDangerouslySkipPermissions(),
     };
     this.postMessage(panel, { type: "settingsUpdate", settings });

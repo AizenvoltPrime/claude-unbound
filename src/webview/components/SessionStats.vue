@@ -1,11 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { storeToRefs } from 'pinia';
 import type { SessionStats } from '@shared/types/session';
 import { IconArrowDown, IconArrowUp, IconChartBar, IconDatabase, IconFile } from '@/components/icons';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useSettingsStore } from '@/stores';
+import { useVSCode } from '@/composables/useVSCode';
 
 const { t } = useI18n();
+const { postMessage } = useVSCode();
+const settingsStore = useSettingsStore();
+const { currentSettings } = storeToRefs(settingsStore);
 
 const props = defineProps<{
   stats: SessionStats;
@@ -25,10 +32,28 @@ const contextPercentage = computed(() => {
 });
 
 const contextStatusColor = computed(() => {
-  if (contextPercentage.value >= 95) return { fill: 'var(--color-error)', text: 'text-error' };
-  if (contextPercentage.value >= 80) return { fill: 'var(--color-warning)', text: 'text-warning' };
+  const { hardThreshold, softThreshold, warningThreshold } = currentSettings.value.autoCompact;
+  if (contextPercentage.value >= hardThreshold) return { fill: 'var(--color-destructive)', text: 'text-destructive' };
+  if (contextPercentage.value >= softThreshold) return { fill: 'var(--color-orange)', text: 'text-[var(--color-orange)]' };
+  if (contextPercentage.value >= warningThreshold) return { fill: 'var(--color-warning)', text: 'text-warning' };
   return { fill: 'var(--color-success)', text: 'text-success' };
 });
+
+const contextTooltip = computed(() => {
+  const { hardThreshold, softThreshold, warningThreshold } = currentSettings.value.autoCompact;
+  const base = t('stats.contextUsage');
+  if (contextPercentage.value >= hardThreshold) return `${base} - ${t('context.critical')}`;
+  if (contextPercentage.value >= softThreshold) return `${base} - ${t('context.soft')}`;
+  if (contextPercentage.value >= warningThreshold) return `${base} - ${t('context.warning')}`;
+  return base;
+});
+
+const popoverOpen = ref(false);
+
+function handleCompact() {
+  popoverOpen.value = false;
+  postMessage({ type: 'sendMessage', content: '/compact' });
+}
 
 const hasCacheActivity = computed(() => {
   return props.stats.cacheCreationTokens > 0 || props.stats.cacheReadTokens > 0;
@@ -52,16 +77,33 @@ function formatNumber(num: number): string {
     class="flex items-center justify-between px-3 pt-1.5 text-sm border-t border-border/30 bg-card"
   >
     <div class="flex items-center gap-3">
-      <span
-        class="flex items-center gap-1.5"
-        :title="t('stats.contextUsage')"
-      >
-        <!-- Status circle indicator -->
-        <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="6" cy="6" r="5" :fill="contextStatusColor.fill" />
-        </svg>
-        <span :class="contextStatusColor.text">{{ formatNumber(totalContext) }}/{{ formatNumber(stats.contextWindowSize) }} ({{ contextPercentage }}%)</span>
-      </span>
+      <Popover v-model:open="popoverOpen">
+        <PopoverTrigger as-child>
+          <button
+            class="flex items-center gap-1.5 cursor-pointer rounded px-1.5 py-0.5 hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50"
+            :title="contextTooltip"
+          >
+            <!-- Status circle indicator -->
+            <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="6" cy="6" r="5" :fill="contextStatusColor.fill" />
+            </svg>
+            <span :class="contextStatusColor.text">{{ formatNumber(totalContext) }}/{{ formatNumber(stats.contextWindowSize) }} ({{ contextPercentage }}%)</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent class="w-auto p-2" align="start" :side-offset="8">
+          <div class="flex flex-col gap-1">
+            <div class="text-xs text-muted-foreground px-2 py-1">{{ contextTooltip }}</div>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="justify-start"
+              @click="handleCompact"
+            >
+              {{ t('context.compact') }}
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
 
       <span class="flex items-center gap-1.5" :title="t('stats.sessionTokens')">
         <IconChartBar :size="14" class="text-muted-foreground shrink-0" />

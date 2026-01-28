@@ -265,6 +265,11 @@
     "title": "Context Usage",
     "model": "Model",
     "total": "Total",
+    "warning": "Context usage high",
+    "soft": "Context usage very high",
+    "critical": "Context nearly full",
+    "autoCompacting": "Auto-compacting context...",
+    "compact": "Compact",
     "breakdown": {
       "systemPrompt": "System Prompt",
       "systemTools": "System Tools",

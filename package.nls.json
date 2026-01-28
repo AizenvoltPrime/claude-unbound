@@ -25,5 +25,10 @@
   "configuration.providerProfiles.description": "Provider profiles with environment variables for different API providers",
   "configuration.providerProfiles.name.description": "Unique name for the provider profile",
   "configuration.providerProfiles.env.description": "Environment variables for this provider (e.g., ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN)",
-  "configuration.activeProviderProfile.description": "Currently active provider profile name (null to disable)"
+  "configuration.activeProviderProfile.description": "Currently active provider profile name (null to disable)",
+  "configuration.autoCompact.description": "Auto-compact settings for managing context window usage",
+  "configuration.autoCompact.enabled.description": "Enable automatic context compaction when usage exceeds the hard threshold",
+  "configuration.autoCompact.warningThreshold.description": "Show warning indicator when context usage exceeds this percentage (default: 60%)",
+  "configuration.autoCompact.softThreshold.description": "Show soft warning with red indicator when context usage exceeds this percentage (default: 70%)",
+  "configuration.autoCompact.hardThreshold.description": "Trigger automatic compaction when context usage exceeds this percentage (default: 75%)"
 }

@@ -19,6 +19,7 @@ import DiffOverlay from "./components/DiffOverlay.vue";
 import McpToolOverlay from "./components/McpToolOverlay.vue";
 import StatusBar from "./components/StatusBar.vue";
 import BudgetWarning from "./components/BudgetWarning.vue";
+import ContextWarningBanner from "./components/ContextWarningBanner.vue";
 import RewindBrowser from "./components/RewindBrowser.vue";
 import RewindConfirmModal from "./components/RewindConfirmModal.vue";
 import SessionPicker from "./components/SessionPicker.vue";
@@ -81,6 +82,7 @@ const {
   mcpServers,
   plugins,
   budgetWarning,
+  contextWarning,
   providerProfiles,
   activeProviderProfile,
   defaultProviderProfile,
@@ -427,6 +429,11 @@ function handleDismissBudgetWarning() {
   settingsStore.dismissBudgetWarning();
 }
 
+function handleDismissContextWarning() {
+  postMessage({ type: 'cancelAutoCompact' });
+  settingsStore.dismissContextWarning();
+}
+
 function handlePlanApprove(options: { approvalMode: "acceptEdits" | "manual"; clearContext?: boolean }) {
   if (!pendingPlanApproval.value) return;
   const { toolUseId, planContent } = pendingPlanApproval.value;
@@ -583,6 +590,14 @@ const rewindMessagePreview = computed(() => {
       @dismiss="handleDismissBudgetWarning"
     />
 
+    <!-- Context Warning Banner -->
+    <ContextWarningBanner
+      v-if="contextWarning"
+      :level="contextWarning.level"
+      :auto-compact-triggered="contextWarning.autoCompactTriggered"
+      @dismiss="handleDismissContextWarning"
+    />
+
     <!-- Subagents Indicator (running and recently completed) -->
     <SubagentIndicator :subagents="subagents" @expand="subagentStore.expandSubagent" />
 
@@ -677,7 +692,11 @@ const rewindMessagePreview = computed(() => {
     />
 
     <!-- Status Bar with witty phrases (above input) -->
-    <StatusBar :is-processing="isProcessing" :current-tool-name="currentRunningTool ?? undefined" />
+    <StatusBar
+      :is-processing="isProcessing"
+      :current-tool-name="currentRunningTool ?? undefined"
+      :status-override="contextWarning?.autoCompactTriggered ? t('context.autoCompacting') : undefined"
+    />
 
     <SessionStats :stats="sessionStats" @open-log="handleOpenSessionLog" />
 

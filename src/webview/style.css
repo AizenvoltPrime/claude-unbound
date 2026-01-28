@@ -24,6 +24,7 @@
 
   --color-success: var(--vscode-terminal-ansiGreen, #4caf50);
   --color-warning: var(--vscode-editorWarning-foreground, #ff9800);
+  --color-orange: #f97316;
   --color-error: var(--vscode-errorForeground, #f44336);
   --color-info: var(--vscode-editorInfo-foreground, #2196f3);
 

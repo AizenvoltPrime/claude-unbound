@@ -2,7 +2,7 @@
   "name": "damocles",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.0.48",
+  "version": "1.0.49",
   "publisher": "Aizenvolt",
   "icon": "resources/icon.png",
   "license": "MIT",
@@ -215,6 +215,44 @@
           "default": null,
           "scope": "window",
           "description": "%configuration.activeProviderProfile.description%"
+        },
+        "damocles.autoCompact": {
+          "type": "object",
+          "default": {
+            "enabled": false,
+            "warningThreshold": 60,
+            "softThreshold": 70,
+            "hardThreshold": 75
+          },
+          "description": "%configuration.autoCompact.description%",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "%configuration.autoCompact.enabled.description%"
+            },
+            "warningThreshold": {
+              "type": "number",
+              "default": 60,
+              "minimum": 15,
+              "maximum": 90,
+              "description": "%configuration.autoCompact.warningThreshold.description%"
+            },
+            "softThreshold": {
+              "type": "number",
+              "default": 70,
+              "minimum": 15,
+              "maximum": 95,
+              "description": "%configuration.autoCompact.softThreshold.description%"
+            },
+            "hardThreshold": {
+              "type": "number",
+              "default": 75,
+              "minimum": 15,
+              "maximum": 95,
+              "description": "%configuration.autoCompact.hardThreshold.description%"
+            }
+          }
         }
       }
     }
